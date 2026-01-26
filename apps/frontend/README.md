@@ -29,6 +29,9 @@ This is the Next.js frontend application for the Agent Warmup Platform MVP.
    # Encryption key for storing tokens (32 bytes = 64 hex chars)
    ENCRYPTION_KEY="generate-with-openssl-rand-hex-32"
    
+   # Intercom Webhook (optional - for signature verification)
+   INTERCOM_WEBHOOK_SECRET="your-intercom-webhook-secret"
+   
    # Events Manager
    EVENTS_MANAGER_URL="http://localhost:8080"
    ```
@@ -83,13 +86,26 @@ This is the Next.js frontend application for the Agent Warmup Platform MVP.
 - ✅ Connection management UI
 - ✅ Workspace info retrieval
 
+### Webhooks & Events
+- ✅ Intercom webhook receiver with signature verification
+- ✅ Tenant lookup by Intercom workspace_id (app_id)
+- ✅ Event forwarding to Events Manager
+- ✅ Events timeline UI with real-time refresh
+
 ### Pages
 - `/login` - Login page
 - `/signup` - Signup page with organization creation
 - `/dashboard` - Protected dashboard home
-- `/dashboard/events` - Events timeline (placeholder)
+- `/dashboard/events` - Events timeline (shows events from Events Manager)
 - `/dashboard/connections` - Integration management with Intercom OAuth
 - `/dashboard/settings` - Account and organization settings
+
+### API Endpoints
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/[...nextauth]` - NextAuth handlers
+- `GET /api/connections/intercom/authorize` - Start Intercom OAuth
+- `GET /api/connections/intercom/callback` - Intercom OAuth callback
+- `POST /api/webhooks/intercom` - Receive Intercom webhooks
 
 ### Database Schema
 - `User` - User accounts with email/password
@@ -122,6 +138,7 @@ apps/frontend/
 │   ├── auth.ts          # NextAuth configuration
 │   ├── db.ts            # Prisma client
 │   ├── encryption.ts    # Token encryption/decryption
+│   ├── events-manager.ts # Events Manager API client
 │   ├── validations.ts   # Zod schemas
 │   └── utils.ts         # Utility functions
 ├── prisma/
