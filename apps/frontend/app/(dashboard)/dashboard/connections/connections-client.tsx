@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { ConfirmModal } from "@/components/ui/modal";
 
 interface ConnectionData {
   id: string;
@@ -40,9 +42,29 @@ interface DeployedTrigger {
   createdAt: string;
 }
 
+interface HealthCheckResult {
+  healthy: boolean;
+  status: "connected" | "error" | "expired" | "unknown";
+  message: string;
+  details?: {
+    workspace_name?: string;
+    admin_email?: string;
+    region?: string;
+    last_checked?: string;
+  };
+  error?: string;
+}
+
+type ConnectionHealth = {
+  [connectionId: string]: {
+    status: "idle" | "testing" | "healthy" | "error" | "expired";
+    message?: string;
+    lastChecked?: string;
+  };
+};
+
 interface ConnectionsClientProps {
   connections: ConnectionData[];
-  intercomConnection: ConnectionData | null;
   successMessage?: string;
   errorMessage?: string;
   pipedreamSuccess?: boolean;
@@ -50,11 +72,9 @@ interface ConnectionsClientProps {
   pipedreamApp?: string;
 }
 
-// Popular apps to highlight (these will be shown even if not in the API response)
-const FEATURED_APPS = ["slack", "stripe", "hubspot", "zendesk", "github", "notion"];
+const FEATURED_APPS = ["intercom", "slack", "stripe", "hubspot", "zendesk", "github", "notion"];
 
-// App icons mapping
-const APP_ICONS: Record<string, JSX.Element> = {
+const APP_ICONS: Record<string, React.ReactNode> = {
   intercom: (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
@@ -77,7 +97,6 @@ const APP_ICONS: Record<string, JSX.Element> = {
   ),
 };
 
-// Popular categories for filtering
 const CATEGORIES = [
   { id: "all", label: "All Apps" },
   { id: "connected", label: "Connected" },
@@ -90,58 +109,107 @@ const CATEGORIES = [
 ];
 
 export function ConnectionsClient({
-  connections,
-  intercomConnection,
+  connections: initialConnections,
   successMessage,
   errorMessage,
   pipedreamSuccess,
   pipedreamError,
   pipedreamApp,
 }: ConnectionsClientProps) {
+  const router = useRouter();
+  const [connections, setConnections] = useState(initialConnections);
+  
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error">("success");
+  
   const [pipedreamApps, setPipedreamApps] = useState<PipedreamApp[]>([]);
   const [loadingApps, setLoadingApps] = useState(true);
+  const [searchingApps, setSearchingApps] = useState(false);
   const [connectingApp, setConnectingApp] = useState<string | null>(null);
   const [deployedTriggers, setDeployedTriggers] = useState<DeployedTrigger[]>([]);
   const [isPipedreamConfigured, setIsPipedreamConfigured] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAllApps, setShowAllApps] = useState(false);
+  
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Show toast for success/error messages
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [connectionToDisconnect, setConnectionToDisconnect] = useState<ConnectionData | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>({});
+
+  const showToastMessage = useCallback((message: string, type: "success" | "error") => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+  }, []);
+
   useEffect(() => {
-    if (successMessage === "intercom") {
-      setToastMessage("Successfully connected to Intercom!");
-      setToastType("success");
-      setShowToast(true);
-    } else if (pipedreamSuccess && pipedreamApp) {
-      setToastMessage(`Successfully connected to ${pipedreamApp}!`);
-      setToastType("success");
-      setShowToast(true);
-      // Refresh the page to show new connection
-      window.location.href = "/dashboard/connections";
+    if (successMessage === "disconnected") {
+      showToastMessage("Connection disconnected successfully", "success");
+    } else if (pipedreamSuccess) {
+      async function syncConnections() {
+        try {
+          const response = await fetch("/api/pipedream/accounts/sync", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const appName = pipedreamApp || "the integration";
+            showToastMessage(
+              `Successfully connected to ${appName}! ${data.synced > 0 ? `Synced ${data.synced} connection(s).` : ""}`,
+              "success"
+            );
+            router.refresh();
+            setTimeout(() => {
+              window.location.href = "/dashboard/connections";
+            }, 500);
+          } else {
+            throw new Error("Failed to sync connections");
+          }
+        } catch (error) {
+          console.error("Failed to sync Pipedream connections:", error);
+          showToastMessage(
+            pipedreamApp 
+              ? `Connected to ${pipedreamApp}, but failed to sync. Please refresh the page.`
+              : "Connection successful, but failed to sync. Please refresh the page.",
+            "error"
+          );
+          setTimeout(() => {
+            window.location.href = "/dashboard/connections";
+          }, 1000);
+        }
+      }
+      
+      syncConnections();
     } else if (pipedreamError) {
-      setToastMessage("Failed to connect - please try again");
-      setToastType("error");
-      setShowToast(true);
+      showToastMessage("Failed to connect - please try again", "error");
     } else if (errorMessage) {
       const errorMessages: Record<string, string> = {
-        invalid_state: "Invalid state - please try again",
-        state_expired: "Session expired - please try again",
-        token_exchange_failed: "Failed to connect - please try again",
-        configuration_error: "Configuration error - contact support",
-        database_error: "Failed to save connection - please try again",
-        access_denied: "Access denied - you cancelled the authorization",
+        invalid_state: "Security check failed. Please try connecting again.",
+        state_expired: "Your session expired. Please try connecting again.",
+        token_exchange_failed: "Failed to connect. Please try again.",
+        configuration_error: "There's a configuration issue. Please contact support.",
+        database_error: "Failed to save the connection. Please try again.",
+        access_denied: "You cancelled the authorization. Connect when you're ready.",
+        workspace_info_failed: "Couldn't retrieve workspace information. Please try again.",
+        missing_params: "The authorization response was incomplete. Please try again.",
+        invalid_state_format: "Invalid authorization data. Please try again.",
+        no_token: "No access token received. Please try again.",
+        token_exchange_error: "Network error during authorization. Please check your connection.",
+        workspace_info_error: "Network error getting workspace info. Please try again.",
+        encryption_not_configured: "Server configuration error. Please contact support.",
+        disconnect_failed: "Failed to disconnect. Please try again.",
+        intercom_oauth_deprecated: "Direct Intercom OAuth has been deprecated. Please use the Pipedream integration below.",
       };
-      setToastMessage(errorMessages[errorMessage] || `Error: ${errorMessage}`);
-      setToastType("error");
-      setShowToast(true);
+      showToastMessage(errorMessages[errorMessage] || `Error: ${errorMessage}`, "error");
     }
-  }, [successMessage, errorMessage, pipedreamSuccess, pipedreamError, pipedreamApp]);
+  }, [successMessage, errorMessage, pipedreamSuccess, pipedreamError, pipedreamApp, showToastMessage]);
 
-  // Auto-hide toast
   useEffect(() => {
     if (showToast) {
       const timer = setTimeout(() => setShowToast(false), 5000);
@@ -149,29 +217,110 @@ export function ConnectionsClient({
     }
   }, [showToast]);
 
-  // Fetch available Pipedream apps
-  useEffect(() => {
-    async function fetchApps() {
-      try {
-        const response = await fetch("/api/pipedream/apps?limit=200");
-        if (response.ok) {
-          const data = await response.json();
-          setPipedreamApps(data.data || []);
-        } else if (response.status === 500) {
-          // Pipedream not configured
-          setIsPipedreamConfigured(false);
-        }
-      } catch (error) {
-        console.error("Failed to fetch Pipedream apps:", error);
+  const fetchApps = useCallback(async (query?: string) => {
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", "50");
+      if (query) {
+        params.set("q", query);
+      }
+      
+      const response = await fetch(`/api/pipedream/apps?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.data || [];
+      } else if (response.status === 500) {
         setIsPipedreamConfigured(false);
+        return [];
+      }
+      return [];
+    } catch (error) {
+      console.error("Failed to fetch Pipedream apps:", error);
+      setIsPipedreamConfigured(false);
+      return [];
+    }
+  }, []);
+
+  useEffect(() => {
+    async function loadInitialApps() {
+      setLoadingApps(true);
+      try {
+        const featuredPromises = FEATURED_APPS.map(appSlug => 
+          fetchApps(appSlug).then(apps => apps.filter((app: PipedreamApp) => app.name_slug === appSlug))
+        );
+        
+        const popularPromise = fetchApps();
+        
+        const [featuredResults, popularApps] = await Promise.all([
+          Promise.all(featuredPromises),
+          popularPromise,
+        ]);
+        
+        const featuredApps = featuredResults.flat();
+        const featuredSlugs = new Set(featuredApps.map((app: PipedreamApp) => app.name_slug));
+        const uniquePopularApps = popularApps.filter((app: PipedreamApp) => !featuredSlugs.has(app.name_slug));
+        
+        setPipedreamApps([...featuredApps, ...uniquePopularApps]);
+      } catch (error) {
+        console.error("Failed to load initial apps:", error);
       } finally {
         setLoadingApps(false);
       }
     }
-    fetchApps();
-  }, []);
+    loadInitialApps();
+  }, [fetchApps]);
 
-  // Fetch deployed triggers
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (!searchQuery.trim()) {
+      async function resetApps() {
+        setSearchingApps(true);
+        try {
+          const featuredPromises = FEATURED_APPS.map(appSlug => 
+            fetchApps(appSlug).then(apps => apps.filter((app: PipedreamApp) => app.name_slug === appSlug))
+          );
+          const popularPromise = fetchApps();
+          
+          const [featuredResults, popularApps] = await Promise.all([
+            Promise.all(featuredPromises),
+            popularPromise,
+          ]);
+          
+          const featuredApps = featuredResults.flat();
+          const featuredSlugs = new Set(featuredApps.map((app: PipedreamApp) => app.name_slug));
+          const uniquePopularApps = popularApps.filter((app: PipedreamApp) => !featuredSlugs.has(app.name_slug));
+          
+          setPipedreamApps([...featuredApps, ...uniquePopularApps]);
+        } finally {
+          setSearchingApps(false);
+        }
+      }
+      if (!loadingApps) {
+        resetApps();
+      }
+      return;
+    }
+
+    searchDebounceRef.current = setTimeout(async () => {
+      setSearchingApps(true);
+      try {
+        const results = await fetchApps(searchQuery.trim());
+        setPipedreamApps(results);
+      } finally {
+        setSearchingApps(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, fetchApps, loadingApps]);
+
   useEffect(() => {
     async function fetchTriggers() {
       try {
@@ -189,11 +338,9 @@ export function ConnectionsClient({
     }
   }, [isPipedreamConfigured]);
 
-  // Connect via Pipedream
   const handleConnectPipedream = useCallback(async (app: string) => {
     setConnectingApp(app);
     try {
-      // Get a connect token
       const tokenResponse = await fetch("/api/pipedream/token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -204,25 +351,24 @@ export function ConnectionsClient({
         throw new Error("Failed to get connect token");
       }
 
-      const { connectLinkUrl } = await tokenResponse.json();
+      const responseData = await tokenResponse.json();
+      const { connectLinkUrl } = responseData;
       
-      // Redirect to Pipedream's OAuth flow
-      window.location.href = connectLinkUrl;
+      let finalConnectUrl = connectLinkUrl;
+      if (app && !connectLinkUrl.includes(`app=${app}`) && !connectLinkUrl.includes(`app_id=${app}`)) {
+        const url = new URL(connectLinkUrl);
+        url.searchParams.set('app', app);
+        finalConnectUrl = url.toString();
+      }
+      
+      window.location.href = finalConnectUrl;
     } catch (error) {
       console.error("Failed to initiate Pipedream connection:", error);
-      setToastMessage("Failed to start connection flow");
-      setToastType("error");
-      setShowToast(true);
+      showToastMessage("Failed to start connection flow", "error");
       setConnectingApp(null);
     }
-  }, []);
+  }, [showToastMessage]);
 
-  // Connect Intercom directly (existing OAuth flow)
-  const handleConnectIntercom = () => {
-    window.location.href = "/api/connections/intercom/authorize";
-  };
-
-  // Delete a deployed trigger
   const handleDeleteTrigger = async (deploymentId: string) => {
     if (!confirm("Are you sure you want to delete this trigger?")) return;
 
@@ -233,17 +379,91 @@ export function ConnectionsClient({
 
       if (response.ok) {
         setDeployedTriggers(prev => prev.filter(t => t.deploymentId !== deploymentId));
-        setToastMessage("Trigger deleted successfully");
-        setToastType("success");
-        setShowToast(true);
+        showToastMessage("Trigger deleted successfully", "success");
       } else {
         throw new Error("Failed to delete trigger");
       }
     } catch (error) {
       console.error("Failed to delete trigger:", error);
-      setToastMessage("Failed to delete trigger");
-      setToastType("error");
-      setShowToast(true);
+      showToastMessage("Failed to delete trigger", "error");
+    }
+  };
+
+  const handleDisconnectClick = (connection: ConnectionData) => {
+    setConnectionToDisconnect(connection);
+    setShowDisconnectModal(true);
+  };
+
+  const handleConfirmDisconnect = async () => {
+    if (!connectionToDisconnect) return;
+
+    setIsDisconnecting(true);
+
+    try {
+      const response = await fetch(`/api/connections/${connectionToDisconnect.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to disconnect");
+      }
+
+      setConnections((prev) => prev.filter((c) => c.id !== connectionToDisconnect.id));
+
+      showToastMessage("Connection disconnected successfully", "success");
+      setShowDisconnectModal(false);
+      setConnectionToDisconnect(null);
+      
+      router.refresh();
+    } catch (error) {
+      console.error("Disconnect error:", error);
+      showToastMessage(
+        error instanceof Error ? error.message : "Failed to disconnect",
+        "error"
+      );
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  const handleTestConnection = async (connection: ConnectionData) => {
+    setConnectionHealth((prev) => ({
+      ...prev,
+      [connection.id]: { status: "testing" },
+    }));
+
+    try {
+      const response = await fetch(`/api/connections/${connection.id}/test`, {
+        method: "POST",
+      });
+
+      const data: HealthCheckResult = await response.json();
+
+      setConnectionHealth((prev) => ({
+        ...prev,
+        [connection.id]: {
+          status: data.healthy ? "healthy" : data.status === "expired" ? "expired" : "error",
+          message: data.message,
+          lastChecked: data.details?.last_checked,
+        },
+      }));
+
+      if (data.healthy) {
+        showToastMessage("Connection is healthy!", "success");
+      } else {
+        showToastMessage(data.error || data.message, "error");
+      }
+    } catch (error) {
+      console.error("Health check error:", error);
+      setConnectionHealth((prev) => ({
+        ...prev,
+        [connection.id]: {
+          status: "error",
+          message: "Failed to test connection",
+        },
+      }));
+      showToastMessage("Failed to test connection", "error");
     }
   };
 
@@ -255,48 +475,88 @@ export function ConnectionsClient({
     });
   };
 
-  // Get connection for a provider
   const getConnection = (provider: string) => {
     return connections.find(c => c.provider === provider && c.status === "active");
   };
 
-  // Get icon for an app
   const getAppIcon = (app: string) => {
     return APP_ICONS[app] || APP_ICONS.default;
   };
 
-  // Filter apps based on search and category
-  const filteredApps = pipedreamApps.filter((app) => {
-    // Exclude intercom - shown separately
-    if (app.name_slug === "intercom") return false;
+  const filteredApps = pipedreamApps
+    .filter((app) => {
+      if (selectedCategory === "all") return true;
+      if (selectedCategory === "connected") return !!getConnection(app.name_slug);
+      
+      const categoriesStr = Array.isArray(app.categories) 
+        ? app.categories.join(" ").toLowerCase()
+        : (typeof app.categories === "string" ? app.categories.toLowerCase() : "");
+      
+      return categoriesStr.includes(selectedCategory.toLowerCase());
+    })
+    .sort((a, b) => {
+      if (!searchQuery) {
+        const aIsFeatured = FEATURED_APPS.includes(a.name_slug);
+        const bIsFeatured = FEATURED_APPS.includes(b.name_slug);
+        
+        if (aIsFeatured && !bIsFeatured) return -1;
+        if (!aIsFeatured && bIsFeatured) return 1;
+        
+        if (aIsFeatured && bIsFeatured) {
+          return FEATURED_APPS.indexOf(a.name_slug) - FEATURED_APPS.indexOf(b.name_slug);
+        }
+      }
+      
+      return a.name.localeCompare(b.name);
+    });
 
-    // Normalize categories to string for searching
-    const categoriesStr = Array.isArray(app.categories) 
-      ? app.categories.join(" ").toLowerCase()
-      : (typeof app.categories === "string" ? app.categories.toLowerCase() : "");
+  const displayedApps = showAllApps ? filteredApps : filteredApps.slice(0, 12);
+  const hasMoreApps = filteredApps.length > 12;
 
-    // Search filter
-    const matchesSearch =
-      searchQuery === "" ||
-      app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.name_slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      categoriesStr.includes(searchQuery.toLowerCase());
+  const getHealthIndicator = (connectionId: string) => {
+    const health = connectionHealth[connectionId];
+    if (!health || health.status === "idle") {
+      return null;
+    }
 
-    // Category filter
-    const matchesCategory =
-      selectedCategory === "all" ||
-      (selectedCategory === "connected" && getConnection(app.name_slug)) ||
-      categoriesStr.includes(selectedCategory.toLowerCase());
+    if (health.status === "testing") {
+      return (
+        <span className="flex items-center gap-1 text-xs text-gray-500">
+          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Testing...
+        </span>
+      );
+    }
 
-    return matchesSearch && matchesCategory;
-  });
+    if (health.status === "healthy") {
+      return (
+        <span className="flex items-center gap-1 text-xs text-green-600">
+          <span className="w-2 h-2 bg-green-500 rounded-full" />
+          Healthy
+        </span>
+      );
+    }
 
-  // Show limited apps or all based on state
-  const displayedApps = showAllApps ? filteredApps : filteredApps.slice(0, 11);
-  const hasMoreApps = filteredApps.length > 11;
+    if (health.status === "expired") {
+      return (
+        <span className="flex items-center gap-1 text-xs text-yellow-600">
+          <span className="w-2 h-2 bg-yellow-500 rounded-full" />
+          Token Expired
+        </span>
+      );
+    }
 
-  // Render an app card
+    return (
+      <span className="flex items-center gap-1 text-xs text-red-600">
+        <span className="w-2 h-2 bg-red-500 rounded-full" />
+        Error
+      </span>
+    );
+  };
+
   const renderAppCard = (app: PipedreamApp | { name_slug: string; name: string; description?: string }) => {
     const connection = getConnection(app.name_slug);
     const isConnected = !!connection;
@@ -330,7 +590,7 @@ export function ConnectionsClient({
             </div>
             <p className="text-xs text-gray-500 truncate">
               {Array.isArray((app as PipedreamApp).categories) 
-                ? (app as PipedreamApp).categories?.slice(0, 2).join(", ")
+                ? ((app as PipedreamApp).categories as string[]).slice(0, 2).join(", ")
                 : (app as PipedreamApp).categories || app.description || "Integration"}
             </p>
           </div>
@@ -351,12 +611,38 @@ export function ConnectionsClient({
                 Connected {formatDate(connection.metadata.connected_at)}
               </p>
             )}
+            {connection.id && getHealthIndicator(connection.id)}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleTestConnection(connection)}
+                disabled={connectionHealth[connection.id]?.status === "testing"}
+                className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {connectionHealth[connection.id]?.status === "testing" ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Testing...
+                  </span>
+                ) : (
+                  "Test"
+                )}
+              </button>
+              <button
+                onClick={() => handleConnectPipedream(app.name_slug)}
+                disabled={isConnecting}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
+              >
+                Reconnect
+              </button>
+            </div>
             <button
-              onClick={() => handleConnectPipedream(app.name_slug)}
-              disabled={isConnecting}
-              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
+              onClick={() => handleDisconnectClick(connection)}
+              className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors text-sm border border-red-200"
             >
-              {isConnecting ? "Connecting..." : "Reconnect"}
+              Disconnect
             </button>
           </div>
         ) : (
@@ -401,27 +687,58 @@ export function ConnectionsClient({
 
   return (
     <div className="space-y-6">
-      {/* Toast notification */}
       {showToast && (
         <div
-          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all ${
-            toastType === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+          className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all max-w-md ${
+            toastType === "success"
+              ? "bg-green-600 text-white"
+              : "bg-red-600 text-white"
           }`}
         >
           <div className="flex items-center gap-2">
             {toastType === "success" ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             )}
-            {toastMessage}
+            <span>{toastMessage}</span>
+            <button
+              onClick={() => setShowToast(false)}
+              className="ml-2 hover:opacity-80"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
+          {toastType === "error" && errorMessage && (
+            <div className="mt-2 flex gap-2 text-sm">
+              <a href="mailto:support@example.com" className="underline hover:no-underline">
+                Contact support
+              </a>
+            </div>
+          )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showDisconnectModal}
+        onClose={() => {
+          setShowDisconnectModal(false);
+          setConnectionToDisconnect(null);
+        }}
+        onConfirm={handleConfirmDisconnect}
+        title="Disconnect Integration"
+        message={`Are you sure you want to disconnect ${connectionToDisconnect?.provider === "intercom" ? "Intercom" : connectionToDisconnect?.provider}? This will stop receiving new events from this integration. Your existing event data will be preserved.`}
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isDisconnecting}
+      />
 
       <div className="flex items-center justify-between">
         <div>
@@ -430,7 +747,6 @@ export function ConnectionsClient({
         </div>
       </div>
 
-      {/* Available Integrations */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Available Integrations</h2>
@@ -441,25 +757,30 @@ export function ConnectionsClient({
           )}
         </div>
 
-        {/* Search and Filter */}
         {isPipedreamConfigured && !loadingApps && (
           <div className="mb-6 space-y-4">
-            {/* Search Input */}
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                {searchingApps ? (
+                  <svg className="h-5 w-5 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
               </div>
               <input
                 type="text"
-                placeholder="Search integrations..."
+                placeholder="Search integrations... (e.g., Intercom, Slack, Stripe)"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setShowAllApps(false);
                 }}
-                className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                className="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
               {searchQuery && (
                 <button
@@ -473,7 +794,6 @@ export function ConnectionsClient({
               )}
             </div>
 
-            {/* Category Filters */}
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map((category) => (
                 <button
@@ -498,11 +818,22 @@ export function ConnectionsClient({
               ))}
             </div>
 
-            {/* Results count */}
             {(searchQuery || selectedCategory !== "all") && (
               <p className="text-sm text-gray-500">
-                {filteredApps.length} integration{filteredApps.length !== 1 ? "s" : ""} found
-                {searchQuery && ` for "${searchQuery}"`}
+                {searchingApps ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Searching...
+                  </span>
+                ) : (
+                  <>
+                    {filteredApps.length} integration{filteredApps.length !== 1 ? "s" : ""} found
+                    {searchQuery && ` for "${searchQuery}"`}
+                  </>
+                )}
               </p>
             )}
           </div>
@@ -530,73 +861,10 @@ export function ConnectionsClient({
         ) : (
           <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Always show Intercom with direct OAuth option */}
-            <div
-              className={`border rounded-lg p-4 transition-all ${
-                intercomConnection
-                  ? "border-green-300 bg-green-50"
-                  : "border-gray-200 hover:border-blue-300 hover:shadow-md"
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    intercomConnection ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  {getAppIcon("intercom")}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-gray-900">Intercom</h3>
-                    {intercomConnection && (
-                      <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                        Connected
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">Customer messaging</p>
-                </div>
-              </div>
-
-              {intercomConnection ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    Connected to{" "}
-                    <span className="font-medium">
-                      {intercomConnection.metadata?.workspace_name || "Workspace"}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-500">{intercomConnection.metadata?.admin_email}</p>
-                  <button
-                    onClick={handleConnectIntercom}
-                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors text-sm"
-                  >
-                    Reconnect
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Capture conversations, events, and user data from Intercom.
-                  </p>
-                  <button
-                    onClick={handleConnectIntercom}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    Connect Intercom
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Pipedream-powered integrations */}
             {isPipedreamConfigured && pipedreamApps.length > 0 ? (
               <>
-                {/* Show filtered apps */}
                 {displayedApps.map((app) => renderAppCard(app))}
 
-                {/* Empty state for no results */}
                 {filteredApps.length === 0 && (searchQuery || selectedCategory !== "all") && (
                   <div className="col-span-full text-center py-8">
                     <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -616,8 +884,7 @@ export function ConnectionsClient({
                 )}
               </>
             ) : !isPipedreamConfigured ? (
-              // Show placeholder cards for featured apps when Pipedream isn't configured
-              FEATURED_APPS.filter((slug) => slug !== "intercom").map((slug) => (
+              FEATURED_APPS.map((slug) => (
                 <div key={slug} className="border border-gray-200 rounded-lg p-4 opacity-60">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">
@@ -642,7 +909,6 @@ export function ConnectionsClient({
             ) : null}
           </div>
 
-          {/* Show More / Show Less button */}
           {isPipedreamConfigured && hasMoreApps && !searchQuery && selectedCategory === "all" && (
             <div className="mt-6 text-center">
               <button
@@ -671,7 +937,6 @@ export function ConnectionsClient({
         )}
       </div>
 
-      {/* Connected Integrations */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Connected Integrations</h2>
         {connections.filter((c) => c.status === "active").length > 0 ? (
@@ -698,6 +963,7 @@ export function ConnectionsClient({
                             Pipedream
                           </span>
                         )}
+                        {getHealthIndicator(connection.id)}
                       </div>
                       <p className="text-sm text-gray-500">
                         {connection.metadata?.account_name ||
@@ -711,24 +977,53 @@ export function ConnectionsClient({
                       </p>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
                     {connection.metadata?.region && (
-                      <span className="px-2 py-1 bg-gray-100 rounded text-xs">
+                      <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-500">
                         {connection.metadata.region}
                       </span>
                     )}
+                    <button
+                      onClick={() => handleTestConnection(connection)}
+                      disabled={connectionHealth[connection.id]?.status === "testing"}
+                      className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                      title="Test connection"
+                    >
+                      {connectionHealth[connection.id]?.status === "testing" ? (
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDisconnectClick(connection)}
+                      className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Disconnect"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
+            <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
             <p>No integrations connected yet.</p>
+            <p className="text-sm mt-1">Connect an integration above to start capturing events.</p>
           </div>
         )}
       </div>
 
-      {/* Deployed Triggers */}
       {isPipedreamConfigured && deployedTriggers.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Active Event Sources</h2>
