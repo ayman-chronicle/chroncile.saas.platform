@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { deployTrigger, isPipedreamConfigured, getWebhookUrl } from "@/lib/pipedream";
 
 export const dynamic = "force-dynamic";
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
         connectionId: connection.id,
         triggerId,
         deploymentId: deployedTrigger.id,
-        configuredProps: configuredProps || {},
+        configuredProps: (configuredProps || {}) as Prisma.InputJsonValue,
         status: deployedTrigger.active ? "active" : "paused",
       },
     });
