@@ -93,10 +93,10 @@ class EventsManagerClient {
     if (params.conversation_id) searchParams.set("conversation_id", params.conversation_id);
     if (params.limit) searchParams.set("limit", params.limit.toString());
     if (params.offset) searchParams.set("offset", params.offset.toString());
-    if (params.start_time) searchParams.set("start_time", params.start_time);
-    if (params.end_time) searchParams.set("end_time", params.end_time);
+    if (params.start_time) searchParams.set("start", params.start_time);
+    if (params.end_time) searchParams.set("end", params.end_time);
 
-    const response = await fetch(`${this.baseUrl}/api/events?${searchParams}`, {
+    const response = await fetch(`${this.baseUrl}/api/events/query?${searchParams}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -108,15 +108,21 @@ class EventsManagerClient {
       throw new Error(`Failed to query events: ${error}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      events: data.events || [],
+      total: data.count || 0,
+      has_more: false,
+    };
   }
 
-  async listEvents(params?: { limit?: number; source?: string }): Promise<EventEnvelope[]> {
+  async listEvents(params?: { limit?: number; source?: string; tenant_id?: string }): Promise<EventEnvelope[]> {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.source) searchParams.set("source", params.source);
+    if (params?.tenant_id) searchParams.set("tenant_id", params.tenant_id);
 
-    const response = await fetch(`${this.baseUrl}/api/events?${searchParams}`, {
+    const response = await fetch(`${this.baseUrl}/api/events/query?${searchParams}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -128,7 +134,8 @@ class EventsManagerClient {
       throw new Error(`Failed to list events: ${error}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    return data.events || [];
   }
 
   async healthCheck(): Promise<boolean> {

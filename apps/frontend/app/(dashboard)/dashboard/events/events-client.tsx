@@ -40,7 +40,7 @@ interface EventsClientProps {
   eventsManagerUrl: string;
 }
 
-export function EventsClient({ tenantId: _tenantId, eventsManagerUrl }: EventsClientProps) {
+export function EventsClient({ tenantId, eventsManagerUrl }: EventsClientProps) {
   const [events, setEvents] = useState<EventEnvelope[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,25 +54,26 @@ export function EventsClient({ tenantId: _tenantId, eventsManagerUrl }: EventsCl
       
       const params = new URLSearchParams();
       params.set("limit", "100");
+      params.set("tenant_id", tenantId);
       if (filter !== "all") {
         params.set("source", filter);
       }
       
-      const response = await fetch(`${eventsManagerUrl}/api/events?${params}`);
+      const response = await fetch(`${eventsManagerUrl}/api/events/query?${params}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch events: ${response.status}`);
       }
       
       const data = await response.json();
-      setEvents(Array.isArray(data) ? data : data.events || []);
+      setEvents(data.events || []);
     } catch (err) {
       console.error("Error fetching events:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch events");
     } finally {
       setLoading(false);
     }
-  }, [eventsManagerUrl, filter]);
+  }, [eventsManagerUrl, filter, tenantId]);
 
   useEffect(() => {
     fetchEvents();
