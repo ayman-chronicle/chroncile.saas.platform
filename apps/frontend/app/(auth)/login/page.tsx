@@ -29,7 +29,7 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        setError("Invalid credentials");
         setLoading(false);
         return;
       }
@@ -37,41 +37,45 @@ function LoginForm() {
       router.push(callbackUrl);
       router.refresh();
     } catch {
-      setError("An error occurred. Please try again.");
+      setError("Connection error");
       setLoading(false);
     }
   };
 
   return (
-    <div className="space-y-8">
-      <div className="lg:hidden text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Agent Warmup</h1>
+    <div className="space-y-10">
+      {/* Mobile Logo */}
+      <div className="lg:hidden flex items-center gap-3 mb-8">
+        <div className="w-8 h-8 bg-data" />
+        <span className="text-base font-medium text-primary/90">
+          Agent Warmup
+        </span>
       </div>
 
-      <div className="space-y-2">
-        <h2 className="text-3xl font-bold text-gray-900">Welcome back</h2>
-        <p className="text-gray-600">
-          Sign in to your account to continue
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-light text-primary mb-2">
+          Sign in
+        </h1>
+        <p className="text-sm text-tertiary/60">
+          Welcome back
         </p>
       </div>
 
+      {/* Messages */}
       {registered && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
-          Account created successfully! Please sign in.
-        </div>
+        <p className="text-sm text-nominal">Account created successfully</p>
       )}
-
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
-        </div>
+        <p className="text-sm text-critical">{error}</p>
       )}
 
+      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email address
+            <label htmlFor="email" className="block text-xs text-tertiary/60 mb-2">
+              Email
             </label>
             <input
               id="email"
@@ -79,13 +83,14 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              autoComplete="email"
+              className="w-full px-0 py-3 bg-transparent border-0 border-b border-border-dim text-base text-primary placeholder:text-tertiary/30 focus:outline-none focus:border-data transition-colors"
               placeholder="you@company.com"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-xs text-tertiary/60 mb-2">
               Password
             </label>
             <input
@@ -94,7 +99,8 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              autoComplete="current-password"
+              className="w-full px-0 py-3 bg-transparent border-0 border-b border-border-dim text-base text-primary placeholder:text-tertiary/30 focus:outline-none focus:border-data transition-colors"
               placeholder="••••••••"
             />
           </div>
@@ -103,26 +109,17 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-data text-[#07090c] py-3.5 text-sm font-medium hover:bg-data/90 transition-colors disabled:opacity-50"
         >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Signing in...
-            </span>
-          ) : (
-            "Sign in"
-          )}
+          {loading ? "..." : "Continue"}
         </button>
       </form>
 
-      <p className="text-center text-gray-600">
-        Don&apos;t have an account?{" "}
-        <Link href="/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-          Sign up
+      {/* Footer */}
+      <p className="text-sm text-tertiary/50">
+        No account?{" "}
+        <Link href="/signup" className="text-primary hover:text-data transition-colors">
+          Create one
         </Link>
       </p>
     </div>
@@ -131,7 +128,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="text-center">Loading...</div>}>
+    <Suspense fallback={<div className="text-sm text-tertiary/50">Loading...</div>}>
       <LoginForm />
     </Suspense>
   );
