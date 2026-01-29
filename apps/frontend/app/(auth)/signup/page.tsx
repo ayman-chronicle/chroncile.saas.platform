@@ -65,40 +65,36 @@ export default function SignupPage() {
   };
 
   const inputClass = (hasError: boolean) =>
-    `w-full px-0 py-3 bg-transparent border-0 border-b text-base text-primary placeholder:text-tertiary/30 focus:outline-none transition-colors ${
-      hasError ? "border-critical" : "border-border-dim focus:border-data"
+    `w-full px-0 py-3 bg-transparent border-0 border-b text-base text-white placeholder:text-white/60 focus:outline-none transition-colors ${
+      hasError ? "border-critical" : "border-white/30 focus:border-data"
     }`;
 
   return (
     <div className="space-y-10">
-      {/* Mobile Logo */}
       <div className="lg:hidden flex items-center gap-3 mb-8">
         <div className="w-8 h-8 bg-data" />
-        <span className="text-base font-medium text-primary/90">
+        <span className="text-base font-medium text-white">
           Agent Warmup
         </span>
       </div>
 
-      {/* Header */}
       <div>
-        <h1 className="text-2xl font-light text-primary mb-2">
+        <h1 className="text-2xl font-light text-white mb-2">
           Create account
         </h1>
-        <p className="text-sm text-tertiary/60">
+        <p className="text-sm text-white/90">
           Get started in minutes
         </p>
       </div>
 
-      {/* Error */}
       {generalError && (
         <p className="text-sm text-critical">{generalError}</p>
       )}
 
-      {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-5">
           <div>
-            <label htmlFor="name" className="block text-xs text-tertiary/60 mb-2">
+            <label htmlFor="name" className="block text-xs text-white mb-2 font-medium">
               Name
             </label>
             <input
@@ -118,7 +114,7 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-xs text-tertiary/60 mb-2">
+            <label htmlFor="email" className="block text-xs text-white mb-2 font-medium">
               Email
             </label>
             <input
@@ -138,7 +134,7 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-xs text-tertiary/60 mb-2">
+            <label htmlFor="password" className="block text-xs text-white mb-2 font-medium">
               Password
             </label>
             <input
@@ -155,14 +151,14 @@ export default function SignupPage() {
             {errors.password ? (
               <p className="mt-2 text-xs text-critical">{errors.password[0]}</p>
             ) : (
-              <p className="mt-2 text-xs text-tertiary/40">
+              <p className="mt-2 text-xs text-white/70">
                 8+ chars, mixed case, number
               </p>
             )}
           </div>
 
           <div>
-            <label htmlFor="organizationName" className="block text-xs text-tertiary/60 mb-2">
+            <label htmlFor="organizationName" className="block text-xs text-white mb-2 font-medium">
               Organization
             </label>
             <input
@@ -184,16 +180,15 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-data text-[#07090c] py-3.5 text-sm font-medium hover:bg-data/90 transition-colors disabled:opacity-50"
+          className="w-full bg-data text-white py-3.5 text-sm font-semibold rounded-md hover:bg-data/90 focus:outline-none focus:ring-2 focus:ring-data focus:ring-offset-2 focus:ring-offset-transparent transition-colors disabled:opacity-50"
         >
           {loading ? "..." : "Continue"}
         </button>
       </form>
 
-      {/* Footer */}
-      <p className="text-sm text-tertiary/50">
+      <p className="text-sm text-white/90">
         Have an account?{" "}
-        <Link href="/login" className="text-primary hover:text-data transition-colors">
+        <Link href="/login" className="text-white font-medium underline underline-offset-2 hover:text-data transition-colors">
           Sign in
         </Link>
       </p>
