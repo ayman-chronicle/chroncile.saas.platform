@@ -42,6 +42,7 @@ export function subscribeToStream(
   };
 
   eventSource.addEventListener("event", handler);
+  eventSource.addEventListener("message", handler);
 
   return () => {
     eventSource.removeEventListener("event", handler);

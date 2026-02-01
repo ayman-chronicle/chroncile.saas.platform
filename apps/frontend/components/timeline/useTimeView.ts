@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   MIN_HALF_WIDTH_MS,
   MAX_HALF_WIDTH_MS,
@@ -21,9 +21,28 @@ export function useTimeView(initialCenterMs?: number, initialHalfWidthMs?: numbe
     initialHalfWidthMs ?? 30 * 60 * 1000
   );
 
+  const viewRef = useRef({ centerMs: 0, halfWidthMs: 0 });
+  viewRef.current = { centerMs, halfWidthMs };
+
   const startMs = centerMs - halfWidthMs;
   const endMs = centerMs + halfWidthMs;
   const durationMs = halfWidthMs * 2;
+
+  const expandToInclude = useCallback((timeMs: number, marginRatio = 0.1) => {
+    const { centerMs: c, halfWidthMs: h } = viewRef.current;
+    const start = c - h;
+    const end = c + h;
+    const marginMs = h * marginRatio;
+    if (timeMs < start) {
+      const delta = (start - timeMs) + marginMs;
+      setCenterMs((prev) => prev - delta / 2);
+      setHalfWidthMs((prev) => Math.min(MAX_HALF_WIDTH_MS, Math.max(MIN_HALF_WIDTH_MS, prev + delta / 2)));
+    } else if (timeMs > end) {
+      const delta = (timeMs - end) + marginMs;
+      setCenterMs((prev) => prev + delta / 2);
+      setHalfWidthMs((prev) => Math.min(MAX_HALF_WIDTH_MS, Math.max(MIN_HALF_WIDTH_MS, prev + delta / 2)));
+    }
+  }, []);
 
   const pan = useCallback((deltaMs: number) => {
     setCenterMs((c) => c + deltaMs);
@@ -105,6 +124,7 @@ export function useTimeView(initialCenterMs?: number, initialHalfWidthMs?: numbe
     zoomAt,
     fitToTimes,
     setRange,
+    expandToInclude,
     timeToX,
     xToTime,
     getTickIntervalSeconds: () => getTickIntervalSeconds(durationMs),

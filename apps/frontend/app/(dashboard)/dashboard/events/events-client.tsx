@@ -73,6 +73,7 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
   const [recordingState, setRecordingState] = useState<RecordingState>(REC_IDLE);
   const recordingStateRef = useRef<RecordingState>(REC_IDLE);
   recordingStateRef.current = recordingState;
+  const recordingBufferRef = useRef<TimelineEvent[]>([]);
   const [timelineFilter, setTimelineFilter] = useState<string>("all");
   const [newEventsCount, setNewEventsCount] = useState(0);
 
@@ -166,19 +167,25 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
         if (!closed) setTimelineLoading(false);
       });
 
+    const LIVE_STREAM_ID = "live-api";
     const cleanup = subscribeToStream(
       eventsManagerUrl,
       { tenantId, eventType: timelineFilter !== "all" ? timelineFilter : undefined },
       (dto) => {
         if (closed) return;
+        if (dto.event_type === "system.connected") return;
         const te = eventEnvelopeToTimelineEvent(dto);
         setTimelineBuffer((prev) => [...prev, te]);
         setNewEventsCount((n) => n + 1);
         const rec = recordingStateRef.current;
         if (rec.kind === "Recording") {
-          setRecordingState(
-            recRecording(rec.startedAt, rec.eventCount + 1, rec.recordingStreamIds)
-          );
+          const shouldRecord = rec.recordingStreamIds.includes(LIVE_STREAM_ID);
+          if (shouldRecord) {
+            recordingBufferRef.current.push(te);
+            setRecordingState(
+              recRecording(rec.startedAt, rec.eventCount + 1, rec.recordingStreamIds)
+            );
+          }
         }
       }
     );
@@ -189,6 +196,31 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
       setSseConnected(false);
     };
   }, [viewTab, tenantId, eventsManagerUrl, timelineFilter]);
+
+  const prevRecordingKindRef = useRef<RecordingState["kind"]>(REC_IDLE.kind);
+  useEffect(() => {
+    if (prevRecordingKindRef.current !== "Recording" && recordingState.kind === "Recording") {
+      recordingBufferRef.current = [];
+    }
+    prevRecordingKindRef.current = recordingState.kind;
+  }, [recordingState.kind, recordingState]);
+
+  const handleSaveRecordingRequested = useCallback(() => {
+    const buffer = recordingBufferRef.current;
+    if (buffer.length === 0) return;
+    const json = JSON.stringify(buffer, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const name = `recording-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.json`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    recordingBufferRef.current = [];
+  }, []);
 
   const unloadMessengerWidget = useCallback(() => {
     const w = window as Window & { Intercom?: (action: string) => void; intercomSettings?: unknown };
@@ -636,6 +668,7 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
           <StreamsPanel
             recordingState={recordingState}
             onRecordingStateChange={setRecordingState}
+            onSaveRecordingRequested={handleSaveRecordingRequested}
           />
           <div className="panel flex items-center justify-between px-4 py-3 bg-elevated border-b border-border-default">
             <div className="flex items-center gap-3">

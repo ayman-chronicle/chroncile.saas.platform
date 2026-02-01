@@ -27,6 +27,7 @@ export interface StreamsPanelProps {
   recordingState: RecordingState;
   streams?: Stream[];
   onRecordingStateChange: (state: RecordingState) => void;
+  onSaveRecordingRequested?: () => void;
   onRecordEvent?: (streamId: StreamId) => void;
   className?: string;
 }
@@ -35,6 +36,7 @@ export function StreamsPanel({
   recordingState,
   streams = defaultStreams,
   onRecordingStateChange,
+  onSaveRecordingRequested,
   className = "",
 }: StreamsPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -66,8 +68,9 @@ export function StreamsPanel({
 
   const saveRecording = useCallback(() => {
     if (recordingState.kind !== "PendingSave") return;
+    onSaveRecordingRequested?.();
     onRecordingStateChange(REC_IDLE);
-  }, [recordingState, onRecordingStateChange]);
+  }, [recordingState, onSaveRecordingRequested, onRecordingStateChange]);
 
   const discardRecording = useCallback(() => {
     onRecordingStateChange(REC_IDLE);

@@ -65,7 +65,7 @@ export function TimelinePanel({
   }, []);
 
   const timeView = useTimeView();
-  const { startMs, endMs, durationMs, timeToX, xToTime, pan, zoomAt, fitToTimes, setRange } = timeView;
+  const { startMs, endMs, durationMs, timeToX, xToTime, pan, zoomAt, fitToTimes, setRange, expandToInclude } = timeView;
 
   const hasInitialCentered = useRef(false);
   useEffect(() => {
@@ -93,8 +93,15 @@ export function TimelinePanel({
   );
 
   useEffect(() => {
-    if (playback === "live") setPlayheadMs(Date.now());
-  }, [playback]);
+    if (playback !== "live") return;
+    setPlayheadMs(Date.now());
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setPlayheadMs(now);
+      expandToInclude(now, 0.1);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [playback, expandToInclude]);
 
   const toggleCollapsed = useCallback((pathKey: string) => {
     setCollapsedSet((prev) => {
