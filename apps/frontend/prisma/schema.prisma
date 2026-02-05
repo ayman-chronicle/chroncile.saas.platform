@@ -31,10 +31,55 @@ model Tenant {
   users             User[]
   connections       Connection[]
   pipedreamTriggers PipedreamTrigger[]
+  runs              Run[]
+  auditLogs         AuditLog[]
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
   @@index([slug])
+}
+
+model Run {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflowId      String?
+  eventId         String  
+  invocationId    String   @unique // idempotency key
+  mode            String   
+  status          String 
+  eventSnapshot   Json?
+  contextPointers Json?
+  agentRequest    Json?
+  agentResponse   Json?
+  humanDecision   Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  auditLogs      AuditLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([eventId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runId        String?
+  run          Run?     @relation(fields: [runId], references: [id], onDelete: SetNull)
+  eventId      String?
+  invocationId String?
+  action       String   
+  actor        String?
+  payload      Json?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([runId, createdAt])
+  @@index([eventId])
+  @@index([invocationId])
 }
 
 model Connection {
