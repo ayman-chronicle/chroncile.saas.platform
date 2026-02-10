@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmModal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AddEventSourcesModal } from "@/components/connections/AddEventSourcesModal";
 
 interface ConnectionData {
   id: string;
@@ -161,6 +162,10 @@ export function ConnectionsClient({
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>({});
+
+  const [postConnectModalConnection, setPostConnectModalConnection] = useState<ConnectionData | null>(null);
+  const [addTriggerModalConnection, setAddTriggerModalConnection] = useState<ConnectionData | null>(null);
+  const hasShownPostConnectModalRef = useRef(false);
 
   const showToastMessage = useCallback((message: string, type: "success" | "error") => {
     setToastMessage(message);
@@ -357,6 +362,18 @@ export function ConnectionsClient({
       fetchTriggers();
     }
   }, [isPipedreamConfigured]);
+
+  useEffect(() => {
+    if (!pipedreamSuccess || !pipedreamApp || hasShownPostConnectModalRef.current) return;
+    const connection = connections.find(
+      (c) => c.provider === pipedreamApp && c.status === "active"
+    );
+    if (connection) {
+      hasShownPostConnectModalRef.current = true;
+      setPostConnectModalConnection(connection);
+      router.replace("/dashboard/connections", { scroll: false });
+    }
+  }, [pipedreamSuccess, pipedreamApp, connections, router]);
 
   const handleConnectPipedream = useCallback(async (app: string) => {
     setConnectingApp(app);
@@ -650,6 +667,34 @@ export function ConnectionsClient({
                   {isConnecting ? "..." : "Reconnect"}
                 </button>
               </div>
+              <div className="pt-2 mt-2 border-t border-border-dim">
+                <div className="text-[10px] font-mono font-medium tracking-wider uppercase text-tertiary mb-1.5">
+                  Event sources
+                </div>
+                {deployedTriggers.filter((t) => t.connectionId === connection.id).length === 0 ? (
+                  <p className="text-xs text-tertiary mb-2">No event sources. Add one to receive events.</p>
+                ) : (
+                  <ul className="space-y-1 mb-2">
+                    {deployedTriggers
+                      .filter((t) => t.connectionId === connection.id)
+                      .map((t) => (
+                        <li key={t.id} className="flex items-center justify-between text-xs">
+                          <span className="text-secondary truncate">{t.triggerId}</span>
+                          <span className={`badge ${t.active ? "badge--nominal" : "badge--neutral"} flex-shrink-0 ml-2`}>
+                            {t.active ? "Active" : "Paused"}
+                          </span>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setAddTriggerModalConnection(connection)}
+                  className="btn btn--secondary btn--sm w-full"
+                >
+                  Add event source
+                </button>
+              </div>
               <button
                 onClick={() => handleDisconnectClick(connection)}
                 className="w-full px-3 py-2 bg-critical-bg text-critical border border-critical-dim text-sm font-medium hover:bg-critical hover:text-base transition-colors"
@@ -723,6 +768,29 @@ export function ConnectionsClient({
         variant="danger"
         isLoading={isDisconnecting}
       />
+
+      {(postConnectModalConnection || addTriggerModalConnection) && (
+        <AddEventSourcesModal
+          isOpen
+          onClose={() => {
+            setPostConnectModalConnection(null);
+            setAddTriggerModalConnection(null);
+          }}
+          connection={postConnectModalConnection ?? addTriggerModalConnection!}
+          source={postConnectModalConnection ? "post-connect" : "card"}
+          onDeployed={async () => {
+            try {
+              const res = await fetch("/api/pipedream/triggers/deployed");
+              if (res.ok) {
+                const data = await res.json();
+                setDeployedTriggers(data.data || []);
+              }
+            } catch (e) {
+              console.error("Failed to refresh deployed triggers", e);
+            }
+          }}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
