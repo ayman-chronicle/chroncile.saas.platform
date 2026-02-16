@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/encryption";
 import prisma from "@/lib/db";
@@ -114,13 +115,16 @@ export async function PUT(request: NextRequest) {
           .map((h) => ({ name: h.name.trim(), value: typeof h?.value === "string" ? h.value : "" }))
       : null;
 
+  const customHeadersForPrisma: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+    customHeadersJson === null ? Prisma.JsonNull : (customHeadersJson as Prisma.InputJsonValue);
+
   const data = {
     endpointUrl: endpointUrl === "" || endpointUrl === null ? null : endpointUrl ?? undefined,
     authType,
     authHeaderName: authType === "api_key" ? (authHeaderName ?? "X-API-Key") : null,
     authSecretEncrypted,
     basicUsername: authType === "basic" ? (basicUsername ?? null) : null,
-    customHeadersJson,
+    customHeadersJson: customHeadersForPrisma,
   };
 
   // If auth is "none" or we're not sending a new secret, preserve existing secret when not provided
@@ -147,7 +151,7 @@ export async function PUT(request: NextRequest) {
       authHeaderName: data.authHeaderName ?? null,
       authSecretEncrypted: (updateData.authSecretEncrypted as string | null) ?? null,
       basicUsername: data.basicUsername ?? null,
-      customHeadersJson: data.customHeadersJson ?? null,
+      customHeadersJson: data.customHeadersJson,
     },
     update: updateData,
   });

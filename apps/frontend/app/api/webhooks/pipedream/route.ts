@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { appendAuditLog } from "@/lib/audit-log";
 import prisma from "@/lib/db";
 import eventsManager from "@/lib/events-manager";
@@ -235,7 +236,7 @@ export async function POST(request: NextRequest) {
             invocationId,
             mode: "shadow",
             status: "pending",
-            eventSnapshot: eventSnapshot as Record<string, unknown>,
+            eventSnapshot: eventSnapshot as Prisma.InputJsonValue,
             workflowId: null,
           },
         });

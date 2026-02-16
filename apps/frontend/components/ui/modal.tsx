@@ -94,7 +94,7 @@ export function Modal({
             className={
               isDark
                 ? `text-base font-semibold ${variant === "danger" ? "text-critical" : "text-primary"}`
-                : `text-lg font-semibold ${variant === "danger" ? "text-red-600" : "text-gray-900"}`
+                : "text-lg font-semibold text-gray-900"
             }
           >
             {title}
@@ -158,7 +158,7 @@ export function ConfirmModal({
   variant = "default",
   isLoading = false,
 }: ConfirmModalProps) {
-  const isDark = variant === "dark" || variant === "danger";
+  const isDark = variant === "danger";
 
   return (
     <Modal
@@ -181,11 +181,7 @@ export function ConfirmModal({
             className={
               isDark
                 ? "btn btn--critical disabled:opacity-50 flex items-center gap-2"
-                : `px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
-                    variant === "danger"
-                      ? "bg-red-600 hover:bg-red-700"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`
+                : "px-4 py-2 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
             }
           >
             {isLoading && (

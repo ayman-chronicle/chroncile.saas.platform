@@ -61,8 +61,11 @@ export async function POST() {
       await prisma.run.update({
         where: { id: run.id },
         data: {
-          agentRequest: payload,
-          agentResponse: result.data ?? null,
+          agentRequest: payload as Prisma.InputJsonValue,
+          agentResponse:
+            result.data != null
+              ? (result.data as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
           status: "pending_review",
         },
       });
@@ -80,8 +83,8 @@ export async function POST() {
       await prisma.run.update({
         where: { id: run.id },
         data: {
-          agentRequest: payload,
-          agentResponse: { error: errorMessage },
+          agentRequest: payload as Prisma.InputJsonValue,
+          agentResponse: { error: errorMessage } as Prisma.InputJsonValue,
           status: "failed",
         },
       });

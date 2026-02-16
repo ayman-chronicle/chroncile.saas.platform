@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { appendAuditLog } from "@/lib/audit-log";
 import prisma from "@/lib/db";
@@ -88,7 +89,9 @@ export async function PATCH(
       where: { id },
       data: {
         ...(status && { status }),
-        ...(humanDecision !== undefined && { humanDecision }),
+        ...(humanDecision !== undefined && {
+          humanDecision: humanDecision as Prisma.InputJsonValue,
+        }),
       },
     });
 

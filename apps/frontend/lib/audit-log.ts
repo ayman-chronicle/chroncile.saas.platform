@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 
 export interface AppendAuditLogParams {
@@ -21,7 +22,7 @@ export async function appendAuditLog(params: AppendAuditLogParams): Promise<void
       invocationId: invocationId ?? undefined,
       action,
       actor: actor ?? undefined,
-      payload: payload ?? undefined,
+      payload: payload != null ? (payload as Prisma.InputJsonValue) : undefined,
     },
   });
 }
