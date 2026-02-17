@@ -853,6 +853,11 @@ export function ConnectionsClient({
           }}
           connection={postConnectModalConnection ?? addTriggerModalConnection!}
           source={postConnectModalConnection ? "post-connect" : "card"}
+          initialDeployedKeys={
+            deployedTriggers
+              .filter((t) => t.connectionId === (postConnectModalConnection ?? addTriggerModalConnection!)?.id)
+              .map((t) => t.triggerId)
+          }
           onDeployed={async () => {
             try {
               const res = await fetch("/api/pipedream/triggers/deployed");

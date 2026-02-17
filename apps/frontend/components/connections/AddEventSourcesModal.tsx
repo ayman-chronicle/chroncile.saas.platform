@@ -16,6 +16,7 @@ interface AddEventSourcesModalProps {
   connection: { id: string; provider: string };
   onDeployed?: () => void;
   source?: "post-connect" | "card";
+  initialDeployedKeys?: string[];
 }
 
 export function AddEventSourcesModal({
@@ -24,12 +25,19 @@ export function AddEventSourcesModal({
   connection,
   onDeployed,
   source = "card",
+  initialDeployedKeys = [],
 }: AddEventSourcesModalProps) {
   const [triggers, setTriggers] = useState<TriggerOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [deployingKey, setDeployingKey] = useState<string | null>(null);
-  const [deployedKeys, setDeployedKeys] = useState<Set<string>>(new Set());
+  const [deployedKeys, setDeployedKeys] = useState<Set<string>>(() => new Set(initialDeployedKeys));
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDeployedKeys(new Set(initialDeployedKeys));
+    }
+  }, [isOpen, connection.id, initialDeployedKeys]);
 
   const fetchTriggers = useCallback(async () => {
     if (!connection?.provider) return;
