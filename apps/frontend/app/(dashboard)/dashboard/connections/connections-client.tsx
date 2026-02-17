@@ -71,6 +71,7 @@ interface ConnectionsClientProps {
   errorMessage?: string;
   pipedreamSuccess?: boolean;
   pipedreamError?: boolean;
+  pipedreamErrorDetail?: string;
   pipedreamApp?: string;
 }
 
@@ -136,6 +137,7 @@ export function ConnectionsClient({
   errorMessage,
   pipedreamSuccess,
   pipedreamError,
+  pipedreamErrorDetail,
   pipedreamApp,
 }: ConnectionsClientProps) {
   const router = useRouter();
@@ -170,6 +172,7 @@ export function ConnectionsClient({
   const [resolvingRedirect, setResolvingRedirect] = useState(
     () => pipedreamSuccess || pipedreamError
   );
+  const [syncFailed, setSyncFailed] = useState(false);
 
   const showToastMessage = useCallback((message: string, type: "success" | "error") => {
     setToastMessage(message);
@@ -189,9 +192,19 @@ export function ConnectionsClient({
 
           if (response.ok) {
             const data = await response.json();
+            const hadConnection = initialConnections.some((c) => c.provider === pipedreamApp);
+            const synced = data.synced ?? 0;
+            if (synced === 0 && !hadConnection) {
+              setSyncFailed(true);
+              showToastMessage("Connection failed. No account was synced.", "error");
+              setTimeout(() => {
+                window.location.href = "/dashboard/connections";
+              }, 2000);
+              return;
+            }
             const appName = pipedreamApp || "the integration";
             showToastMessage(
-              `Successfully connected to ${appName}! ${data.synced > 0 ? `Synced ${data.synced} connection(s).` : ""}`,
+              `Successfully connected to ${appName}! ${synced > 0 ? `Synced ${synced} connection(s).` : ""}`,
               "success"
             );
             router.refresh();
@@ -199,28 +212,32 @@ export function ConnectionsClient({
               window.location.href = "/dashboard/connections";
             }, 500);
           } else {
-            throw new Error("Failed to sync connections");
+            const err = await response.json().catch(() => ({}));
+            setSyncFailed(true);
+            throw new Error(err.error || "Failed to sync connections");
           }
         } catch (error) {
           console.error("Failed to sync Pipedream connections:", error);
+          setSyncFailed(true);
+          const errMsg = error instanceof Error ? error.message : "Failed to sync.";
           showToastMessage(
-            pipedreamApp 
-              ? `Connected to ${pipedreamApp}, but failed to sync. Please refresh the page.`
-              : "Connection successful, but failed to sync. Please refresh the page.",
+            pipedreamApp
+              ? `Connection failed: ${errMsg}`
+              : `Connection failed: ${errMsg}`,
             "error"
           );
           setTimeout(() => {
             window.location.href = "/dashboard/connections";
-          }, 1000);
+          }, 2000);
         }
       }
-      
+
       syncConnections();
     } else if (pipedreamError) {
-      showToastMessage("Failed to connect - please try again", "error");
+      setSyncFailed(true);
+      showToastMessage(pipedreamErrorDetail || "Connection failed.", "error");
+      setResolvingRedirect(false);
       router.replace("/dashboard/connections", { scroll: false });
-      const t = setTimeout(() => setResolvingRedirect(false), 800);
-      return () => clearTimeout(t);
     } else if (errorMessage) {
       const errorMessages: Record<string, string> = {
         invalid_state: "Security check failed. Please try connecting again.",
@@ -240,7 +257,7 @@ export function ConnectionsClient({
       };
       showToastMessage(errorMessages[errorMessage] || `Error: ${errorMessage}`, "error");
     }
-  }, [successMessage, errorMessage, pipedreamSuccess, pipedreamError, pipedreamApp, showToastMessage, router]);
+  }, [successMessage, errorMessage, pipedreamSuccess, pipedreamError, pipedreamApp, initialConnections, showToastMessage, router]);
 
   useEffect(() => {
     if (showToast) {
@@ -741,15 +758,29 @@ export function ConnectionsClient({
   };
 
   if (resolvingRedirect) {
+    const isError = pipedreamError || syncFailed;
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="panel px-8 py-6 flex flex-col items-center gap-4 max-w-sm">
-          <div className="status-dot status-dot--data status-dot--pulse" />
-          <p className="text-sm font-medium text-primary text-center">
-            {pipedreamError ? "Connection failed." : "Completing connection…"}
-          </p>
-          {!pipedreamError && (
-            <svg
+      <>
+        {showToast && (
+          <div className={`fixed top-4 right-4 z-50 px-4 py-3 border transition-all ${
+            toastType === "success"
+              ? "bg-nominal-bg border-nominal-dim text-nominal"
+              : "bg-critical-bg border-critical-dim text-critical"
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`status-dot ${toastType === "success" ? "status-dot--nominal" : "status-dot--critical"}`} />
+              <span className="text-sm font-medium">{toastMessage}</span>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <div className="panel px-8 py-6 flex flex-col items-center gap-4 max-w-sm">
+            <div className={`status-dot ${isError ? "status-dot--critical" : "status-dot--data status-dot--pulse"}`} />
+            <p className="text-sm font-medium text-center">
+              {isError ? "Connection failed." : "Completing connection…"}
+            </p>
+            {!isError && (
+              <svg
               className="w-8 h-8 text-data animate-spin"
               fill="none"
               viewBox="0 0 24 24"
@@ -769,8 +800,9 @@ export function ConnectionsClient({
               />
             </svg>
           )}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
