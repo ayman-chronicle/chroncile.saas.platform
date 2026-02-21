@@ -148,6 +148,7 @@ export function ConnectionsClient({
   const [toastType, setToastType] = useState<"success" | "error">("success");
   
   const [pipedreamApps, setPipedreamApps] = useState<PipedreamApp[]>([]);
+  const [extraConnectedApps, setExtraConnectedApps] = useState<PipedreamApp[]>([]);
   const [loadingApps, setLoadingApps] = useState(true);
   const [searchingApps, setSearchingApps] = useState(false);
   const [connectingApp, setConnectingApp] = useState<string | null>(null);
@@ -318,6 +319,37 @@ export function ConnectionsClient({
     }
     loadInitialApps();
   }, [fetchApps]);
+
+  useEffect(() => {
+    if (loadingApps || searchQuery.trim() || pipedreamApps.length === 0) {
+      setExtraConnectedApps([]);
+      return;
+    }
+    const connectedSlugs = connections
+      .filter((c) => c.status === "active")
+      .map((c) => c.provider);
+    const existingSlugs = new Set(pipedreamApps.map((a) => a.name_slug));
+    const missingSlugs = connectedSlugs.filter((s) => !existingSlugs.has(s));
+    if (missingSlugs.length === 0) {
+      setExtraConnectedApps([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      missingSlugs.map((slug) =>
+        fetchApps(slug).then((apps: PipedreamApp[]) =>
+          (apps || []).filter((a: PipedreamApp) => a.name_slug === slug)
+        )
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const fetched = results.flat();
+      setExtraConnectedApps(fetched);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [connections, pipedreamApps, loadingApps, searchQuery, fetchApps]);
 
   useEffect(() => {
     if (searchDebounceRef.current) {
@@ -542,7 +574,17 @@ export function ConnectionsClient({
     return connections.find(c => c.provider === provider && c.status === "active");
   };
 
-  const filteredApps = pipedreamApps
+  const appsForFilter =
+    extraConnectedApps.length > 0
+      ? [
+          ...extraConnectedApps,
+          ...pipedreamApps.filter(
+            (a) => !extraConnectedApps.some((e) => e.name_slug === a.name_slug)
+          ),
+        ]
+      : pipedreamApps;
+
+  const filteredApps = appsForFilter
     .filter((app) => {
       if (selectedCategory === "all") return true;
       if (selectedCategory === "connected") return !!getConnection(app.name_slug);
@@ -554,18 +596,22 @@ export function ConnectionsClient({
       return categoriesStr.includes(selectedCategory.toLowerCase());
     })
     .sort((a, b) => {
+      const aConnected = !!getConnection(a.name_slug);
+      const bConnected = !!getConnection(b.name_slug);
+      if (aConnected && !bConnected) return -1;
+      if (!aConnected && bConnected) return 1;
+      if (aConnected && bConnected) {
+        return a.name.localeCompare(b.name);
+      }
       if (!searchQuery) {
         const aIsFeatured = FEATURED_APPS.includes(a.name_slug);
         const bIsFeatured = FEATURED_APPS.includes(b.name_slug);
-        
         if (aIsFeatured && !bIsFeatured) return -1;
         if (!aIsFeatured && bIsFeatured) return 1;
-        
         if (aIsFeatured && bIsFeatured) {
           return FEATURED_APPS.indexOf(a.name_slug) - FEATURED_APPS.indexOf(b.name_slug);
         }
       }
-      
       return a.name.localeCompare(b.name);
     });
 
