@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import useSWR from "swr";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -28,10 +29,16 @@ const fetcher = async (url: string): Promise<RunsResponse> => {
   return res.json();
 };
 
-function buildRunsUrl(status?: string, cursor?: string, limit = 20): string {
+function buildRunsUrl(
+  status?: string,
+  cursor?: string,
+  limit = 20,
+  workflowId?: string
+): string {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
   if (cursor) params.set("cursor", cursor);
+  if (workflowId) params.set("workflowId", workflowId);
   params.set("limit", String(limit));
   return `/api/runs?${params.toString()}`;
 }
@@ -67,13 +74,34 @@ function statusDisplayLabel(status: string): string {
   return status;
 }
 
+const WORKFLOW_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "lead-gen", label: "Lead gen" },
+  { value: "demo-workflow", label: "Demo workflow" },
+];
+
 export function RunsClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const workflowFromUrl = searchParams.get("workflowId") ?? "";
+
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [workflowFilter, setWorkflowFilter] = useState<string>(() => workflowFromUrl || "");
   const [additionalRuns, setAdditionalRuns] = useState<Run[]>([]);
   const [pageCursor, setPageCursor] = useState<string | null>(null);
   const [pageHasMore, setPageHasMore] = useState(false);
 
-  const initialUrl = buildRunsUrl(statusFilter || undefined, undefined);
+  useEffect(() => {
+    setWorkflowFilter(workflowFromUrl || "");
+  }, [workflowFromUrl]);
+
+  const effectiveWorkflowId = workflowFilter || undefined;
+  const initialUrl = buildRunsUrl(
+    statusFilter || undefined,
+    undefined,
+    20,
+    effectiveWorkflowId
+  );
   const { data, error, isLoading, mutate } = useSWR<RunsResponse>(initialUrl, fetcher, {
     revalidateOnFocus: true,
   });
@@ -82,7 +110,7 @@ export function RunsClient() {
     setAdditionalRuns([]);
     setPageCursor(null);
     setPageHasMore(false);
-  }, [statusFilter]);
+  }, [statusFilter, workflowFilter]);
 
   const firstPageRuns = data?.runs ?? [];
   const nextCursor = pageCursor !== null ? pageCursor : (data?.nextCursor ?? null);
@@ -92,13 +120,15 @@ export function RunsClient() {
   const loadMore = useCallback(async () => {
     const cursorToUse = pageCursor ?? data?.nextCursor;
     if (!cursorToUse || !(data?.hasMore ?? pageHasMore)) return;
-    const res = await fetch(buildRunsUrl(statusFilter || undefined, cursorToUse));
+    const res = await fetch(
+      buildRunsUrl(statusFilter || undefined, cursorToUse, 20, effectiveWorkflowId)
+    );
     if (!res.ok) return;
     const next = await res.json() as RunsResponse;
     setAdditionalRuns((prev) => [...prev, ...next.runs]);
     setPageCursor(next.nextCursor);
     setPageHasMore(next.hasMore ?? false);
-  }, [data?.nextCursor, data?.hasMore, statusFilter, pageCursor, pageHasMore]);
+  }, [data?.nextCursor, data?.hasMore, statusFilter, effectiveWorkflowId, pageCursor, pageHasMore]);
 
   const [creating, setCreating] = useState(false);
   const [processingPending, setProcessingPending] = useState(false);
@@ -201,9 +231,9 @@ export function RunsClient() {
       </div>
 
       <div className="panel">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-elevated border-b border-border-dim">
-          <span className="text-sm font-medium text-secondary">Filter by status</span>
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-4 px-4 py-3 bg-elevated border-b border-border-dim">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-secondary">Status</span>
             {[
               { value: "", label: "All" },
               { value: "pending", label: "Pending" },
@@ -218,6 +248,31 @@ export function RunsClient() {
                 onClick={() => setStatusFilter(value)}
                 className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
                   value === (statusFilter ?? "")
+                    ? "bg-data-bg border-data text-data"
+                    : "border-border-default text-secondary hover:bg-hover"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-6 bg-border-dim" />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-secondary">Workflow</span>
+            {WORKFLOW_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value || "all"}
+                type="button"
+                onClick={() => {
+                  setWorkflowFilter(value);
+                  const next = new URLSearchParams(searchParams.toString());
+                  if (value) next.set("workflowId", value);
+                  else next.delete("workflowId");
+                  const qs = next.toString();
+                  router.replace(qs ? `/dashboard/runs?${qs}` : "/dashboard/runs", { scroll: false });
+                }}
+                className={`px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
+                  value === (workflowFilter ?? "")
                     ? "bg-data-bg border-data text-data"
                     : "border-border-default text-secondary hover:bg-hover"
                 }`}
