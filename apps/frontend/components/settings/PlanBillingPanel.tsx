@@ -9,9 +9,8 @@ interface PlanBillingPanelProps {
   currentPlanId: string | null;
   hasCustomer: boolean;
   successMessage: boolean;
+  recommendedPlanId?: string;
 }
-
-const RECOMMENDED_PLAN_ID = "pro";
 
 function formatPrice(cents: number, currency: string): string {
   return new Intl.NumberFormat("en-US", {
@@ -20,7 +19,13 @@ function formatPrice(cents: number, currency: string): string {
   }).format(cents / 100);
 }
 
-export function PlanBillingPanel({ plans, currentPlanId, hasCustomer, successMessage }: PlanBillingPanelProps) {
+export function PlanBillingPanel({
+  plans,
+  currentPlanId,
+  hasCustomer,
+  successMessage,
+  recommendedPlanId = "pro",
+}: PlanBillingPanelProps) {
   const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,7 +129,7 @@ export function PlanBillingPanel({ plans, currentPlanId, hasCustomer, successMes
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {plans.map((plan) => {
             const isCurrent = currentPlanId === plan.id && hasCustomer;
-            const isRecommended = plan.id === RECOMMENDED_PLAN_ID;
+            const isRecommended = plan.id === recommendedPlanId;
             const isLoading = loadingPlanId === plan.id;
 
             return (

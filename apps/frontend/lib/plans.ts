@@ -20,16 +20,23 @@ export function getPlans(): Plan[] {
   return plans;
 }
 
+const CUSTOM_PLAN_TENANT_SLUGS = [REMEDY_MEDS_SLUG, TEST_SLUG];
+
 /**
- * Returns the plans to show for a tenant. For remedy-meds-f2b2gz the top tier
- * is Custom Enterprise ($5K); for all others it is Enterprise ($199).
+ * Returns the plans to show for a tenant. For remedy-meds-f2b2gz and remedy-meds-ygo1c4
+ * the top tier is Custom Enterprise ($5K); for all others it is Enterprise ($199).
  */
 export function getPlansForTenant(tenantSlug: string | null): Plan[] {
   if (!tenantSlug) return plans.filter((p) => p.id !== "customEnterprise");
-  if (tenantSlug === REMEDY_MEDS_SLUG || tenantSlug === TEST_SLUG) {
+  if (CUSTOM_PLAN_TENANT_SLUGS.includes(tenantSlug)) {
     return plans.filter((p) => p.id !== "enterprise");
   }
   return plans.filter((p) => p.id !== "customEnterprise");
+}
+
+export function getRecommendedPlanId(tenantSlug: string | null): string {
+  if (tenantSlug && CUSTOM_PLAN_TENANT_SLUGS.includes(tenantSlug)) return "customEnterprise";
+  return "pro";
 }
 
 export function getPlanById(id: string): Plan | undefined {

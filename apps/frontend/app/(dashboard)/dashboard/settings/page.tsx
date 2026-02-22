@@ -4,7 +4,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { AgentEndpointPanel } from "@/components/settings/AgentEndpointPanel";
 import { PlanBillingPanel } from "@/components/settings/PlanBillingPanel";
 import prisma from "@/lib/db";
-import { getPlans, getPlansForTenant } from "@/lib/plans";
+import { getPlans, getPlansForTenant, getRecommendedPlanId } from "@/lib/plans";
 import { getStripePriceIdsByLookupKeys } from "@/lib/stripe-server";
 
 export default async function SettingsPage({
@@ -133,6 +133,7 @@ export default async function SettingsPage({
         currentPlanId={currentPlanId}
         hasCustomer={!!tenant?.stripeCustomerId}
         successMessage={params.success === "billing"}
+        recommendedPlanId={getRecommendedPlanId(tenant?.slug ?? null)}
       />
 
       {/* API Configuration */}
