@@ -47,6 +47,24 @@
         "Priority support",
         "Custom agent workflows"
       ]
+    },
+    {
+      "id": "customEnterprise",
+      "name": "Custom Enterprise",
+      "description": "Dedicated enterprise plan with maximum limits and white-glove support.",
+      "amountCents": 500000,
+      "currency": "usd",
+      "interval": "month",
+      "lookupKey": "custom_enterprise_monthly",
+      "features": [
+        "Everything in Enterprise",
+        "Unlimited Pipedream connections and workflows",
+        "Unlimited audit retention",
+        "Dedicated success manager",
+        "Custom integrations and SLA",
+        "On-premise / VPC options",
+        "24/7 priority support"
+      ]
     }
   ]
 }

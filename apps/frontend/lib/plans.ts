@@ -13,8 +13,22 @@ export interface Plan {
 
 const plans = (plansJson as { plans: Plan[] }).plans;
 
+const REMEDY_MEDS_SLUG = "remedy-meds-f2b2gz";
+
 export function getPlans(): Plan[] {
   return plans;
+}
+
+/**
+ * Returns the plans to show for a tenant. For remedy-meds-f2b2gz the top tier
+ * is Custom Enterprise ($5K); for all others it is Enterprise ($199).
+ */
+export function getPlansForTenant(tenantSlug: string | null): Plan[] {
+  if (!tenantSlug) return plans.filter((p) => p.id !== "customEnterprise");
+  if (tenantSlug === REMEDY_MEDS_SLUG) {
+    return plans.filter((p) => p.id !== "enterprise");
+  }
+  return plans.filter((p) => p.id !== "customEnterprise");
 }
 
 export function getPlanById(id: string): Plan | undefined {

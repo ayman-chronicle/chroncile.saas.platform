@@ -4,7 +4,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { AgentEndpointPanel } from "@/components/settings/AgentEndpointPanel";
 import { PlanBillingPanel } from "@/components/settings/PlanBillingPanel";
 import prisma from "@/lib/db";
-import { getPlans } from "@/lib/plans";
+import { getPlans, getPlansForTenant } from "@/lib/plans";
 import { getStripePriceIdsByLookupKeys } from "@/lib/stripe-server";
 
 export default async function SettingsPage({
@@ -18,13 +18,14 @@ export default async function SettingsPage({
   const params = await searchParams;
   const tenant = await prisma.tenant.findUnique({
     where: { id: session.user.tenantId },
-    select: { stripeCustomerId: true, stripePriceId: true },
+    select: { stripeCustomerId: true, stripePriceId: true, slug: true },
   });
 
-  const plans = getPlans();
+  const plans = getPlansForTenant(tenant?.slug ?? null);
+  const allPlans = getPlans();
   const priceIdsByLookupKey = await getStripePriceIdsByLookupKeys();
   const priceIdToPlanId: Record<string, string> = {};
-  for (const plan of plans) {
+  for (const plan of allPlans) {
     const priceId = priceIdsByLookupKey[plan.lookupKey];
     if (priceId) priceIdToPlanId[priceId] = plan.id;
   }
