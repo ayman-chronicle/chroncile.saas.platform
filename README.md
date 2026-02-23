@@ -1,6 +1,6 @@
 # Chronicle.ai Platform
 
-Chronicle.ai Platform MVP - A platform to test, validate, and gradually graduate AI agents to production.
+Agent Warmup Platform MVP - A platform to turn AI agents into production-ready systems.
 
 ## Project Structure
 

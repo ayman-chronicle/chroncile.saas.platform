@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDashboardStats } from "@/lib/hooks/use-dashboard-stats";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RecentActivity } from "./recent-activity";
+import { RecentRuns } from "./recent-runs";
 
 interface DashboardContentProps {
   userName: string;
@@ -97,6 +98,8 @@ export function DashboardContent({ userName, currentDate }: DashboardContentProp
     connectionsCount,
     eventsTodayCount,
     sessionsCount,
+    runsCount,
+    runsTodayCount,
     isLoading,
   } = useDashboardStats();
 
@@ -187,28 +190,28 @@ export function DashboardContent({ userName, currentDate }: DashboardContentProp
           </div>
         </div>
 
-        <div className="panel">
+        <Link href="/dashboard/runs" className="panel hover:border-data/30 transition-colors">
           <div className="panel__header">
-            <span className="panel__title">Sessions</span>
+            <span className="panel__title">Runs</span>
             <div
               className={
-                sessionsCount > 0
+                runsCount > 0
                   ? "status-dot status-dot--nominal status-dot--pulse"
-                  : "status-dot status-dot--offline"
+                  : "status-dot status-dot--data"
               }
             />
           </div>
           <div className="panel__content">
             <div className="metric">
-              <div className="metric__value text-tertiary">{sessionsCount}</div>
+              <div className="metric__value metric__value--data">{runsTodayCount}</div>
               <div className="mt-2 flex items-center gap-2">
-                <span className="badge badge--neutral">
-                  {sessionsCount > 0 ? "Active" : "Standby"}
+                <span className="metric__delta metric__delta--neutral">
+                  {runsCount} total
                 </span>
               </div>
             </div>
           </div>
-        </div>
+        </Link>
 
         {/* System Health */}
         <div className="panel">
@@ -392,7 +395,7 @@ export function DashboardContent({ userName, currentDate }: DashboardContentProp
               </div>
             ) : (
               <Link
-                href="/dashboard/events"
+                href="/dashboard/runs"
                 className={`flex items-center gap-4 px-4 py-4 transition-colors group ${!step2Complete ? "opacity-50 pointer-events-none" : "hover:bg-hover"}`}
               >
                 <div className="w-10 h-10 border border-border-default bg-elevated flex items-center justify-center font-mono text-sm font-bold text-tertiary">
@@ -414,6 +417,24 @@ export function DashboardContent({ userName, currentDate }: DashboardContentProp
 
         {/* Quick Actions - 1 column */}
         <div className="space-y-4">
+          <RecentRuns />
+          {/* Lead gen (demo) */}
+          <div className="panel">
+            <div className="panel__header">
+              <span className="panel__title">Lead gen (demo)</span>
+            </div>
+            <div className="panel__content">
+              <p className="text-sm text-tertiary mb-4">
+                Run a mock lead search (CPG/D2C + call centers + AI), create runs, and process them with the outreach agent.
+              </p>
+              <Link href="/dashboard/lead-gen" className="btn btn--secondary w-full">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+                </svg>
+                Open Lead gen
+              </Link>
+            </div>
+          </div>
           {/* Documentation */}
           <div className="panel">
             <div className="panel__header">

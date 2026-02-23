@@ -1,8 +1,35 @@
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { CopyButton } from "@/components/ui/copy-button";
+import { AgentEndpointPanel } from "@/components/settings/AgentEndpointPanel";
+import { PlanBillingPanel } from "@/components/settings/PlanBillingPanel";
+import prisma from "@/lib/db";
+import { getPlans, getPlansForTenant, getRecommendedPlanId } from "@/lib/plans";
+import { getStripePriceIdsByLookupKeys } from "@/lib/stripe-server";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string }>;
+}) {
   const session = await auth();
+  if (!session?.user?.tenantId) redirect("/login");
+
+  const params = await searchParams;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+    select: { stripeCustomerId: true, stripePriceId: true, slug: true },
+  });
+
+  const plans = getPlansForTenant(tenant?.slug ?? null);
+  const allPlans = getPlans();
+  const priceIdsByLookupKey = await getStripePriceIdsByLookupKeys();
+  const priceIdToPlanId: Record<string, string> = {};
+  for (const plan of allPlans) {
+    const priceId = priceIdsByLookupKey[plan.lookupKey];
+    if (priceId) priceIdToPlanId[priceId] = plan.id;
+  }
+  const currentPlanId = tenant?.stripePriceId ? priceIdToPlanId[tenant.stripePriceId] ?? null : null;
 
   return (
     <div className="space-y-6">
@@ -101,6 +128,14 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      <PlanBillingPanel
+        plans={plans}
+        currentPlanId={currentPlanId}
+        hasCustomer={!!tenant?.stripeCustomerId}
+        successMessage={params.success === "billing"}
+        recommendedPlanId={getRecommendedPlanId(tenant?.slug ?? null)}
+      />
+
       {/* API Configuration */}
       <div className="panel">
         <div className="panel__header">
@@ -134,6 +169,8 @@ export default async function SettingsPage() {
           </div>
         </div>
       </div>
+
+      <AgentEndpointPanel />
 
       {/* System Status */}
       <div className="panel">

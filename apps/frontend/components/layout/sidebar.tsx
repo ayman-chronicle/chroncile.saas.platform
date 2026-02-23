@@ -4,7 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/logo";
 
-const navigation = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ReactNode;
+  status?: string;
+  hidden?: boolean;
+};
+
+const navigation: NavItem[] = [
   {
     name: "Overview",
     href: "/dashboard",
@@ -25,6 +33,15 @@ const navigation = [
     status: "LIVE",
   },
   {
+    name: "Runs",
+    href: "/dashboard/runs",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+      </svg>
+    ),
+  },
+  {
     name: "Labeling",
     href: "/dashboard/labeling",
     icon: (
@@ -42,6 +59,16 @@ const navigation = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 5.607A1.125 1.125 0 0120.108 22H3.893a1.125 1.125 0 01-1.093-1.393L4.2 15.3" />
       </svg>
     ),
+  },
+  {
+    name: "Lead gen",
+    href: "/dashboard/lead-gen",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+      </svg>
+    ),
+    hidden: true,
   },
   {
     name: "Connections",
@@ -86,7 +113,7 @@ export function Sidebar() {
             <Link href="/dashboard" className="flex items-center gap-3">
               <Logo className="w-6 h-6 shrink-0" variant="dark" />
               <span className="text-sm font-semibold tracking-tight text-primary">
-                Chronicle.ai
+                Chronicle Labs
               </span>
             </Link>
           </div>
@@ -115,7 +142,7 @@ export function Sidebar() {
             </div>
             
             <div className="space-y-0.5 px-2">
-              {navigation.map((item) => {
+              {navigation.filter((item) => !item.hidden).map((item) => {
                 const isActive = pathname === item.href || 
                   (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 
@@ -166,7 +193,11 @@ export function Sidebar() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-tertiary">Environment</span>
-                  <span className="font-mono text-xs text-caution">DEV</span>
+                  <span
+                    className={`font-mono text-xs ${process.env.NODE_ENV === "production" ? "text-nominal" : "text-caution"}`}
+                  >
+                    {process.env.NODE_ENV === "production" ? "PROD" : "DEV"}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-tertiary">Status</span>
@@ -180,7 +211,7 @@ export function Sidebar() {
           <div className="px-4 py-2 border-t border-border-dim flex items-center gap-2">
             <Logo className="w-4 h-4 shrink-0 opacity-70" variant="dark" />
             <span className="text-[10px] text-disabled">
-              © 2026 Chronicle.ai
+              © 2026 Chronicle Labs
             </span>
           </div>
         </div>

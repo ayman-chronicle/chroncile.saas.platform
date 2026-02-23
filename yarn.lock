@@ -2923,10 +2923,12 @@ __metadata:
     react: "npm:^19.0.0"
     react-dom: "npm:^19.0.0"
     remotion: "npm:^4.0.410"
+    stripe: "npm:^20.3.1"
     swr: "npm:^2.2.5"
     tailwindcss: "npm:^3.4.0"
     three: "npm:^0.182.0"
     typescript: "npm:^5.8.0"
+    unicornstudio-react: "npm:2.0.1-1"
     zod: "npm:^3.24.1"
   languageName: unknown
   linkType: soft
@@ -5435,6 +5437,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"stripe@npm:^20.3.1":
+  version: 20.3.1
+  resolution: "stripe@npm:20.3.1"
+  peerDependencies:
+    "@types/node": ">=16"
+  peerDependenciesMeta:
+    "@types/node":
+      optional: true
+  checksum: 10c0/86d53dd008c4f768344c409fbdf00179305e4fd62dbcae8d751af862a022e028fed29ee5f6392651992550502c1835e336a1e493dd3fafb079f0ded401f9baf1
+  languageName: node
+  linkType: hard
+
 "styled-jsx@npm:5.1.6":
   version: 5.1.6
   resolution: "styled-jsx@npm:5.1.6"
@@ -5807,6 +5821,19 @@ __metadata:
   version: 6.21.0
   resolution: "undici-types@npm:6.21.0"
   checksum: 10c0/c01ed51829b10aa72fc3ce64b747f8e74ae9b60eafa19a7b46ef624403508a54c526ffab06a14a26b3120d055e1104d7abe7c9017e83ced038ea5cf52f8d5e04
+  languageName: node
+  linkType: hard
+
+"unicornstudio-react@npm:2.0.1-1":
+  version: 2.0.1-1
+  resolution: "unicornstudio-react@npm:2.0.1-1"
+  peerDependencies:
+    react: ">=18.0.0"
+    react-dom: ">=18.0.0"
+  peerDependenciesMeta:
+    next:
+      optional: true
+  checksum: 10c0/01d46127bb9fdce265e82059b242ec50c72e763def35074a26f7bfa49ae8459fc89b4a46455b90b9e2230982697afd4e530ce39882207b2a9cc0586e01115580
   languageName: node
   linkType: hard
 
