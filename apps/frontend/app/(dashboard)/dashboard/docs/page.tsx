@@ -197,8 +197,7 @@ export default function DocsPage() {
             </li>
             <li>
               <strong className="text-primary">API / Webhook</strong> — See the
-              webhook endpoint and API details used to send events into Agent
-              Warmup. Use these when configuring external tools.
+              webhook endpoint and API details used to send events into Chronicle.ai. Use these when configuring external tools.
             </li>
             <li>
               <strong className="text-primary">System Status</strong> — Check

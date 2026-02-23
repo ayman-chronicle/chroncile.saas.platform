@@ -1,4 +1,4 @@
-# Agent Warmup Platform
+# Chronicle.ai Platform
 
 Agent Warmup Platform MVP - A platform to turn AI agents into production-ready systems.
 
@@ -7,7 +7,7 @@ Agent Warmup Platform MVP - A platform to turn AI agents into production-ready s
 This is a monorepo using Yarn workspaces and Turbo:
 
 ```
-agent-warmup-app/
+chronicle-ai-app/
 ├── apps/
 │   └── frontend/          # Next.js frontend application
 ├── packages/
