@@ -4,7 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/logo";
 
-const navigation = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ReactNode;
+  status?: string;
+  hidden?: boolean;
+};
+
+const navigation: NavItem[] = [
   {
     name: "Overview",
     href: "/dashboard",
@@ -41,6 +49,7 @@ const navigation = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
       </svg>
     ),
+    hidden: true,
   },
   {
     name: "Connections",
@@ -114,7 +123,7 @@ export function Sidebar() {
             </div>
             
             <div className="space-y-0.5 px-2">
-              {navigation.map((item) => {
+              {navigation.filter((item) => !item.hidden).map((item) => {
                 const isActive = pathname === item.href || 
                   (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 
