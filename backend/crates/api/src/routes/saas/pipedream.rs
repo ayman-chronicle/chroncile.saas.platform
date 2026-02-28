@@ -5,7 +5,11 @@ use axum::{
 };
 
 use chronicle_auth::types::AuthUser;
-use pipedream_connect::types::{DeployTriggerRequest, UpdateDeploymentRequest};
+use chronicle_domain::{
+    DeployTriggerRequest, DeployedTriggersResponse, ListAppsParams,
+    ListTriggersParams, PipedreamTokenRequest,
+};
+use pipedream_connect::types::UpdateDeploymentRequest;
 
 use super::error::{ApiError, ApiResult};
 use crate::saas_state::SaasAppState;
@@ -17,16 +21,10 @@ fn get_pipedream(state: &SaasAppState) -> ApiResult<&pipedream_connect::Pipedrea
         .ok_or_else(|| ApiError::bad_request("Pipedream integration is not configured"))
 }
 
-#[derive(serde::Deserialize)]
-pub struct ListAppsQuery {
-    pub q: Option<String>,
-    pub limit: Option<u64>,
-}
-
 pub async fn list_apps(
     _user: AuthUser,
     State(state): State<SaasAppState>,
-    Query(params): Query<ListAppsQuery>,
+    Query(params): Query<ListAppsParams>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let pd = get_pipedream(&state)?;
     let result = pd
@@ -36,21 +34,14 @@ pub async fn list_apps(
 
     Ok(Json(serde_json::json!({
         "data": result.data,
-        "page_info": result.page_info,
+        "pageInfo": result.page_info,
     })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct ListTriggersQuery {
-    pub app: Option<String>,
-    pub q: Option<String>,
-    pub limit: Option<u64>,
 }
 
 pub async fn list_triggers(
     _user: AuthUser,
     State(state): State<SaasAppState>,
-    Query(params): Query<ListTriggersQuery>,
+    Query(params): Query<ListTriggersParams>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let pd = get_pipedream(&state)?;
     let result = pd
@@ -60,26 +51,19 @@ pub async fn list_triggers(
 
     Ok(Json(serde_json::json!({
         "data": result.data,
-        "page_info": result.page_info,
+        "pageInfo": result.page_info,
     })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct DeployRequest {
-    pub trigger_id: String,
-    pub webhook_url: Option<String>,
-    pub configured_props: Option<serde_json::Value>,
 }
 
 pub async fn deploy_trigger(
     user: AuthUser,
     State(state): State<SaasAppState>,
-    Json(input): Json<DeployRequest>,
+    Json(input): Json<DeployTriggerRequest>,
 ) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
     let pd = get_pipedream(&state)?;
 
     let result = pd
-        .deploy_trigger(DeployTriggerRequest {
+        .deploy_trigger(pipedream_connect::types::DeployTriggerRequest {
             id: input.trigger_id,
             external_user_id: user.tenant_id.clone(),
             configured_props: input.configured_props,
@@ -95,19 +79,19 @@ pub async fn deploy_trigger(
 pub async fn list_deployed(
     user: AuthUser,
     State(state): State<SaasAppState>,
-) -> ApiResult<Json<serde_json::Value>> {
+) -> ApiResult<Json<DeployedTriggersResponse>> {
     let pd = get_pipedream(&state)?;
     let result = pd
         .list_deployments(&user.tenant_id)
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-    let db_triggers = state.pipedream_triggers.list_by_tenant(&user.tenant_id).await?;
+    let triggers = state.pipedream_triggers.list_by_tenant(&user.tenant_id).await?;
 
-    Ok(Json(serde_json::json!({
-        "data": result.data,
-        "triggers": db_triggers,
-    })))
+    Ok(Json(DeployedTriggersResponse {
+        data: serde_json::to_value(result.data).unwrap_or_default(),
+        triggers,
+    }))
 }
 
 pub async fn get_deployed(
@@ -152,15 +136,10 @@ pub async fn delete_deployed(
     Ok(StatusCode::NO_CONTENT)
 }
 
-#[derive(serde::Deserialize)]
-pub struct TokenRequest {
-    pub app_id: Option<String>,
-}
-
 pub async fn create_token(
     user: AuthUser,
     State(state): State<SaasAppState>,
-    Json(input): Json<TokenRequest>,
+    Json(input): Json<PipedreamTokenRequest>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let pd = get_pipedream(&state)?;
     let token = pd

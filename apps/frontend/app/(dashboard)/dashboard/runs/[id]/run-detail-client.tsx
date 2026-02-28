@@ -2,45 +2,10 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import useSWR from "swr";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface Run {
-  id: string;
-  eventId: string;
-  invocationId: string;
-  workflowId: string | null;
-  mode: string;
-  status: string;
-  eventSnapshot: Record<string, unknown> | null;
-  contextPointers: Record<string, unknown> | null;
-  agentRequest: Record<string, unknown> | null;
-  agentResponse: Record<string, unknown> | null;
-  humanDecision: Record<string, unknown> | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface AuditEntry {
-  id: string;
-  action: string;
-  actor: string | null;
-  payload: Record<string, unknown> | null;
-  createdAt: string;
-}
-
-const runFetcher = async (url: string): Promise<Run> => {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch run");
-  return res.json();
-};
-
-const auditFetcher = async (url: string): Promise<{ entries: AuditEntry[] }> => {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch audit");
-  const data = await res.json();
-  return { entries: Array.isArray(data.entries) ? data.entries : [] };
-};
+import { useApiSwr } from "@/lib/hooks/use-api-swr";
+import { usePlatformApi } from "@/lib/hooks/use-platform-api";
+import type { AuditLog, Run, RunDetailResponse } from "shared/generated";
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -92,17 +57,17 @@ interface RunDetailClientProps {
 }
 
 export function RunDetailClient({ runId }: RunDetailClientProps) {
+  const api = usePlatformApi();
+
   const {
-    data: run,
+    data,
     error: runError,
     isLoading: runLoading,
     mutate: mutateRun,
-  } = useSWR<Run>(`/api/runs/${runId}`, runFetcher);
+  } = useApiSwr<RunDetailResponse>(`/api/platform/runs/${runId}`);
 
-  const { data: auditData, isLoading: auditLoading } = useSWR<{ entries: AuditEntry[] }>(
-    run ? `/api/runs/${runId}/audit` : null,
-    auditFetcher
-  );
+  const run: Run | undefined = data?.run;
+  const auditEntries: AuditLog[] = data?.auditLogs ?? [];
 
   const [updating, setUpdating] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
@@ -113,19 +78,9 @@ export function RunDetailClient({ runId }: RunDetailClientProps) {
       if (!run) return;
       setUpdating(true);
       try {
-        const res = await fetch(`/api/runs/${runId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status: decision === "approved" ? "approved" : "rejected",
-            humanDecision: {
-              decision,
-              reviewedAt: new Date().toISOString(),
-              ...(reviewNote.trim() && { note: reviewNote.trim() }),
-            },
-          }),
+        await api.updateRunStatus(runId, {
+          status: decision === "approved" ? "approved" : "rejected",
         });
-        if (!res.ok) throw new Error("Failed to update run");
         setReviewNote("");
         await mutateRun();
       } catch (e) {
@@ -135,10 +90,8 @@ export function RunDetailClient({ runId }: RunDetailClientProps) {
         setUpdating(false);
       }
     },
-    [run, runId, mutateRun, reviewNote]
+    [run, runId, api, mutateRun]
   );
-
-  const auditEntries = auditData?.entries ?? [];
 
   if (runLoading || !run) {
     return (
@@ -281,19 +234,10 @@ export function RunDetailClient({ runId }: RunDetailClientProps) {
               <span className="panel__title">Audit log</span>
             </div>
             <div className="panel__content">
-              {auditLoading && (
-                <ul className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <li key={i}>
-                      <Skeleton className="h-12 w-full" />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!auditLoading && auditEntries.length === 0 && (
+              {auditEntries.length === 0 && (
                 <p className="text-xs text-tertiary">No audit entries</p>
               )}
-              {!auditLoading && auditEntries.length > 0 && (
+              {auditEntries.length > 0 && (
                 <ul className="space-y-2">
                   {auditEntries.map((entry) => (
                     <li
@@ -309,7 +253,7 @@ export function RunDetailClient({ runId }: RunDetailClientProps) {
                           {formatDate(entry.createdAt)}
                         </span>
                       </div>
-                      {entry.payload && Object.keys(entry.payload).length > 0 && (
+                      {entry.payload && Object.keys(entry.payload as Record<string, unknown>).length > 0 && (
                         <pre className="text-[10px] font-mono text-tertiary overflow-x-auto">
                           {JSON.stringify(entry.payload)}
                         </pre>

@@ -2,15 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface AgentEndpointConfigResponse {
-  endpointUrl: string | null;
-  authType: string;
-  authHeaderName: string | null;
-  basicUsername: string | null;
-  customHeaders: Array<{ name: string; value?: string; masked?: boolean }>;
-  configured: boolean;
-}
+import { usePlatformApi } from "@/lib/hooks/use-platform-api";
+import type { AgentEndpointResponse } from "shared/generated";
 
 const AUTH_TYPES = [
   { value: "none", label: "None" },
@@ -20,7 +13,8 @@ const AUTH_TYPES = [
 ] as const;
 
 export function AgentEndpointPanel() {
-  const [config, setConfig] = useState<AgentEndpointConfigResponse | null>(null);
+  const api = usePlatformApi();
+  const [config, setConfig] = useState<AgentEndpointResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -39,26 +33,22 @@ export function AgentEndpointPanel() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/settings/agent-endpoint", { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to load config");
-      const data: AgentEndpointConfigResponse = await res.json();
+      const data = await api.getAgentEndpoint();
       setConfig(data);
-      setEndpointUrl(data.endpointUrl ?? "");
-      setAuthType(data.authType ?? "none");
-      setAuthHeaderName(data.authHeaderName ?? "X-API-Key");
-      setBasicUsername(data.basicUsername ?? "");
+      setEndpointUrl(data.config?.endpointUrl ?? "");
+      setAuthType(data.config?.authType ?? "none");
+      setAuthHeaderName(data.config?.authHeaderName ?? "X-API-Key");
+      setBasicUsername(data.config?.basicUsername ?? "");
       setApiKey("");
       setBearerToken("");
       setBasicPassword("");
-      setCustomHeaders(
-        (data.customHeaders ?? []).map((h) => ({ name: h.name, value: h.masked ? "" : (h.value ?? "") }))
-      );
+      setCustomHeaders([]);
     } catch (e) {
       setMessage({ type: "error", text: e instanceof Error ? e.message : "Failed to load" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     fetchConfig();
@@ -68,26 +58,12 @@ export function AgentEndpointPanel() {
     setSaving(true);
     setMessage(null);
     try {
-      const body: Record<string, unknown> = {
+      await api.updateAgentEndpoint({
         endpointUrl: endpointUrl.trim() || null,
-        authType,
+        authType: authType || null,
         authHeaderName: authType === "api_key" ? authHeaderName : null,
         basicUsername: authType === "basic" ? basicUsername : null,
-        customHeaders: customHeaders.filter((h) => h.name.trim()),
-      };
-      if (authType === "api_key" && apiKey) body.apiKey = apiKey;
-      if (authType === "bearer" && bearerToken) body.bearerToken = bearerToken;
-      if (authType === "basic" && basicPassword) body.basicPassword = basicPassword;
-
-      const res = await fetch("/api/settings/agent-endpoint", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error ?? "Failed to save");
-      }
       setMessage({ type: "success", text: "Agent endpoint saved" });
       setApiKey("");
       setBearerToken("");
@@ -159,8 +135,8 @@ export function AgentEndpointPanel() {
     <div className="panel">
       <div className="panel__header">
         <span className="panel__title">Agent endpoint</span>
-        <span className={config?.configured ? "badge badge--nominal" : "badge badge--neutral"}>
-          {config?.configured ? "Configured" : "Not set"}
+        <span className={config?.config ? "badge badge--nominal" : "badge badge--neutral"}>
+          {config?.config ? "Configured" : "Not set"}
         </span>
       </div>
       <div className="p-4 space-y-4">
@@ -217,7 +193,7 @@ export function AgentEndpointPanel() {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="w-full px-3 py-2 bg-elevated border border-border-default text-sm text-secondary focus:outline-none focus:border-data"
-                placeholder={config?.configured ? "••••••••" : ""}
+                placeholder={config?.config ? "••••••••" : ""}
               />
             </div>
           </>
@@ -233,7 +209,7 @@ export function AgentEndpointPanel() {
               value={bearerToken}
               onChange={(e) => setBearerToken(e.target.value)}
               className="w-full px-3 py-2 bg-elevated border border-border-default text-sm text-secondary focus:outline-none focus:border-data"
-              placeholder={config?.configured ? "••••••••" : ""}
+              placeholder={config?.config ? "••••••••" : ""}
             />
           </div>
         )}
@@ -260,7 +236,7 @@ export function AgentEndpointPanel() {
                 value={basicPassword}
                 onChange={(e) => setBasicPassword(e.target.value)}
                 className="w-full px-3 py-2 bg-elevated border border-border-default text-sm text-secondary focus:outline-none focus:border-data"
-                placeholder={config?.configured ? "••••••••" : ""}
+                placeholder={config?.config ? "••••••••" : ""}
               />
             </div>
           </>

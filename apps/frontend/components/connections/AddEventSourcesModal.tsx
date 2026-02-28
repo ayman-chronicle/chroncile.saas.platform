@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { usePlatformApi } from "@/lib/hooks/use-platform-api";
 
 interface TriggerOption {
   key: string;
@@ -27,6 +28,7 @@ export function AddEventSourcesModal({
   source = "card",
   initialDeployedKeys = [],
 }: AddEventSourcesModalProps) {
+  const api = usePlatformApi();
   const [triggers, setTriggers] = useState<TriggerOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [deployingKey, setDeployingKey] = useState<string | null>(null);
@@ -44,19 +46,15 @@ export function AddEventSourcesModal({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/pipedream/triggers?app=${encodeURIComponent(connection.provider)}&limit=50`
-      );
-      if (!res.ok) throw new Error("Failed to load triggers");
-      const json = await res.json();
-      setTriggers(json.data ?? []);
+      const data = await api.listPipedreamTriggers({ app: connection.provider, limit: 50 });
+      setTriggers((data.data as TriggerOption[]) ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load triggers");
       setTriggers([]);
     } finally {
       setLoading(false);
     }
-  }, [connection?.provider]);
+  }, [connection?.provider, api]);
 
   useEffect(() => {
     if (isOpen && connection?.provider) fetchTriggers();
@@ -65,18 +63,11 @@ export function AddEventSourcesModal({
   const handleEnable = async (trigger: TriggerOption) => {
     setDeployingKey(trigger.key);
     try {
-      const res = await fetch("/api/pipedream/triggers/deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          triggerId: trigger.key,
-          connectionId: connection.id,
-        }),
+      await api.deployPipedreamTrigger({
+        triggerId: trigger.key,
+        webhookUrl: null,
+        configuredProps: null,
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Deploy failed");
-      }
       setDeployedKeys((prev) => new Set(prev).add(trigger.key));
       onDeployed?.();
     } catch (e) {

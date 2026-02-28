@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmModal } from "@/components/ui/modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddEventSourcesModal } from "@/components/connections/AddEventSourcesModal";
+import { usePlatformApi } from "@/lib/hooks/use-platform-api";
 
 interface ConnectionData {
   id: string;
@@ -141,6 +142,7 @@ export function ConnectionsClient({
   pipedreamApp,
 }: ConnectionsClientProps) {
   const router = useRouter();
+  const api = usePlatformApi();
   const [connections, setConnections] = useState(initialConnections);
   
   const [showToast, setShowToast] = useState(false);
@@ -269,21 +271,8 @@ export function ConnectionsClient({
 
   const fetchApps = useCallback(async (query?: string) => {
     try {
-      const params = new URLSearchParams();
-      params.set("limit", "50");
-      if (query) {
-        params.set("q", query);
-      }
-      
-      const response = await fetch(`/api/pipedream/apps?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        return data.data || [];
-      } else if (response.status === 500) {
-        setIsPipedreamConfigured(false);
-        return [];
-      }
-      return [];
+      const data = await api.listPipedreamApps({ q: query, limit: 50 });
+      return (data.data as PipedreamApp[]) || [];
     } catch (error) {
       console.error("Failed to fetch Pipedream apps:", error);
       setIsPipedreamConfigured(false);
@@ -405,11 +394,8 @@ export function ConnectionsClient({
   useEffect(() => {
     async function fetchTriggers() {
       try {
-        const response = await fetch("/api/pipedream/triggers/deployed");
-        if (response.ok) {
-          const data = await response.json();
-          setDeployedTriggers(data.data || []);
-        }
+        const data = await api.listDeployedTriggers();
+        setDeployedTriggers((data.data as unknown as DeployedTrigger[]) ?? []);
       } catch (error) {
         console.error("Failed to fetch deployed triggers:", error);
       }
@@ -417,7 +403,7 @@ export function ConnectionsClient({
     if (isPipedreamConfigured) {
       fetchTriggers();
     }
-  }, [isPipedreamConfigured]);
+  }, [isPipedreamConfigured, api]);
 
   useEffect(() => {
     if (!pipedreamSuccess || !pipedreamApp || hasShownPostConnectModalRef.current) return;
@@ -434,18 +420,8 @@ export function ConnectionsClient({
   const handleConnectPipedream = useCallback(async (app: string) => {
     setConnectingApp(app);
     try {
-      const tokenResponse = await fetch("/api/pipedream/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app }),
-      });
-
-      if (!tokenResponse.ok) {
-        throw new Error("Failed to get connect token");
-      }
-
-      const responseData = await tokenResponse.json();
-      const { connectLinkUrl } = responseData;
+      const responseData = await api.createPipedreamToken({ appId: app }) as Record<string, unknown>;
+      const { connectLinkUrl } = responseData as { connectLinkUrl: string };
       
       let finalConnectUrl = connectLinkUrl;
       if (app && !connectLinkUrl.includes(`app=${app}`) && !connectLinkUrl.includes(`app_id=${app}`)) {
@@ -466,16 +442,9 @@ export function ConnectionsClient({
     if (!confirm("Are you sure you want to delete this trigger?")) return;
 
     try {
-      const response = await fetch(`/api/pipedream/triggers/deployed/${deploymentId}`, {
-        method: "DELETE",
-      });
-
-      if (response.ok) {
-        setDeployedTriggers(prev => prev.filter(t => t.deploymentId !== deploymentId));
-        showToastMessage("Trigger deleted successfully", "success");
-      } else {
-        throw new Error("Failed to delete trigger");
-      }
+      await api.deleteDeployedTrigger(deploymentId);
+      setDeployedTriggers(prev => prev.filter(t => t.deploymentId !== deploymentId));
+      showToastMessage("Trigger deleted successfully", "success");
     } catch (error) {
       console.error("Failed to delete trigger:", error);
       showToastMessage("Failed to delete trigger", "error");
@@ -493,14 +462,7 @@ export function ConnectionsClient({
     setIsDisconnecting(true);
 
     try {
-      const response = await fetch(`/api/connections/${connectionToDisconnect.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to disconnect");
-      }
+      await api.deleteConnection(connectionToDisconnect.id);
 
       const disconnectedId = connectionToDisconnect.id;
       setConnections((prev) => prev.filter((c) => c.id !== disconnectedId));
@@ -906,11 +868,8 @@ export function ConnectionsClient({
           }
           onDeployed={async () => {
             try {
-              const res = await fetch("/api/pipedream/triggers/deployed");
-              if (res.ok) {
-                const data = await res.json();
-                setDeployedTriggers(data.data || []);
-              }
+              const data = await api.listDeployedTriggers();
+              setDeployedTriggers((data.data as unknown as DeployedTrigger[]) ?? []);
             } catch (e) {
               console.error("Failed to refresh deployed triggers", e);
             }

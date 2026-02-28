@@ -1,22 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import useSWR from "swr";
-
-interface Run {
-  id: string;
-  invocationId: string;
-  status: string;
-  mode: string;
-  createdAt: string;
-}
-
-const fetcher = async (url: string): Promise<{ runs: Run[] }> => {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return { runs: [] };
-  const data = await res.json();
-  return { runs: Array.isArray(data.runs) ? data.runs : [] };
-};
+import { useApiSwr } from "@/lib/hooks/use-api-swr";
+import type { ListRunsResponse } from "shared/generated";
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -50,10 +36,10 @@ function statusDisplayLabel(status: string): string {
 }
 
 export function RecentRuns() {
-  const { data } = useSWR("/api/runs?limit=5", fetcher, {
-    revalidateOnFocus: true,
-    refreshInterval: 15000,
-  });
+  const { data } = useApiSwr<ListRunsResponse>(
+    "/api/platform/runs?limit=5",
+    { revalidateOnFocus: true, refreshInterval: 15000 },
+  );
   const runs = data?.runs ?? [];
 
   return (

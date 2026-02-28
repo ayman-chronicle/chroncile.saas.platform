@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use chronicle_auth::jwt::JwtService;
+use chronicle_infra::{StoreBackend, StreamBackend};
 use chronicle_interfaces::{
     AuditLogRepository, AgentEndpointConfigRepository, ConnectionRepository,
     PipedreamTriggerRepository, RunRepository, TenantRepository, UserRepository,
@@ -18,9 +19,12 @@ pub struct SaasAppState {
     pub agent_configs: Arc<dyn AgentEndpointConfigRepository>,
     pub pipedream_triggers: Arc<dyn PipedreamTriggerRepository>,
     pub pipedream: Option<Arc<PipedreamClient>>,
+    pub event_store: Arc<StoreBackend>,
+    pub event_stream: Arc<StreamBackend>,
 }
 
 impl SaasAppState {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         jwt_secret: &str,
         tenants: Arc<dyn TenantRepository>,
@@ -31,6 +35,8 @@ impl SaasAppState {
         agent_configs: Arc<dyn AgentEndpointConfigRepository>,
         pipedream_triggers: Arc<dyn PipedreamTriggerRepository>,
         pipedream: Option<Arc<PipedreamClient>>,
+        event_store: Arc<StoreBackend>,
+        event_stream: Arc<StreamBackend>,
     ) -> Self {
         Self {
             jwt: Arc::new(JwtService::new(jwt_secret)),
@@ -42,6 +48,8 @@ impl SaasAppState {
             agent_configs,
             pipedream_triggers,
             pipedream,
+            event_store,
+            event_stream,
         }
     }
 }

@@ -44,6 +44,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           tenantId: user.tenantId,
           tenantName: user.tenantName,
           tenantSlug: user.tenantSlug,
+          backendToken: data.token,
         };
       },
     }),
@@ -55,6 +56,7 @@ declare module "next-auth" {
     tenantId: string;
     tenantName: string;
     tenantSlug: string;
+    backendToken?: string;
   }
   interface Session {
     user: User & {
@@ -63,6 +65,7 @@ declare module "next-auth" {
       tenantName: string;
       tenantSlug: string;
     };
+    backendToken?: string;
   }
 }
 
@@ -72,5 +75,7 @@ declare module "@auth/core/jwt" {
     tenantId: string;
     tenantName: string;
     tenantSlug: string;
+    backendToken?: string;
+    backendTokenExpiresAt?: number;
   }
 }

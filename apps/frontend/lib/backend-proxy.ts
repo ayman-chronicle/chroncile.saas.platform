@@ -50,7 +50,7 @@ export async function proxyToBackend(
 
 interface SessionUser {
   id: string;
-  email: string | null | undefined;
+  email?: string | null;
   name?: string | null;
   tenantId: string;
   tenantName: string;

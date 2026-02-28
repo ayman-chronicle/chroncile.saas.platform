@@ -55,6 +55,19 @@ impl AppState {
         }
     }
 
+    pub fn new_from_arcs(store: Arc<StoreBackend>, stream: Arc<StreamBackend>) -> Self {
+        Self {
+            stream: Arc::clone(&stream),
+            store,
+            event_stream: stream,
+            connections: Arc::new(DashMap::new()),
+            replay_sessions: Arc::new(DashMap::new()),
+            sandbox_sessions: Arc::new(DashMap::new()),
+            generator_manager: Arc::new(GeneratorManager::new()),
+            default_tenant: TenantId::new("demo_tenant"),
+        }
+    }
+
     /// Get the generator manager
     pub fn generator_manager(&self) -> &GeneratorManager {
         &self.generator_manager

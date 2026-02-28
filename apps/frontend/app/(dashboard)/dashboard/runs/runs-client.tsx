@@ -3,44 +3,27 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import useSWR from "swr";
+import { useSession } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useApiSwr } from "@/lib/hooks/use-api-swr";
+import { usePlatformApi } from "@/lib/hooks/use-platform-api";
+import type { ListRunsResponse, Run } from "shared/generated";
 
-interface Run {
-  id: string;
-  eventId: string;
-  invocationId: string;
-  workflowId: string | null;
-  mode: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface RunsResponse {
-  runs: Run[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}
-
-const fetcher = async (url: string): Promise<RunsResponse> => {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error("Failed to fetch runs");
-  return res.json();
-};
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 
 function buildRunsUrl(
   status?: string,
-  cursor?: string,
+  offset?: number,
   limit = 20,
   workflowId?: string
 ): string {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
-  if (cursor) params.set("cursor", cursor);
+  if (offset !== undefined) params.set("offset", String(offset));
   if (workflowId) params.set("workflowId", workflowId);
   params.set("limit", String(limit));
-  return `/api/runs?${params.toString()}`;
+  return `/api/platform/runs?${params.toString()}`;
 }
 
 function formatDate(dateStr: string) {
@@ -84,51 +67,67 @@ export function RunsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const workflowFromUrl = searchParams.get("workflowId") ?? "";
+  const api = usePlatformApi();
+  const { data: session } = useSession();
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [workflowFilter, setWorkflowFilter] = useState<string>(() => workflowFromUrl || "");
   const [additionalRuns, setAdditionalRuns] = useState<Run[]>([]);
-  const [pageCursor, setPageCursor] = useState<string | null>(null);
-  const [pageHasMore, setPageHasMore] = useState(false);
+  const [currentOffset, setCurrentOffset] = useState<number>(0);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     setWorkflowFilter(workflowFromUrl || "");
   }, [workflowFromUrl]);
 
   const effectiveWorkflowId = workflowFilter || undefined;
-  const initialUrl = buildRunsUrl(
+  const runsUrl = buildRunsUrl(
     statusFilter || undefined,
-    undefined,
+    0,
     20,
     effectiveWorkflowId
   );
-  const { data, error, isLoading, mutate } = useSWR<RunsResponse>(initialUrl, fetcher, {
+  const { data, error, isLoading, mutate } = useApiSwr<ListRunsResponse>(runsUrl, {
     revalidateOnFocus: true,
   });
 
   useEffect(() => {
     setAdditionalRuns([]);
-    setPageCursor(null);
-    setPageHasMore(false);
+    setCurrentOffset(0);
+    setHasMore(false);
   }, [statusFilter, workflowFilter]);
 
   const firstPageRuns = data?.runs ?? [];
-  const nextCursor = pageCursor !== null ? pageCursor : (data?.nextCursor ?? null);
-  const hasMore = additionalRuns.length > 0 ? pageHasMore : (data?.hasMore ?? false);
+  const totalRuns = data?.total ?? 0;
+  const limit = data?.limit ?? 20;
   const runs = firstPageRuns.concat(additionalRuns);
 
+  useEffect(() => {
+    if (data) {
+      const totalLoaded = firstPageRuns.length + additionalRuns.length;
+      setHasMore(totalLoaded < totalRuns);
+    }
+  }, [data, firstPageRuns.length, additionalRuns.length, totalRuns]);
+
   const loadMore = useCallback(async () => {
-    const cursorToUse = pageCursor ?? data?.nextCursor;
-    if (!cursorToUse || !(data?.hasMore ?? pageHasMore)) return;
-    const res = await fetch(
-      buildRunsUrl(statusFilter || undefined, cursorToUse, 20, effectiveWorkflowId)
-    );
+    const nextOffset = currentOffset + limit;
+    if (nextOffset >= totalRuns) return;
+    
+    const url = buildRunsUrl(statusFilter || undefined, nextOffset, limit, effectiveWorkflowId);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (session?.backendToken) {
+      headers["Authorization"] = `Bearer ${session.backendToken}`;
+    }
+    
+    const res = await fetch(`${BACKEND_URL}${url}`, { headers });
     if (!res.ok) return;
-    const next = await res.json() as RunsResponse;
+    const next = await res.json() as ListRunsResponse;
     setAdditionalRuns((prev) => [...prev, ...next.runs]);
-    setPageCursor(next.nextCursor);
-    setPageHasMore(next.hasMore ?? false);
-  }, [data?.nextCursor, data?.hasMore, statusFilter, effectiveWorkflowId, pageCursor, pageHasMore]);
+    setCurrentOffset(nextOffset);
+    setHasMore(nextOffset + next.runs.length < next.total);
+  }, [currentOffset, limit, totalRuns, statusFilter, effectiveWorkflowId, session?.backendToken]);
 
   const [creating, setCreating] = useState(false);
   const [processingPending, setProcessingPending] = useState(false);
@@ -166,25 +165,18 @@ export function RunsClient() {
   const createTestRun = useCallback(async () => {
     setCreating(true);
     try {
-      const res = await fetch("/api/runs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: `01${Date.now().toString(36).toUpperCase().padStart(24, "0").slice(-24)}`,
-          invocationId: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-          mode: "shadow",
-          workflowId: "demo-workflow",
-          eventSnapshot: {
-            source: "demo",
-            event_type: "test.run",
-            conversation_id: "conv_demo",
-          },
-        }),
+      await api.createRun({
+        eventId: `01${Date.now().toString(36).toUpperCase().padStart(24, "0").slice(-24)}`,
+        invocationId: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+        mode: "shadow",
+        workflowId: "demo-workflow",
+        eventSnapshot: {
+          source: "demo",
+          event_type: "test.run",
+          conversation_id: "conv_demo",
+        },
+        contextPointers: null,
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || "Failed to create run");
-      }
       await mutate();
     } catch (e) {
       console.error(e);
@@ -192,7 +184,7 @@ export function RunsClient() {
     } finally {
       setCreating(false);
     }
-  }, [mutate]);
+  }, [api, mutate]);
 
   return (
     <div className="space-y-6">
@@ -370,7 +362,7 @@ export function RunsClient() {
                 </li>
               ))}
             </ul>
-            {hasMore && nextCursor && (
+            {hasMore && (
               <div className="px-4 py-3 border-t border-border-dim">
                 <button
                   type="button"

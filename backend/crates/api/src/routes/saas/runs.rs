@@ -5,23 +5,19 @@ use axum::{
 };
 
 use chronicle_auth::types::AuthUser;
-use chronicle_domain::CreateRunInput;
+use chronicle_domain::{
+    CreateRunInput, CreateRunRequest, ListRunsParams, ListRunsResponse,
+    RunDetailResponse, RunResponse, UpdateRunStatusRequest,
+};
 
 use super::error::{ApiError, ApiResult};
 use crate::saas_state::SaasAppState;
 
-#[derive(serde::Deserialize)]
-pub struct ListRunsQuery {
-    pub status: Option<String>,
-    pub limit: Option<usize>,
-    pub offset: Option<usize>,
-}
-
 pub async fn list_runs(
     user: AuthUser,
     State(state): State<SaasAppState>,
-    Query(params): Query<ListRunsQuery>,
-) -> ApiResult<Json<serde_json::Value>> {
+    Query(params): Query<ListRunsParams>,
+) -> ApiResult<Json<ListRunsResponse>> {
     let limit = params.limit.unwrap_or(50);
     let offset = params.offset.unwrap_or(0);
 
@@ -34,29 +30,14 @@ pub async fn list_runs(
 
     let total = state.runs.count_by_tenant(&user.tenant_id).await.unwrap_or(0);
 
-    Ok(Json(serde_json::json!({
-        "runs": runs,
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-    })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct CreateRunRequest {
-    pub event_id: String,
-    pub invocation_id: String,
-    pub mode: Option<String>,
-    pub workflow_id: Option<String>,
-    pub event_snapshot: Option<serde_json::Value>,
-    pub context_pointers: Option<serde_json::Value>,
+    Ok(Json(ListRunsResponse { runs, total, limit, offset }))
 }
 
 pub async fn create_run(
     user: AuthUser,
     State(state): State<SaasAppState>,
     Json(input): Json<CreateRunRequest>,
-) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
+) -> ApiResult<(StatusCode, Json<RunResponse>)> {
     let run = state.runs.create(CreateRunInput {
         tenant_id: user.tenant_id.clone(),
         workflow_id: input.workflow_id,
@@ -72,14 +53,14 @@ pub async fn create_run(
         Some(&run.id), None, Some(&run.invocation_id), None,
     ).await.ok();
 
-    Ok((StatusCode::CREATED, Json(serde_json::json!({ "run": run }))))
+    Ok((StatusCode::CREATED, Json(RunResponse { run })))
 }
 
 pub async fn get_run(
     user: AuthUser,
     State(state): State<SaasAppState>,
     Path(id): Path<String>,
-) -> ApiResult<Json<serde_json::Value>> {
+) -> ApiResult<Json<RunDetailResponse>> {
     let run = state.runs.find_by_id(&id).await?
         .ok_or_else(|| ApiError::not_found("Run"))?;
 
@@ -89,15 +70,7 @@ pub async fn get_run(
 
     let audit_logs = state.audit_logs.list_by_run(&id).await.unwrap_or_default();
 
-    Ok(Json(serde_json::json!({
-        "run": run,
-        "auditLogs": audit_logs,
-    })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct UpdateRunStatusRequest {
-    pub status: String,
+    Ok(Json(RunDetailResponse { run, audit_logs }))
 }
 
 pub async fn update_run_status(
@@ -105,7 +78,7 @@ pub async fn update_run_status(
     State(state): State<SaasAppState>,
     Path(id): Path<String>,
     Json(input): Json<UpdateRunStatusRequest>,
-) -> ApiResult<Json<serde_json::Value>> {
+) -> ApiResult<Json<RunResponse>> {
     let run = state.runs.find_by_id(&id).await?
         .ok_or_else(|| ApiError::not_found("Run"))?;
 
@@ -122,5 +95,5 @@ pub async fn update_run_status(
         Some(&id), None, Some(&run.invocation_id), None,
     ).await.ok();
 
-    Ok(Json(serde_json::json!({ "run": updated })))
+    Ok(Json(RunResponse { run: updated }))
 }

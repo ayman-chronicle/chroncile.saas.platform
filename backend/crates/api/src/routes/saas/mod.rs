@@ -7,6 +7,7 @@ pub mod runs;
 pub mod audit;
 pub mod tenant;
 pub mod pipedream;
+pub mod webhooks;
 
 use axum::{
     routing::{get, post, put, delete},
@@ -23,6 +24,8 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route("/api/platform/auth/signup", post(auth::signup))
         .route("/api/platform/auth/login", post(auth::login))
         .route("/api/platform/auth/token-exchange", post(auth::exchange_token))
+        .route("/api/webhooks/pipedream/:tenantId", post(webhooks::pipedream_webhook))
+        .route("/api/webhooks/stripe", post(webhooks::stripe_webhook))
         .with_state(state.clone());
 
     let protected = Router::new()

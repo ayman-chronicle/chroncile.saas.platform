@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct Tenant {
     pub id: String,
@@ -16,6 +17,7 @@ pub struct Tenant {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct User {
     pub id: String,
@@ -29,6 +31,7 @@ pub struct User {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct AgentEndpointConfig {
     pub id: String,
@@ -94,6 +97,7 @@ impl RunStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct Run {
     pub id: String,
@@ -113,6 +117,7 @@ pub struct Run {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct AuditLog {
     pub id: String,
@@ -127,6 +132,7 @@ pub struct AuditLog {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct Connection {
     pub id: String,
@@ -143,6 +149,7 @@ pub struct Connection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
 #[ts(export, export_to = "generated/")]
 pub struct PipedreamTrigger {
     pub id: String,

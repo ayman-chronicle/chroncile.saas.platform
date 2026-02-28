@@ -7,8 +7,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 GENERATED_DIR="$ROOT_DIR/packages/shared/src/generated"
+SERDE_DIR="$ROOT_DIR/packages/shared/src/serde_json"
 
 mkdir -p "$GENERATED_DIR"
+mkdir -p "$SERDE_DIR"
 
 echo "Generating TypeScript types from Rust structs..."
 
@@ -22,6 +24,10 @@ cargo test --workspace 2>&1 | tail -5
 # Collect all generated .ts files into the shared package.
 find crates -path "*/bindings/generated/*.ts" -exec cp {} "$GENERATED_DIR/" \;
 echo "Copied generated types to $GENERATED_DIR/"
+
+# Copy serde_json helper types (used by generated types that reference serde_json::Value)
+find crates -path "*/bindings/serde_json/*.ts" -exec cp {} "$SERDE_DIR/" \;
+echo "Copied serde_json helpers to $SERDE_DIR/"
 
 # Create an index.ts that re-exports all generated types
 if ls "$GENERATED_DIR"/*.ts 1>/dev/null 2>&1; then

@@ -38,7 +38,14 @@ async fn main() -> Result<()> {
 
     let database_url = std::env::var("DATABASE_URL").ok();
 
-    let (stream, store, saas_state) = match backend_mode.as_str() {
+    let channel_capacity: usize = std::env::var("STREAM_CHANNEL_CAPACITY")
+        .unwrap_or_else(|_| "10000".into())
+        .parse()?;
+    let buffer_capacity: usize = std::env::var("STREAM_BUFFER_CAPACITY")
+        .unwrap_or_else(|_| "100000".into())
+        .parse()?;
+
+    let (store_backend, stream_backend, saas_state) = match backend_mode.as_str() {
         #[cfg(feature = "postgres")]
         "real" | "postgres" => {
             let db_url = database_url.expect("DATABASE_URL must be set when BACKEND_MODE=real");
@@ -52,35 +59,25 @@ async fn main() -> Result<()> {
             postgres_store.migrate().await
                 .map_err(|e| anyhow::anyhow!("Failed to run migrations: {e}"))?;
 
-            // Run SaaS schema migrations
             tracing::info!("Running SaaS schema migrations...");
             run_saas_migrations(&db_url).await?;
-
-            let channel_capacity: usize = std::env::var("STREAM_CHANNEL_CAPACITY")
-                .unwrap_or_else(|_| "10000".into())
-                .parse()?;
-            let buffer_capacity: usize = std::env::var("STREAM_BUFFER_CAPACITY")
-                .unwrap_or_else(|_| "100000".into())
-                .parse()?;
 
             let memory_stream =
                 chronicle_infra::memory::MemoryStream::new(channel_capacity, buffer_capacity);
 
+            let store = Arc::new(StoreBackend::Postgres(postgres_store));
+            let stream = Arc::new(StreamBackend::Memory(memory_stream));
+
             let pool = sqlx::PgPool::connect(&db_url).await
                 .map_err(|e| anyhow::anyhow!("Failed to create connection pool: {e}"))?;
 
-            let saas = build_saas_state_postgres(pool);
+            let saas = build_saas_state_postgres(pool, Arc::clone(&store), Arc::clone(&stream));
 
-            (
-                StreamBackend::Memory(memory_stream),
-                StoreBackend::Postgres(postgres_store),
-                saas,
-            )
+            (store, stream, saas)
         }
         _ => {
             tracing::info!("Using in-memory backends");
 
-            // Run SaaS migrations if DATABASE_URL is set even in memory mode
             if let Some(ref db_url) = database_url {
                 tracing::info!("DATABASE_URL set -- running SaaS migrations and using Postgres repos");
                 run_saas_migrations(db_url).await?;
@@ -88,50 +85,34 @@ async fn main() -> Result<()> {
                 let pool = sqlx::PgPool::connect(db_url).await
                     .map_err(|e| anyhow::anyhow!("Failed to create connection pool: {e}"))?;
 
-                let saas = build_saas_state_postgres(pool);
-
-                let channel_capacity: usize = std::env::var("STREAM_CHANNEL_CAPACITY")
-                    .unwrap_or_else(|_| "10000".into())
-                    .parse()?;
-                let buffer_capacity: usize = std::env::var("STREAM_BUFFER_CAPACITY")
-                    .unwrap_or_else(|_| "100000".into())
-                    .parse()?;
-
                 let memory_stream =
                     chronicle_infra::memory::MemoryStream::new(channel_capacity, buffer_capacity);
                 let memory_store = chronicle_infra::memory::MemoryStore::new();
 
-                (
-                    StreamBackend::Memory(memory_stream),
-                    StoreBackend::Memory(memory_store),
-                    saas,
-                )
+                let store = Arc::new(StoreBackend::Memory(memory_store));
+                let stream = Arc::new(StreamBackend::Memory(memory_stream));
+
+                let saas = build_saas_state_postgres(pool, Arc::clone(&store), Arc::clone(&stream));
+
+                (store, stream, saas)
             } else {
                 tracing::info!("No DATABASE_URL -- using in-memory repos for SaaS");
 
-                let saas = build_saas_state_memory();
-
-                let channel_capacity: usize = std::env::var("STREAM_CHANNEL_CAPACITY")
-                    .unwrap_or_else(|_| "10000".into())
-                    .parse()?;
-                let buffer_capacity: usize = std::env::var("STREAM_BUFFER_CAPACITY")
-                    .unwrap_or_else(|_| "100000".into())
-                    .parse()?;
-
                 let memory_stream =
                     chronicle_infra::memory::MemoryStream::new(channel_capacity, buffer_capacity);
                 let memory_store = chronicle_infra::memory::MemoryStore::new();
 
-                (
-                    StreamBackend::Memory(memory_stream),
-                    StoreBackend::Memory(memory_store),
-                    saas,
-                )
+                let store = Arc::new(StoreBackend::Memory(memory_store));
+                let stream = Arc::new(StreamBackend::Memory(memory_stream));
+
+                let saas = build_saas_state_memory(Arc::clone(&store), Arc::clone(&stream));
+
+                (store, stream, saas)
             }
         }
     };
 
-    let events_state = AppState::new(stream, store);
+    let events_state = AppState::new_from_arcs(Arc::clone(&store_backend), Arc::clone(&stream_backend));
 
     let sim_config = simulation::SimulationConfig::from_env();
     if sim_config.enabled {
@@ -190,7 +171,11 @@ fn build_pipedream_client() -> Option<Arc<pipedream_connect::PipedreamClient>> {
     )))
 }
 
-fn build_saas_state_postgres(pool: sqlx::PgPool) -> SaasAppState {
+fn build_saas_state_postgres(
+    pool: sqlx::PgPool,
+    event_store: Arc<StoreBackend>,
+    event_stream: Arc<StreamBackend>,
+) -> SaasAppState {
     use chronicle_infra::postgres::repositories::*;
 
     let jwt_secret = std::env::var("AUTH_SECRET")
@@ -206,10 +191,15 @@ fn build_saas_state_postgres(pool: sqlx::PgPool) -> SaasAppState {
         Arc::new(PgAgentEndpointConfigRepo::new(pool.clone())),
         Arc::new(PgPipedreamTriggerRepo::new(pool)),
         build_pipedream_client(),
+        event_store,
+        event_stream,
     )
 }
 
-fn build_saas_state_memory() -> SaasAppState {
+fn build_saas_state_memory(
+    event_store: Arc<StoreBackend>,
+    event_stream: Arc<StreamBackend>,
+) -> SaasAppState {
     use chronicle_infra::memory::repositories::*;
 
     let jwt_secret = std::env::var("AUTH_SECRET")
@@ -225,6 +215,8 @@ fn build_saas_state_memory() -> SaasAppState {
         Arc::new(InMemoryAgentEndpointConfigRepo::default()),
         Arc::new(InMemoryPipedreamTriggerRepo::default()),
         build_pipedream_client(),
+        event_store,
+        event_stream,
     )
 }
 

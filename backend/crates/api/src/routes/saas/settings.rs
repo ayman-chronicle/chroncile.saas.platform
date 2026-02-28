@@ -2,7 +2,7 @@ use axum::{extract::State, Json};
 use chrono::Utc;
 
 use chronicle_auth::types::AuthUser;
-use chronicle_domain::AgentEndpointConfig;
+use chronicle_domain::{AgentEndpointConfig, AgentEndpointResponse, UpdateAgentEndpointRequest};
 
 use super::error::ApiResult;
 use crate::saas_state::SaasAppState;
@@ -10,24 +10,16 @@ use crate::saas_state::SaasAppState;
 pub async fn get_agent_endpoint(
     user: AuthUser,
     State(state): State<SaasAppState>,
-) -> ApiResult<Json<serde_json::Value>> {
+) -> ApiResult<Json<AgentEndpointResponse>> {
     let config = state.agent_configs.find_by_tenant(&user.tenant_id).await?;
-    Ok(Json(serde_json::json!({ "config": config })))
-}
-
-#[derive(serde::Deserialize)]
-pub struct UpdateAgentEndpointInput {
-    pub endpoint_url: Option<String>,
-    pub auth_type: Option<String>,
-    pub auth_header_name: Option<String>,
-    pub basic_username: Option<String>,
+    Ok(Json(AgentEndpointResponse { config }))
 }
 
 pub async fn update_agent_endpoint(
     user: AuthUser,
     State(state): State<SaasAppState>,
-    Json(input): Json<UpdateAgentEndpointInput>,
-) -> ApiResult<Json<serde_json::Value>> {
+    Json(input): Json<UpdateAgentEndpointRequest>,
+) -> ApiResult<Json<AgentEndpointResponse>> {
     let now = Utc::now();
     let config = AgentEndpointConfig {
         id: cuid2::create_id(),
@@ -43,5 +35,5 @@ pub async fn update_agent_endpoint(
     };
 
     let saved = state.agent_configs.upsert(&user.tenant_id, config).await?;
-    Ok(Json(serde_json::json!({ "config": saved })))
+    Ok(Json(AgentEndpointResponse { config: Some(saved) }))
 }

@@ -1,6 +1,47 @@
 import type { NextAuthConfig } from "next-auth";
 
-// Edge-compatible auth config (no Prisma)
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+const SERVICE_SECRET = process.env.SERVICE_SECRET || "";
+
+const BACKEND_TOKEN_LIFETIME_MS = 23 * 60 * 60 * 1000;
+
+async function refreshBackendToken(token: {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+}): Promise<{ backendToken: string; backendTokenExpiresAt: number } | null> {
+  try {
+    const res = await fetch(
+      `${BACKEND_URL}/api/platform/auth/token-exchange`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_secret: SERVICE_SECRET,
+          user_id: token.id,
+          email: token.email,
+          name: token.name,
+          tenant_id: token.tenantId,
+          tenant_name: token.tenantName,
+          tenant_slug: token.tenantSlug,
+        }),
+      },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      backendToken: data.token,
+      backendTokenExpiresAt: Date.now() + BACKEND_TOKEN_LIFETIME_MS,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export const authConfig: NextAuthConfig = {
   session: {
     strategy: "jwt",
@@ -16,7 +57,22 @@ export const authConfig: NextAuthConfig = {
         token.tenantId = user.tenantId;
         token.tenantName = user.tenantName;
         token.tenantSlug = user.tenantSlug;
+        token.backendToken = user.backendToken;
+        token.backendTokenExpiresAt = Date.now() + BACKEND_TOKEN_LIFETIME_MS;
       }
+
+      const bufferMs = 5 * 60 * 1000;
+      if (
+        token.backendTokenExpiresAt &&
+        Date.now() > token.backendTokenExpiresAt - bufferMs
+      ) {
+        const refreshed = await refreshBackendToken(token);
+        if (refreshed) {
+          token.backendToken = refreshed.backendToken;
+          token.backendTokenExpiresAt = refreshed.backendTokenExpiresAt;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -25,6 +81,7 @@ export const authConfig: NextAuthConfig = {
         session.user.tenantId = token.tenantId;
         session.user.tenantName = token.tenantName;
         session.user.tenantSlug = token.tenantSlug;
+        session.backendToken = token.backendToken;
       }
       return session;
     },
@@ -35,12 +92,12 @@ export const authConfig: NextAuthConfig = {
       
       if (isOnDashboard) {
         if (isLoggedIn) return true;
-        return false; // Redirect to login
+        return false;
       } else if (isOnAuth) {
         if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl));
       }
       return true;
     },
   },
-  providers: [], // Providers added in auth.ts (server-only)
+  providers: [],
 };

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chronicle — System Architecture</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117;
+      color: #e1e4e8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #f0f6fc;
+    }
+    .subtitle {
+      font-size: 0.9rem;
+      color: #8b949e;
+      margin-bottom: 2rem;
+    }
+    .diagram-container {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 1400px;
+      overflow-x: auto;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 1400px;
+    }
+    .legend-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .legend-card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #58a6ff;
+      margin-bottom: 0.5rem;
+    }
+    .legend-card p {
+      font-size: 0.85rem;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+    .legend-card code {
+      background: #0d1117;
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #c9d1d9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chronicle — System Architecture</h1>
+  <p class="subtitle">Master-level view of all core services and data flows</p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+graph TB
+    subgraph Client
+        BROWSER[Browser]
+    end
+
+    subgraph Frontend["Frontend — Next.js 15 &nbsp;/&nbsp; apps/frontend"]
+        NEXTJS["App Router<br/>Dashboard · Auth · Events · Sandbox"]
+        NEXTAUTH["NextAuth v5<br/>JWT Sessions"]
+        API_CLIENT["PlatformApi Client<br/>useApiSwr · usePlatformApi"]
+    end
+
+    subgraph SharedTypes["Shared Types — packages/shared"]
+        TS_TYPES["Generated TypeScript Types<br/>ts-rs from Rust structs"]
+    end
+
+    subgraph Backend["Backend — Rust / Axum &nbsp;/&nbsp; backend/"]
+        subgraph APILayer["API Layer — crates/api"]
+            SAAS_API["SaaS Routes<br/>auth · runs · connections<br/>dashboard · settings · audit<br/>pipedream · tenant · webhooks"]
+            EVENT_API["Event Routes<br/>ingest · stream · query"]
+        end
+
+        subgraph Core["Core — crates/domain + crates/auth"]
+            DOMAIN["Domain Models<br/>Tenant · User · Run<br/>Connection · AuditLog<br/>PipedreamTrigger"]
+            AUTH["Auth Service<br/>JWT · bcrypt"]
+            API_TYPES["API Types<br/>Request / Response structs"]
+        end
+
+        subgraph Interfaces["Interfaces — crates/interfaces"]
+            TRAITS["Repository Traits<br/>Storage Traits<br/>Streaming Traits · Clock"]
+        end
+
+        subgraph Infra["Infrastructure — crates/infra"]
+            IN_MEM["In-Memory Stores<br/>DashMap — dev / test"]
+            PG_STORES["Postgres Stores<br/>SQLx — production"]
+            KAFKA_STREAM["Kafka Streaming<br/>feature-gated"]
+        end
+
+        subgraph Integrations
+            PD_CLIENT["Pipedream Client<br/>crates/pipedream-connect"]
+            STRIPE_INT["Stripe<br/>crates/integrations"]
+            ENCRYPTION["Encryption<br/>crates/integrations"]
+        end
+
+        subgraph EventSources["Event Sources"]
+            SRC_CORE["Sources Core<br/>Adapter Traits"]
+            SRC_REGISTRY["Sources Registry"]
+            SRC_MOCK["Mock Stripe Source"]
+            SRC_INTERCOM["Intercom Source"]
+        end
+    end
+
+    subgraph External["External Services"]
+        PIPEDREAM["Pipedream<br/>Event Sources"]
+        STRIPE["Stripe<br/>Payments"]
+    end
+
+    subgraph DataStores["Data Stores"]
+        POSTGRES[("PostgreSQL<br/>Multi-tenant")]
+        KAFKA[("Apache Kafka<br/>Event Streaming")]
+    end
+
+    BROWSER --> NEXTJS
+    NEXTJS --> NEXTAUTH
+    NEXTJS --> API_CLIENT
+    API_CLIENT -.->|imports| TS_TYPES
+    API_CLIENT -->|"HTTP + JWT"| SAAS_API
+    API_CLIENT -->|"HTTP + JWT"| EVENT_API
+
+    SAAS_API --> AUTH
+    EVENT_API --> AUTH
+    SAAS_API --> DOMAIN
+    EVENT_API --> DOMAIN
+    DOMAIN --> API_TYPES
+    API_TYPES -.->|"ts-rs generates"| TS_TYPES
+    DOMAIN --> TRAITS
+
+    TRAITS --> IN_MEM
+    TRAITS --> PG_STORES
+    TRAITS -.-> KAFKA_STREAM
+
+    PG_STORES --> POSTGRES
+    KAFKA_STREAM --> KAFKA
+
+    SAAS_API --> PD_CLIENT
+    SAAS_API --> STRIPE_INT
+    PD_CLIENT --> PIPEDREAM
+    STRIPE_INT --> STRIPE
+    PIPEDREAM -->|webhooks| SAAS_API
+    STRIPE -->|webhooks| SAAS_API
+
+    SRC_CORE --> SRC_REGISTRY
+    SRC_REGISTRY --> SRC_MOCK
+    SRC_REGISTRY --> SRC_INTERCOM
+
+    classDef frontend fill:#1a3a5c,stroke:#58a6ff,color:#e1e4e8
+    classDef backend fill:#1c2d1c,stroke:#3fb950,color:#e1e4e8
+    classDef external fill:#3b2a1a,stroke:#d29922,color:#e1e4e8
+    classDef datastore fill:#2a1a3b,stroke:#bc8cff,color:#e1e4e8
+    classDef shared fill:#1a2a3b,stroke:#79c0ff,color:#e1e4e8
+    classDef client fill:#2d2d2d,stroke:#8b949e,color:#e1e4e8
+
+    class BROWSER client
+    class NEXTJS,NEXTAUTH,API_CLIENT frontend
+    class TS_TYPES shared
+    class SAAS_API,EVENT_API,DOMAIN,AUTH,API_TYPES,TRAITS,IN_MEM,PG_STORES,KAFKA_STREAM,PD_CLIENT,STRIPE_INT,ENCRYPTION,SRC_CORE,SRC_REGISTRY,SRC_MOCK,SRC_INTERCOM backend
+    class PIPEDREAM,STRIPE external
+    class POSTGRES,KAFKA datastore
+    </pre>
+  </div>
+
+  <div class="legend">
+    <div class="legend-card">
+      <h3>Frontend</h3>
+      <p>Next.js 15 App Router with NextAuth v5 (JWT sessions). Typed API client (<code>PlatformApi</code>) with SWR hooks for data fetching. Calls backend directly over HTTP with Bearer tokens.</p>
+    </div>
+    <div class="legend-card">
+      <h3>Backend</h3>
+      <p>Rust / Axum HTTP server. SaaS routes handle auth, runs, connections, dashboard, settings, audit, pipedream, and webhooks. Event routes handle ingest, stream, and query.</p>
+    </div>
+    <div class="legend-card">
+      <h3>Type Safety</h3>
+      <p>Rust structs generate TypeScript types via <code>ts-rs</code>. Generated files live in <code>packages/shared/src/generated/</code>. Run <code>scripts/generate-types.sh</code> to regenerate.</p>
+    </div>
+    <div class="legend-card">
+      <h3>Infrastructure</h3>
+      <p><code>BACKEND_MODE=memory</code> uses DashMap (dev). <code>BACKEND_MODE=real</code> uses PostgreSQL via SQLx (production). Kafka streaming is feature-gated and optional.</p>
+    </div>
+    <div class="legend-card">
+      <h3>External Integrations</h3>
+      <p><strong>Pipedream</strong> provides event source triggers. <strong>Stripe</strong> handles payments and subscriptions. Both send webhooks back to the backend.</p>
+    </div>
+    <div class="legend-card">
+      <h3>Deployment</h3>
+      <p>Deployed to <strong>Render.com</strong> (Frankfurt) via Docker. Local dev uses <code>docker-compose.yml</code> for Postgres, Kafka, and services.</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#161b22',
+        primaryColor: '#1a3a5c',
+        primaryTextColor: '#e1e4e8',
+        primaryBorderColor: '#58a6ff',
+        lineColor: '#8b949e',
+        secondaryColor: '#1c2d1c',
+        tertiaryColor: '#2a1a3b',
+        fontFamily: '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
+        fontSize: '14px',
+      },
+      flowchart: {
+        htmlLabels: true,
+        curve: 'basis',
+        padding: 15,
+        nodeSpacing: 30,
+        rankSpacing: 50,
+      },
+    });
+  </script>
+</body>
+</html>

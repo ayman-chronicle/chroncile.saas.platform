@@ -2,7 +2,7 @@ use axum::{extract::State, http::StatusCode, Json};
 
 use chronicle_auth::{
     password::{hash_password, verify_password},
-    types::{AuthResponse, AuthUser, AuthUserResponse, LoginRequest, SignupRequest},
+    types::{AuthResponse, AuthUser, AuthUserResponse},
 };
 use chronicle_domain::{CreateTenantInput, CreateUserInput};
 
@@ -11,9 +11,18 @@ use crate::saas_state::SaasAppState;
 
 const MIN_PASSWORD_LENGTH: usize = 8;
 
+#[derive(serde::Deserialize)]
+pub struct SignupInput {
+    pub email: String,
+    pub password: String,
+    pub name: String,
+    #[serde(rename = "orgName")]
+    pub org_name: String,
+}
+
 pub async fn signup(
     State(state): State<SaasAppState>,
-    Json(input): Json<SignupRequest>,
+    Json(input): Json<SignupInput>,
 ) -> ApiResult<(StatusCode, Json<AuthResponse>)> {
     if input.name.trim().is_empty() {
         return Err(ApiError::bad_request("Name is required"));
@@ -74,9 +83,15 @@ pub async fn signup(
     })))
 }
 
+#[derive(serde::Deserialize)]
+pub struct LoginInput {
+    pub email: String,
+    pub password: String,
+}
+
 pub async fn login(
     State(state): State<SaasAppState>,
-    Json(input): Json<LoginRequest>,
+    Json(input): Json<LoginInput>,
 ) -> ApiResult<Json<AuthResponse>> {
     let user = state.users.find_by_email(&input.email).await?
         .ok_or_else(ApiError::unauthorized)?;
