@@ -1,0 +1,36 @@
+[package]
+name = "chronicle-server"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "chronicle-backend"
+path = "src/main.rs"
+
+[features]
+default = ["postgres"]
+kafka = ["chronicle-infra/kafka"]
+postgres = ["chronicle-infra/postgres"]
+full = ["kafka", "postgres"]
+
+[dependencies]
+chronicle-domain = { workspace = true }
+chronicle-interfaces = { workspace = true }
+chronicle-infra = { workspace = true }
+chronicle-mock-connector = { workspace = true }
+chronicle-source-mock-stripe = { workspace = true }
+chronicle-sources-core = { workspace = true }
+chronicle-api = { workspace = true }
+chronicle-auth = { workspace = true }
+pipedream-connect = { workspace = true }
+
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio"] }
+tokio = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+chrono = { workspace = true }
+
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dotenvy = { workspace = true }
+anyhow = { workspace = true }

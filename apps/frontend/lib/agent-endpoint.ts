@@ -1,7 +1,14 @@
 import { decrypt } from "@/lib/encryption";
-import type { AgentEndpointConfig as PrismaAgentEndpointConfig } from "@prisma/client";
 
-/** Config with decrypted secret, for building headers and invoking (server-side only). */
+export interface AgentEndpointConfigRow {
+  endpointUrl?: string | null;
+  authType: string;
+  authHeaderName?: string | null;
+  authSecretEncrypted?: string | null;
+  basicUsername?: string | null;
+  customHeadersJson?: unknown;
+}
+
 export interface AgentConfigResolved {
   endpointUrl: string;
   authType: string;
@@ -11,9 +18,8 @@ export interface AgentConfigResolved {
   customHeaders: Array<{ name: string; value: string }>;
 }
 
-/** Resolve DB config: decrypt secret and parse custom headers. Returns null if endpointUrl missing. */
 export function resolveAgentConfig(
-  row: PrismaAgentEndpointConfig | null
+  row: AgentEndpointConfigRow | null
 ): AgentConfigResolved | null {
   if (!row?.endpointUrl) return null;
 

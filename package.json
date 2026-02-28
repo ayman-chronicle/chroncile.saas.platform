@@ -1,7 +1,7 @@
 {
-  "name": "chronicle-ai-platform",
+  "name": "chronicle-platform",
   "version": "0.1.0",
-  "description": "Chronicle.ai Platform - MVP",
+  "description": "Chronicle Labs Platform",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,7 +18,12 @@
     "format:write": "prettier --write apps/** packages/**",
     "lint": "eslint .",
     "lint:fix": "eslint . --cache --cache-location=node_modules/.cache/.eslintcache --fix",
-    "lint:staged": "lint-staged --allow-empty"
+    "lint:staged": "lint-staged --allow-empty",
+    "test:rust": "cd backend && cargo test --workspace",
+    "test:rust-full": "cd backend && cargo test --workspace --features postgres-tests",
+    "test:contracts": "cd backend && cargo test --test contracts",
+    "test:e2e": "npx playwright test",
+    "test:all": "yarn test:rust && yarn test:contracts && yarn test:e2e"
   },
   "workspaces": [
     "apps/*",

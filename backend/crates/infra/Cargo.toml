@@ -1,0 +1,33 @@
+[package]
+name = "chronicle-infra"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["memory"]
+memory = []
+kafka = ["rdkafka"]
+postgres = ["sqlx"]
+full = ["memory", "kafka", "postgres"]
+
+[dependencies]
+chronicle-domain = { workspace = true }
+chronicle-interfaces = { workspace = true }
+
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+cuid2 = { workspace = true }
+serde = { workspace = true }
+
+# Optional heavy dependencies
+rdkafka = { version = "0.36", optional = true }
+sqlx = { version = "0.7", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json"], optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

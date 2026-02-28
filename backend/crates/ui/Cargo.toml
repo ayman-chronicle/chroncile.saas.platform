@@ -1,0 +1,91 @@
+[package]
+name = "chronicle-ui"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "chronicle-ui"
+path = "src/main.rs"
+
+[features]
+default = ["native"]
+native = ["eframe/default", "reqwest/default-tls", "chronicle-domain"]
+web = ["eframe/wgpu", "reqwest/rustls-tls"]
+
+[dependencies]
+# GUI - core egui (0.29+ fixes macOS objc2 panic)
+egui = "0.29"
+egui_extras = { version = "0.29", features = ["syntect"] }
+
+# eframe with configurable backends
+eframe = { version = "0.29", default-features = false, features = [
+    "accesskit",
+    "default_fonts",
+    "glow",
+    "persistence",
+] }
+
+# HTTP client
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+
+# Async - only sync primitives (mpsc channels)
+futures = { workspace = true }
+
+# Serialization (local types only - no internal crate deps)
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# URL encoding
+urlencoding = "2.1"
+
+# Shared timeline core (works on web and native)
+chronicle-timeline-core = { path = "../timeline-core" }
+
+# Domain types for recording (native only - pulls in native C deps via mcap)
+chronicle-domain = { path = "../domain", optional = true }
+
+# Native-only dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Full tokio runtime for native
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread"] }
+eventsource-client = "0.13"
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+# File dialogs
+rfd = "0.15"
+
+# Web-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# Minimal tokio for wasm (sync only, no runtime)
+tokio = { version = "1", default-features = false, features = ["sync"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "console",
+    "Window",
+    "Document",
+    "Element",
+    "HtmlElement",
+    "HtmlAnchorElement",
+    "EventSource",
+    "MessageEvent",
+    "ErrorEvent",
+    "Performance",
+    "Blob",
+    "BlobPropertyBag",
+    "Url",
+    "Location",
+] }
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
+tracing-wasm = "0.2"
+gloo-net = { version = "0.6", features = ["http", "eventsource"] }
+gloo-timers = "0.3"
+getrandom = { version = "0.3", features = ["wasm_js"] }

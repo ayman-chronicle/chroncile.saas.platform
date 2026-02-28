@@ -1,0 +1,17 @@
+[package]
+name = "chronicle-interfaces"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+kafka = []
+postgres = []
+
+[dependencies]
+chronicle-domain = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }

@@ -75,7 +75,7 @@ Resumen: **panel de control principal = página Lead gen**; **panel de revisión
 
 ## 3. Dónde vive en el stack
 
-Todo en **agent-warmup-saas** (Next.js):
+Todo en **chronicle-platform** (Next.js):
 
 - **API routes:** `app/api/lead-gen/clay-search/route.ts`, `app/api/lead-gen/create-runs/route.ts`, `app/api/mock-agent/outreach/route.ts`.
 - **Dataset mock:** Constante o JSON en el repo (p. ej. `lib/lead-gen-mock-data.ts` o `data/lead-gen-mock.json`) con 10–20 empresas ejemplo (nombre, dominio, industria, call_center_size, ai_agents_exploration).

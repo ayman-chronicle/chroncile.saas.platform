@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events Manager - egui/wgpu</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #080a12;
+        }
+
+        /* Loading screen */
+        #loading {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #080a12 0%, #0c0f19 50%, #121627 100%);
+            color: #f8fafc;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            z-index: 1000;
+            transition: opacity 0.5s ease;
+        }
+
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader-icon {
+            font-size: 48px;
+            margin-bottom: 24px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        .loader-title {
+            font-size: 24px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            color: #00d4ff;
+        }
+
+        .loader-status {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .loader-bar {
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loader-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #8a2be2);
+            width: 0%;
+            animation: loading 2s ease-in-out infinite;
+        }
+
+        @keyframes loading {
+            0% { width: 0%; margin-left: 0; }
+            50% { width: 60%; margin-left: 20%; }
+            100% { width: 0%; margin-left: 100%; }
+        }
+
+        /* Canvas */
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Error screen */
+        #error {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #080a12;
+            color: #f8fafc;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            padding: 40px;
+        }
+
+        #error.visible {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #error h1 {
+            color: #f87171;
+            margin-bottom: 16px;
+        }
+
+        #error pre {
+            background: rgba(255,255,255,0.05);
+            padding: 16px;
+            border-radius: 8px;
+            max-width: 600px;
+            overflow-x: auto;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading screen -->
+    <div id="loading">
+        <div class="loader-icon">◉</div>
+        <div class="loader-title">EVENTS MANAGER</div>
+        <div class="loader-status" id="status">Loading WebAssembly...</div>
+        <div class="loader-bar">
+            <div class="loader-progress"></div>
+        </div>
+    </div>
+
+    <!-- Error screen -->
+    <div id="error">
+        <h1>⚠ Failed to Load</h1>
+        <p>The WebAssembly module failed to load.</p>
+        <pre id="error-details"></pre>
+    </div>
+
+    <!-- egui canvas -->
+    <canvas id="canvas"></canvas>
+
+    <script type="module">
+        // Check WebAssembly support
+        if (typeof WebAssembly !== 'object') {
+            showError('WebAssembly is not supported in this browser.');
+            throw new Error('WebAssembly not supported');
+        }
+
+        const status = document.getElementById('status');
+        const loading = document.getElementById('loading');
+
+        function updateStatus(msg) {
+            status.textContent = msg;
+            console.log('[Events Manager]', msg);
+        }
+
+        function showError(msg) {
+            document.getElementById('error').classList.add('visible');
+            document.getElementById('error-details').textContent = msg;
+            loading.classList.add('hidden');
+        }
+
+        async function init() {
+            try {
+                updateStatus('Loading wasm module...');
+                
+                // Import the wasm-bindgen generated module
+                const wasm = await import('./pkg/events_manager_ui.js');
+                
+                updateStatus('Initializing WebAssembly...');
+                await wasm.default();
+                
+                updateStatus('Starting application...');
+                await wasm.start_app('canvas');
+                
+                // Hide loading screen
+                loading.classList.add('hidden');
+                
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                showError(error.message || error.toString());
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

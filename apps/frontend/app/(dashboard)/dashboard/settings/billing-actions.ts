@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/db";
+import { fetchFromBackend } from "@/lib/backend";
 import { getStripe, getStripePriceIdsByLookupKeys } from "@/lib/stripe-server";
 import { getPlanById } from "@/lib/plans";
 
@@ -29,13 +29,14 @@ export async function createCheckoutSession(planId: string): Promise<{ url?: str
     return { error: "Plan not found in Stripe. Run scripts/stripe-sync-plans.mjs first." };
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: { stripeCustomerId: true },
-  });
-  if (!tenant) return { error: "Tenant not found" };
+  let tenantData: { tenant: { stripe_customer_id: string | null } };
+  try {
+    tenantData = await fetchFromBackend("/api/platform/tenant");
+  } catch {
+    return { error: "Failed to load account data" };
+  }
 
-  let customerId = tenant.stripeCustomerId;
+  let customerId = tenantData.tenant.stripe_customer_id;
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: session.user.email ?? undefined,
@@ -43,10 +44,15 @@ export async function createCheckoutSession(planId: string): Promise<{ url?: str
       metadata: { tenantId: session.user.tenantId },
     });
     customerId = customer.id;
-    await prisma.tenant.update({
-      where: { id: session.user.tenantId },
-      data: { stripeCustomerId: customerId },
-    });
+
+    try {
+      await fetchFromBackend("/api/platform/tenant/stripe", {
+        method: "PUT",
+        body: JSON.stringify({ stripeCustomerId: customerId }),
+      });
+    } catch {
+      return { error: "Failed to save billing information" };
+    }
   }
 
   const checkoutSession = await stripe.checkout.sessions.create({
@@ -70,14 +76,17 @@ export async function createPortalSession(): Promise<{ url?: string; error?: str
   const stripe = getStripe();
   if (!stripe) return { error: "Billing is not configured" };
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: { stripeCustomerId: true },
-  });
-  if (!tenant?.stripeCustomerId) return { error: "No billing account found" };
+  let tenantData: { tenant: { stripe_customer_id: string | null } };
+  try {
+    tenantData = await fetchFromBackend("/api/platform/tenant");
+  } catch {
+    return { error: "Failed to load account data" };
+  }
+
+  if (!tenantData.tenant.stripe_customer_id) return { error: "No billing account found" };
 
   const portalSession = await stripe.billingPortal.sessions.create({
-    customer: tenant.stripeCustomerId,
+    customer: tenantData.tenant.stripe_customer_id,
     return_url: `${baseUrl}/dashboard/settings`,
   });
 

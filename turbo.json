@@ -24,6 +24,9 @@
     "db:studio": {
       "cache": false,
       "persistent": true
+    },
+    "generate-types": {
+      "cache": false
     }
   }
 }

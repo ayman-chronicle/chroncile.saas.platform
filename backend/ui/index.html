@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events Manager • Observatory</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Deep space palette */
+            --void: #04060b;
+            --space: #0a0f1a;
+            --nebula: #111827;
+            --dust: #1e293b;
+            --star: #e2e8f0;
+            --dim: #64748b;
+            
+            /* Accent - Electric Cyan */
+            --cyan: #00f0ff;
+            --cyan-glow: rgba(0, 240, 255, 0.15);
+            --cyan-pulse: rgba(0, 240, 255, 0.4);
+            
+            /* Accent - Warm Amber */
+            --amber: #ff9f1c;
+            --amber-glow: rgba(255, 159, 28, 0.15);
+            
+            /* Status colors */
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            
+            /* Typography */
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+            
+            /* Spacing */
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space-md: 1rem;
+            --space-lg: 1.5rem;
+            --space-xl: 2rem;
+            --space-2xl: 3rem;
+            
+            /* Transitions */
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--void);
+            color: var(--star);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .cosmos {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .cosmos::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 20% 80%, var(--cyan-glow) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, var(--amber-glow) 0%, transparent 50%),
+                linear-gradient(180deg, var(--void) 0%, var(--space) 100%);
+        }
+
+        .cosmos::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: 
+                radial-gradient(1px 1px at 20px 30px, var(--dim), transparent),
+                radial-gradient(1px 1px at 40px 70px, var(--dim), transparent),
+                radial-gradient(1px 1px at 50px 160px, var(--dim), transparent),
+                radial-gradient(1px 1px at 90px 40px, var(--dim), transparent),
+                radial-gradient(1px 1px at 130px 80px, var(--dim), transparent),
+                radial-gradient(1.5px 1.5px at 160px 120px, var(--star), transparent);
+            background-size: 200px 200px;
+            animation: drift 60s linear infinite;
+            opacity: 0.4;
+        }
+
+        @keyframes drift {
+            from { transform: translateY(0); }
+            to { transform: translateY(-200px); }
+        }
+
+        /* Grid overlay */
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: 
+                linear-gradient(var(--dust) 1px, transparent 1px),
+                linear-gradient(90deg, var(--dust) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.1;
+            mask-image: radial-gradient(ellipse at center, black 0%, transparent 70%);
+        }
+
+        /* Typography */
+        h1, h2, h3, h4 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        /* Header */
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: var(--space-md) var(--space-xl);
+            background: linear-gradient(180deg, var(--void) 0%, transparent 100%);
+            backdrop-filter: blur(20px);
+        }
+
+        .header-inner {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-lg);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--cyan) 0%, var(--amber) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            animation: pulse-glow 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px var(--cyan-glow); }
+            50% { box-shadow: 0 0 40px var(--cyan-pulse); }
+        }
+
+        .logo-text {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--star) 0%, var(--dim) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-tag {
+            font-size: 0.65rem;
+            color: var(--dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: var(--space-xs);
+            padding: var(--space-xs);
+            background: var(--nebula);
+            border-radius: 12px;
+            border: 1px solid var(--dust);
+        }
+
+        .nav-tab {
+            font-family: var(--font-display);
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: var(--space-sm) var(--space-lg);
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--dim);
+            cursor: pointer;
+            transition: all 0.3s var(--ease-out);
+            position: relative;
+        }
+
+        .nav-tab:hover {
+            color: var(--star);
+        }
+
+        .nav-tab.active {
+            background: var(--dust);
+            color: var(--cyan);
+            box-shadow: 0 0 20px var(--cyan-glow);
+        }
+
+        .nav-tab .badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            background: var(--amber);
+            border-radius: 9px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--void);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: badge-pop 0.3s var(--ease-spring);
+        }
+
+        @keyframes badge-pop {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        /* Status indicator */
+        .status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-sm) var(--space-md);
+            background: var(--nebula);
+            border-radius: 20px;
+            border: 1px solid var(--dust);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: blink 2s ease-in-out infinite;
+        }
+
+        .status-dot.disconnected {
+            background: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+            animation: none;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-size: 0.75rem;
+            color: var(--dim);
+        }
+
+        /* Main Content */
+        .main {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: var(--space-xl);
+        }
+
+        /* Panels */
+        .panel {
+            background: linear-gradient(180deg, var(--nebula) 0%, var(--space) 100%);
+            border: 1px solid var(--dust);
+            border-radius: 16px;
+            overflow: hidden;
+            animation: panel-rise 0.6s var(--ease-out) backwards;
+        }
+
+        @keyframes panel-rise {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+        }
+
+        .panel-header {
+            padding: var(--space-lg);
+            border-bottom: 1px solid var(--dust);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-md);
+        }
+
+        .panel-title {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--star);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .panel-title-icon {
+            color: var(--cyan);
+        }
+
+        .panel-body {
+            padding: var(--space-lg);
+        }
+
+        /* Tab Content Areas */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fade-in 0.4s var(--ease-out);
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; }
+        }
+
+        /* Stream View */
+        .stream-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: var(--space-xl);
+        }
+
+        @media (max-width: 1200px) {
+            .stream-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stream-controls {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            flex-wrap: wrap;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: var(--space-sm) var(--space-md);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            transition: all 0.2s var(--ease-out);
+        }
+
+        .btn-primary {
+            background: var(--cyan);
+            color: var(--void);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 30px var(--cyan-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--dust);
+            color: var(--star);
+            border: 1px solid var(--dim);
+        }
+
+        .btn-secondary:hover {
+            background: var(--nebula);
+            border-color: var(--cyan);
+        }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: var(--danger);
+            color: var(--star);
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--dim);
+        }
+
+        .btn-ghost:hover {
+            color: var(--star);
+        }
+
+        /* Event Cards */
+        .event-list {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            max-height: 65vh;
+            overflow-y: auto;
+            padding-right: var(--space-sm);
+        }
+
+        .event-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .event-list::-webkit-scrollbar-track {
+            background: var(--nebula);
+            border-radius: 3px;
+        }
+
+        .event-list::-webkit-scrollbar-thumb {
+            background: var(--dust);
+            border-radius: 3px;
+        }
+
+        .event-list::-webkit-scrollbar-thumb:hover {
+            background: var(--dim);
+        }
+
+        .event-card {
+            padding: var(--space-md);
+            background: var(--space);
+            border: 1px solid var(--dust);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s var(--ease-out);
+            animation: event-slide 0.4s var(--ease-out) backwards;
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes event-slide {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+        }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--cyan);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .event-card:hover {
+            border-color: var(--cyan);
+            background: var(--nebula);
+        }
+
+        .event-card:hover::before {
+            opacity: 1;
+        }
+
+        .event-card.selected {
+            border-color: var(--cyan);
+            box-shadow: 0 0 30px var(--cyan-glow);
+        }
+
+        .event-card.selected::before {
+            opacity: 1;
+        }
+
+        .event-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .event-time {
+            font-size: 0.7rem;
+            color: var(--dim);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .event-type-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .event-type-badge.customer {
+            background: var(--success);
+            color: var(--void);
+        }
+
+        .event-type-badge.agent {
+            background: var(--info);
+            color: var(--star);
+        }
+
+        .event-type-badge.system {
+            background: var(--dim);
+            color: var(--star);
+        }
+
+        .event-type-badge.ai {
+            background: linear-gradient(135deg, var(--cyan), var(--amber));
+            color: var(--void);
+        }
+
+        .event-type-badge.escalation {
+            background: var(--danger);
+            color: var(--star);
+        }
+
+        .event-type-badge.note {
+            background: var(--warning);
+            color: var(--void);
+        }
+
+        .event-actor {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--star);
+        }
+
+        .event-preview {
+            font-size: 0.8rem;
+            color: var(--dim);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .event-conversation {
+            margin-top: var(--space-sm);
+            font-size: 0.7rem;
+            color: var(--cyan);
+            opacity: 0.7;
+        }
+
+        /* Details Panel */
+        .details-panel {
+            position: sticky;
+            top: 100px;
+        }
+
+        .details-empty {
+            text-align: center;
+            padding: var(--space-2xl);
+            color: var(--dim);
+        }
+
+        .details-empty-icon {
+            font-size: 3rem;
+            margin-bottom: var(--space-md);
+            opacity: 0.3;
+        }
+
+        .details-content {
+            animation: fade-in 0.3s var(--ease-out);
+        }
+
+        .details-row {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--space-sm) 0;
+            border-bottom: 1px solid var(--dust);
+            font-size: 0.8rem;
+        }
+
+        .details-row:last-child {
+            border-bottom: none;
+        }
+
+        .details-label {
+            color: var(--dim);
+        }
+
+        .details-value {
+            color: var(--star);
+            font-weight: 500;
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .details-payload {
+            margin-top: var(--space-lg);
+        }
+
+        .details-payload-title {
+            font-size: 0.75rem;
+            color: var(--dim);
+            margin-bottom: var(--space-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .details-payload-content {
+            background: var(--void);
+            border: 1px solid var(--dust);
+            border-radius: 8px;
+            padding: var(--space-md);
+            font-size: 0.75rem;
+            line-height: 1.6;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Timeline View */
+        .timeline-search {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-xl);
+        }
+
+        .input {
+            flex: 1;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            padding: var(--space-md) var(--space-lg);
+            background: var(--nebula);
+            border: 1px solid var(--dust);
+            border-radius: 10px;
+            color: var(--star);
+            transition: all 0.2s var(--ease-out);
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: var(--cyan);
+            box-shadow: 0 0 20px var(--cyan-glow);
+        }
+
+        .input::placeholder {
+            color: var(--dim);
+        }
+
+        .quick-conversations {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+        }
+
+        .quick-conv-btn {
+            font-size: 0.7rem;
+            padding: var(--space-xs) var(--space-sm);
+            background: var(--dust);
+            border: 1px solid transparent;
+            border-radius: 6px;
+            color: var(--dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .quick-conv-btn:hover {
+            border-color: var(--cyan);
+            color: var(--cyan);
+        }
+
+        .timeline-container {
+            position: relative;
+            padding-left: var(--space-xl);
+        }
+
+        .timeline-line {
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--cyan) 0%, var(--amber) 100%);
+            opacity: 0.3;
+        }
+
+        .timeline-event {
+            position: relative;
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            background: var(--space);
+            border: 1px solid var(--dust);
+            border-radius: 12px;
+            transition: all 0.2s var(--ease-out);
+            animation: timeline-appear 0.5s var(--ease-out) backwards;
+        }
+
+        @keyframes timeline-appear {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+        }
+
+        .timeline-event::before {
+            content: '';
+            position: absolute;
+            left: calc(-1 * var(--space-xl) + 4px);
+            top: 50%;
+            transform: translateY(-50%);
+            width: 10px;
+            height: 10px;
+            background: var(--cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--cyan);
+        }
+
+        .timeline-event:hover {
+            border-color: var(--cyan);
+            transform: translateX(5px);
+        }
+
+        /* Connections View */
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-xl);
+        }
+
+        .connection-card {
+            padding: var(--space-lg);
+            background: linear-gradient(135deg, var(--nebula) 0%, var(--space) 100%);
+            border: 1px solid var(--dust);
+            border-radius: 16px;
+            transition: all 0.3s var(--ease-out);
+        }
+
+        .connection-card:hover {
+            border-color: var(--cyan);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .connection-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            margin-bottom: var(--space-md);
+        }
+
+        .connection-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--dust);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .connection-info {
+            flex: 1;
+        }
+
+        .connection-name {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--star);
+        }
+
+        .connection-service {
+            font-size: 0.75rem;
+            color: var(--dim);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+            font-size: 0.75rem;
+            color: var(--success);
+        }
+
+        .connection-status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+        }
+
+        .connection-actions {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+            padding-top: var(--space-md);
+            border-top: 1px solid var(--dust);
+        }
+
+        .connection-actions .btn {
+            flex: 1;
+        }
+
+        /* Scenarios */
+        .scenarios-section {
+            margin-top: var(--space-xl);
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .section-title-icon {
+            color: var(--amber);
+        }
+
+        .scenario-card {
+            padding: var(--space-lg);
+            background: var(--space);
+            border: 1px solid var(--dust);
+            border-radius: 12px;
+            margin-bottom: var(--space-md);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-lg);
+            transition: all 0.2s var(--ease-out);
+        }
+
+        .scenario-card:hover {
+            border-color: var(--amber);
+            background: var(--nebula);
+        }
+
+        .scenario-info h4 {
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--star);
+            margin-bottom: var(--space-xs);
+        }
+
+        .scenario-info p {
+            font-size: 0.8rem;
+            color: var(--dim);
+        }
+
+        .scenario-meta {
+            font-size: 0.7rem;
+            color: var(--amber);
+            margin-top: var(--space-xs);
+        }
+
+        /* New Connection Form */
+        .new-connection-form {
+            padding: var(--space-lg);
+            background: var(--nebula);
+            border: 1px dashed var(--dust);
+            border-radius: 16px;
+            margin-bottom: var(--space-lg);
+        }
+
+        .form-row {
+            display: flex;
+            gap: var(--space-md);
+            margin-bottom: var(--space-md);
+        }
+
+        .form-group {
+            flex: 1;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--dim);
+            margin-bottom: var(--space-xs);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .select {
+            width: 100%;
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            padding: var(--space-md);
+            background: var(--space);
+            border: 1px solid var(--dust);
+            border-radius: 8px;
+            color: var(--star);
+            cursor: pointer;
+        }
+
+        .select:focus {
+            outline: none;
+            border-color: var(--cyan);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: var(--space-2xl) var(--space-xl);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: var(--space-lg);
+            opacity: 0.2;
+        }
+
+        .empty-title {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--star);
+            margin-bottom: var(--space-sm);
+        }
+
+        .empty-desc {
+            color: var(--dim);
+            font-size: 0.875rem;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Live indicator */
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            padding: var(--space-xs) var(--space-sm);
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid var(--danger);
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--danger);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .live-indicator::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--danger);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+        }
+
+        /* Toast notifications */
+        .toasts {
+            position: fixed;
+            bottom: var(--space-xl);
+            right: var(--space-xl);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+        }
+
+        .toast {
+            padding: var(--space-md) var(--space-lg);
+            background: var(--nebula);
+            border: 1px solid var(--dust);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            animation: toast-in 0.4s var(--ease-spring);
+        }
+
+        @keyframes toast-in {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+        }
+
+        .toast.success { border-left: 3px solid var(--success); }
+        .toast.error { border-left: 3px solid var(--danger); }
+        .toast.info { border-left: 3px solid var(--info); }
+
+        /* Loading spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--dust);
+            border-top-color: var(--cyan);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-inner {
+                flex-wrap: wrap;
+            }
+
+            .nav-tabs {
+                order: 3;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .main {
+                padding: var(--space-md);
+            }
+
+            .stream-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .details-panel {
+                position: relative;
+                top: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="cosmos"></div>
+    <div class="grid-overlay"></div>
+
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <div class="logo-icon">⚡</div>
+                <div>
+                    <div class="logo-text">Events Manager</div>
+                    <div class="logo-tag">Observatory</div>
+                </div>
+            </div>
+
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="stream">
+                    📡 Live Stream
+                    <span class="badge" id="event-count" style="display: none;">0</span>
+                </button>
+                <button class="nav-tab" data-tab="timeline">📋 Timeline</button>
+                <button class="nav-tab" data-tab="connections">🔗 Connections</button>
+            </nav>
+
+            <div class="status">
+                <div class="status-dot" id="status-dot"></div>
+                <span class="status-text" id="status-text">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="main">
+        <!-- Live Stream Tab -->
+        <div class="tab-content active" id="tab-stream">
+            <div class="stream-layout">
+                <div class="panel" style="animation-delay: 0.1s;">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="panel-title-icon">◉</span>
+                            Event Stream
+                            <span class="live-indicator">Live</span>
+                        </div>
+                        <div class="stream-controls">
+                            <button class="btn btn-secondary" id="btn-pause">
+                                ⏸ Pause
+                            </button>
+                            <button class="btn btn-ghost" id="btn-clear">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="event-list" id="event-list">
+                            <div class="empty-state">
+                                <div class="empty-icon">📡</div>
+                                <div class="empty-title">Waiting for events...</div>
+                                <div class="empty-desc">
+                                    Events will appear here in real-time. 
+                                    Create a connection or load a scenario to get started.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel details-panel" style="animation-delay: 0.2s;">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="panel-title-icon">◎</span>
+                            Event Details
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <div class="details-empty" id="details-empty">
+                            <div class="details-empty-icon">🔍</div>
+                            <p>Select an event to view details</p>
+                        </div>
+                        <div class="details-content" id="details-content" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline Tab -->
+        <div class="tab-content" id="tab-timeline">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span class="panel-title-icon">◉</span>
+                        Conversation Timeline
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="timeline-search">
+                        <input type="text" class="input" id="timeline-input" 
+                               placeholder="Enter conversation ID (e.g., conv_refund_001)">
+                        <button class="btn btn-primary" id="btn-load-timeline">Load Timeline</button>
+                    </div>
+                    
+                    <div class="quick-conversations" id="quick-conversations">
+                        <!-- Quick conversation buttons will be added here -->
+                    </div>
+
+                    <div id="timeline-container">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <div class="empty-title">No timeline loaded</div>
+                            <div class="empty-desc">
+                                Enter a conversation ID above or click one of the quick access buttons
+                                to view its timeline.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Connections Tab -->
+        <div class="tab-content" id="tab-connections">
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span class="panel-title-icon">◉</span>
+                        Connections
+                    </div>
+                    <button class="btn btn-secondary" id="btn-refresh-connections">
+                        ↻ Refresh
+                    </button>
+                </div>
+                <div class="panel-body">
+                    <div class="new-connection-form">
+                        <h4 style="margin-bottom: var(--space-md); font-family: var(--font-display);">
+                            + New Connection
+                        </h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Service</label>
+                                <select class="select" id="new-service">
+                                    <option value="mock-zendesk">Mock Zendesk</option>
+                                    <option value="mock-slack">Mock Slack</option>
+                                    <option value="mock-intercom">Mock Intercom</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="input" id="new-name" 
+                                       placeholder="My Connection">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="btn-create-connection">
+                            Create Connection
+                        </button>
+                    </div>
+
+                    <div class="connections-grid" id="connections-grid">
+                        <!-- Connection cards will be added here -->
+                    </div>
+
+                    <div class="scenarios-section">
+                        <h3 class="section-title">
+                            <span class="section-title-icon">🎬</span>
+                            Scenarios
+                        </h3>
+                        <p style="color: var(--dim); margin-bottom: var(--space-lg); font-size: 0.875rem;">
+                            Load pre-built conversation scenarios to see Events Manager in action.
+                        </p>
+                        <div id="scenarios-list">
+                            <div class="spinner" style="margin: var(--space-xl) auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="toasts" id="toasts"></div>
+
+    <script>
+        // Configuration
+        const API_URL = 'http://127.0.0.1:3000';
+        
+        // State
+        let events = [];
+        let selectedEventIndex = null;
+        let isPaused = false;
+        let eventSource = null;
+        let connections = [];
+        let scenarios = [];
+        let conversationIds = new Set();
+
+        // DOM Elements
+        const eventList = document.getElementById('event-list');
+        const eventCountBadge = document.getElementById('event-count');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const detailsEmpty = document.getElementById('details-empty');
+        const detailsContent = document.getElementById('details-content');
+        const toasts = document.getElementById('toasts');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTabs();
+            setupEventListeners();
+            connectSSE();
+            loadConnections();
+            loadScenarios();
+        });
+
+        // Tab Navigation
+        function setupTabs() {
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabId = tab.dataset.tab;
+                    
+                    // Update tab buttons
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Update content
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`tab-${tabId}`).classList.add('active');
+                });
+            });
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            // Stream controls
+            document.getElementById('btn-pause').addEventListener('click', togglePause);
+            document.getElementById('btn-clear').addEventListener('click', clearEvents);
+            
+            // Timeline
+            document.getElementById('btn-load-timeline').addEventListener('click', loadTimeline);
+            document.getElementById('timeline-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadTimeline();
+            });
+            
+            // Connections
+            document.getElementById('btn-create-connection').addEventListener('click', createConnection);
+            document.getElementById('btn-refresh-connections').addEventListener('click', loadConnections);
+        }
+
+        // SSE Connection
+        function connectSSE() {
+            statusText.textContent = 'Connecting...';
+            statusDot.classList.add('disconnected');
+            
+            eventSource = new EventSource(`${API_URL}/api/stream`);
+            
+            eventSource.onopen = () => {
+                statusText.textContent = 'Connected';
+                statusDot.classList.remove('disconnected');
+                showToast('Connected to event stream', 'success');
+            };
+            
+            eventSource.addEventListener('event', (e) => {
+                if (isPaused) return;
+                
+                try {
+                    const event = JSON.parse(e.data);
+                    addEvent(event);
+                } catch (err) {
+                    console.error('Failed to parse event:', err);
+                }
+            });
+            
+            eventSource.onerror = () => {
+                statusText.textContent = 'Disconnected';
+                statusDot.classList.add('disconnected');
+            };
+        }
+
+        // Event Management
+        function addEvent(event) {
+            events.unshift(event);
+            conversationIds.add(event.conversation_id);
+            
+            // Update badge
+            eventCountBadge.style.display = 'inline-flex';
+            eventCountBadge.textContent = events.length > 99 ? '99+' : events.length;
+            
+            // Update quick conversations
+            updateQuickConversations();
+            
+            // Render
+            renderEvents();
+        }
+
+        function clearEvents() {
+            events = [];
+            selectedEventIndex = null;
+            eventCountBadge.style.display = 'none';
+            renderEvents();
+            showDetails(null);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            btn.innerHTML = isPaused ? '▶ Resume' : '⏸ Pause';
+            btn.classList.toggle('btn-primary', isPaused);
+            btn.classList.toggle('btn-secondary', !isPaused);
+        }
+
+        function renderEvents() {
+            if (events.length === 0) {
+                eventList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📡</div>
+                        <div class="empty-title">Waiting for events...</div>
+                        <div class="empty-desc">
+                            Events will appear here in real-time. 
+                            Create a connection or load a scenario to get started.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            eventList.innerHTML = events.slice(0, 100).map((event, idx) => `
+                <div class="event-card ${selectedEventIndex === idx ? 'selected' : ''}" 
+                     onclick="selectEvent(${idx})"
+                     style="animation-delay: ${Math.min(idx * 0.03, 0.5)}s;">
+                    <div class="event-header">
+                        <span class="event-time">${formatTime(event.occurred_at)}</span>
+                        <span class="event-type-badge ${getEventTypeClass(event)}">${getEventTypeLabel(event)}</span>
+                        <span class="event-actor">${event.actor_name || event.actor_id}</span>
+                    </div>
+                    ${event.payload?.text ? `<div class="event-preview">${escapeHtml(event.payload.text)}</div>` : ''}
+                    <div class="event-conversation">${event.conversation_id}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectEvent(idx) {
+            selectedEventIndex = idx;
+            renderEvents();
+            showDetails(events[idx]);
+        }
+
+        function showDetails(event) {
+            if (!event) {
+                detailsEmpty.style.display = 'block';
+                detailsContent.style.display = 'none';
+                return;
+            }
+
+            detailsEmpty.style.display = 'none';
+            detailsContent.style.display = 'block';
+            
+            detailsContent.innerHTML = `
+                <div class="details-row">
+                    <span class="details-label">Event ID</span>
+                    <span class="details-value">${event.event_id.slice(0, 16)}...</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Type</span>
+                    <span class="details-value">${event.event_type}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Source</span>
+                    <span class="details-value">${event.source}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Conversation</span>
+                    <span class="details-value">${event.conversation_id}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Actor</span>
+                    <span class="details-value">${event.actor_name || event.actor_id} (${event.actor_type})</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Occurred</span>
+                    <span class="details-value">${formatDateTime(event.occurred_at)}</span>
+                </div>
+                <div class="details-row">
+                    <span class="details-label">Contains PII</span>
+                    <span class="details-value">${event.contains_pii ? 'Yes' : 'No'}</span>
+                </div>
+                <div class="details-payload">
+                    <div class="details-payload-title">Payload</div>
+                    <pre class="details-payload-content">${JSON.stringify(event.payload, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        // Timeline
+        async function loadTimeline() {
+            const input = document.getElementById('timeline-input');
+            const conversationId = input.value.trim();
+            
+            if (!conversationId) {
+                showToast('Please enter a conversation ID', 'error');
+                return;
+            }
+
+            const container = document.getElementById('timeline-container');
+            container.innerHTML = '<div class="spinner" style="margin: var(--space-xl) auto;"></div>';
+
+            try {
+                const res = await fetch(`${API_URL}/api/conversations/${conversationId}/timeline`);
+                const data = await res.json();
+                
+                if (data.events.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">🔍</div>
+                            <div class="empty-title">No events found</div>
+                            <div class="empty-desc">
+                                No events found for conversation "${conversationId}"
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="timeline-container">
+                        <div class="timeline-line"></div>
+                        ${data.events.map((event, idx) => `
+                            <div class="timeline-event" style="animation-delay: ${idx * 0.1}s;">
+                                <div class="event-header">
+                                    <span class="event-time">${formatTime(event.occurred_at)}</span>
+                                    <span class="event-type-badge ${getEventTypeClass(event)}">${getEventTypeLabel(event)}</span>
+                                    <span class="event-actor">${event.actor_name || event.actor_id}</span>
+                                </div>
+                                ${event.payload?.text ? `<div class="event-preview" style="-webkit-line-clamp: 4;">${escapeHtml(event.payload.text)}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                showToast(`Loaded ${data.events.length} events`, 'success');
+            } catch (err) {
+                showToast('Failed to load timeline', 'error');
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <div class="empty-title">Error loading timeline</div>
+                        <div class="empty-desc">${err.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateQuickConversations() {
+            const container = document.getElementById('quick-conversations');
+            const ids = Array.from(conversationIds).slice(0, 8);
+            
+            if (ids.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = `
+                <span style="font-size: 0.75rem; color: var(--dim);">Quick access:</span>
+                ${ids.map(id => `
+                    <button class="quick-conv-btn" onclick="quickLoadTimeline('${id}')">${id}</button>
+                `).join('')}
+            `;
+        }
+
+        function quickLoadTimeline(id) {
+            document.getElementById('timeline-input').value = id;
+            loadTimeline();
+        }
+
+        // Connections
+        async function loadConnections() {
+            try {
+                const res = await fetch(`${API_URL}/api/connections`);
+                const data = await res.json();
+                connections = data.connections || [];
+                renderConnections();
+            } catch (err) {
+                showToast('Failed to load connections', 'error');
+            }
+        }
+
+        function renderConnections() {
+            const grid = document.getElementById('connections-grid');
+            
+            if (connections.length === 0) {
+                grid.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; padding: var(--space-xl); color: var(--dim);">
+                        No connections yet. Create one above to get started.
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = connections.map(conn => `
+                <div class="connection-card">
+                    <div class="connection-header">
+                        <div class="connection-icon">${getServiceIcon(conn.service)}</div>
+                        <div class="connection-info">
+                            <div class="connection-name">${conn.name}</div>
+                            <div class="connection-service">${conn.service}</div>
+                        </div>
+                        <div class="connection-status">
+                            <div class="connection-status-dot"></div>
+                            Active
+                        </div>
+                    </div>
+                    <div class="connection-actions">
+                        <button class="btn btn-primary" onclick="generateEvents('${conn.connection_id}')">
+                            Generate Events
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteConnection('${conn.connection_id}')">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createConnection() {
+            const service = document.getElementById('new-service').value;
+            const name = document.getElementById('new-name').value || `My ${service}`;
+
+            try {
+                await fetch(`${API_URL}/api/connections`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ service, name })
+                });
+                
+                document.getElementById('new-name').value = '';
+                loadConnections();
+                showToast('Connection created!', 'success');
+            } catch (err) {
+                showToast('Failed to create connection', 'error');
+            }
+        }
+
+        async function deleteConnection(id) {
+            try {
+                await fetch(`${API_URL}/api/connections/${id}`, { method: 'DELETE' });
+                loadConnections();
+                showToast('Connection deleted', 'info');
+            } catch (err) {
+                showToast('Failed to delete connection', 'error');
+            }
+        }
+
+        async function generateEvents(id) {
+            try {
+                const res = await fetch(`${API_URL}/api/connections/${id}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ count: 15 })
+                });
+                const data = await res.json();
+                showToast(data.message, 'success');
+                
+                // Switch to stream tab
+                document.querySelector('[data-tab="stream"]').click();
+            } catch (err) {
+                showToast('Failed to generate events', 'error');
+            }
+        }
+
+        // Scenarios
+        async function loadScenarios() {
+            try {
+                const res = await fetch(`${API_URL}/api/scenarios`);
+                const data = await res.json();
+                scenarios = data.scenarios || [];
+                renderScenarios();
+            } catch (err) {
+                console.error('Failed to load scenarios:', err);
+            }
+        }
+
+        function renderScenarios() {
+            const container = document.getElementById('scenarios-list');
+            
+            if (scenarios.length === 0) {
+                container.innerHTML = '<p style="color: var(--dim);">No scenarios available</p>';
+                return;
+            }
+
+            container.innerHTML = scenarios.map(s => `
+                <div class="scenario-card">
+                    <div class="scenario-info">
+                        <h4>${s.name}</h4>
+                        <p>${s.description}</p>
+                        <div class="scenario-meta">${s.event_count} events</div>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadScenario('${s.name.toLowerCase().replace(/ /g, '_')}')">
+                        Load Scenario
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        async function loadScenario(name) {
+            try {
+                const res = await fetch(`${API_URL}/api/scenarios/${name}/load`, { method: 'POST' });
+                const data = await res.json();
+                showToast(data.message, 'success');
+                
+                // Switch to stream tab
+                document.querySelector('[data-tab="stream"]').click();
+            } catch (err) {
+                showToast('Failed to load scenario', 'error');
+            }
+        }
+
+        // Utilities
+        function formatTime(isoString) {
+            return new Date(isoString).toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false 
+            });
+        }
+
+        function formatDateTime(isoString) {
+            return new Date(isoString).toLocaleString('en-US', { 
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false 
+            });
+        }
+
+        function getEventTypeClass(event) {
+            if (event.event_type.includes('customer')) return 'customer';
+            if (event.event_type.includes('agent') && !event.event_type.includes('note')) return 'agent';
+            if (event.event_type.includes('note') || event.event_type.includes('internal')) return 'note';
+            if (event.event_type.includes('llm') || event.event_type.includes('suggestion')) return 'ai';
+            if (event.event_type.includes('escalation')) return 'escalation';
+            return 'system';
+        }
+
+        function getEventTypeLabel(event) {
+            if (event.event_type.includes('message.customer')) return 'Customer';
+            if (event.event_type.includes('message.agent')) return 'Agent';
+            if (event.event_type.includes('note')) return 'Note';
+            if (event.event_type.includes('status')) return 'Status';
+            if (event.event_type.includes('tag')) return 'Tag';
+            if (event.event_type.includes('escalation')) return 'Escalation';
+            if (event.event_type.includes('llm') || event.event_type.includes('suggestion')) return 'AI';
+            if (event.event_type.includes('assignee')) return 'Assigned';
+            return 'Event';
+        }
+
+        function getServiceIcon(service) {
+            if (service.includes('zendesk')) return '🎫';
+            if (service.includes('slack')) return '💬';
+            if (service.includes('intercom')) return '🗨️';
+            return '🔌';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            toasts.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

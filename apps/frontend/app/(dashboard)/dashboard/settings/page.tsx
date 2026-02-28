@@ -3,9 +3,15 @@ import { redirect } from "next/navigation";
 import { CopyButton } from "@/components/ui/copy-button";
 import { AgentEndpointPanel } from "@/components/settings/AgentEndpointPanel";
 import { PlanBillingPanel } from "@/components/settings/PlanBillingPanel";
-import prisma from "@/lib/db";
+import { fetchFromBackend } from "@/lib/backend";
 import { getPlans, getPlansForTenant, getRecommendedPlanId } from "@/lib/plans";
 import { getStripePriceIdsByLookupKeys } from "@/lib/stripe-server";
+
+interface TenantData {
+  stripe_customer_id: string | null;
+  stripe_price_id: string | null;
+  slug: string;
+}
 
 export default async function SettingsPage({
   searchParams,
@@ -16,12 +22,16 @@ export default async function SettingsPage({
   if (!session?.user?.tenantId) redirect("/login");
 
   const params = await searchParams;
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: { stripeCustomerId: true, stripePriceId: true, slug: true },
-  });
 
-  const plans = getPlansForTenant(tenant?.slug ?? null);
+  let tenant: TenantData | null = null;
+  try {
+    const data = await fetchFromBackend<{ tenant: TenantData }>("/api/platform/tenant");
+    tenant = data.tenant;
+  } catch {
+    // Backend unavailable
+  }
+
+  const plans = getPlansForTenant(tenant?.slug ?? session.user.tenantSlug);
   const allPlans = getPlans();
   const priceIdsByLookupKey = await getStripePriceIdsByLookupKeys();
   const priceIdToPlanId: Record<string, string> = {};
@@ -29,7 +39,7 @@ export default async function SettingsPage({
     const priceId = priceIdsByLookupKey[plan.lookupKey];
     if (priceId) priceIdToPlanId[priceId] = plan.id;
   }
-  const currentPlanId = tenant?.stripePriceId ? priceIdToPlanId[tenant.stripePriceId] ?? null : null;
+  const currentPlanId = tenant?.stripe_price_id ? priceIdToPlanId[tenant.stripe_price_id] ?? null : null;
 
   return (
     <div className="space-y-6">
@@ -131,9 +141,9 @@ export default async function SettingsPage({
       <PlanBillingPanel
         plans={plans}
         currentPlanId={currentPlanId}
-        hasCustomer={!!tenant?.stripeCustomerId}
+        hasCustomer={!!tenant?.stripe_customer_id}
         successMessage={params.success === "billing"}
-        recommendedPlanId={getRecommendedPlanId(tenant?.slug ?? null)}
+        recommendedPlanId={getRecommendedPlanId(tenant?.slug ?? session.user.tenantSlug)}
       />
 
       {/* API Configuration */}

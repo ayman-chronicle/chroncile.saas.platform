@@ -1,0 +1,29 @@
+[package]
+name = "chronicle-sources-registry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Source registration and discovery"
+
+[dependencies]
+# Internal
+chronicle-sources-core = { workspace = true }
+chronicle-domain = { workspace = true }
+
+# Compile-time registration
+inventory = "0.3"
+
+# Concurrency
+parking_lot = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Errors
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+

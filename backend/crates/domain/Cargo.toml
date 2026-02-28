@@ -1,0 +1,17 @@
+[package]
+name = "chronicle-domain"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+ulid = { workspace = true }
+thiserror = { workspace = true }
+ts-rs = { workspace = true }
+mcap = "0.9"
+
+[dev-dependencies]
+proptest = { workspace = true }
+rand = { workspace = true }

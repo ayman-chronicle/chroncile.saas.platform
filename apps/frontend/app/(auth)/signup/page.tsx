@@ -43,10 +43,16 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+      const response = await fetch(`${backendUrl}/api/platform/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          orgName: formData.organizationName,
+        }),
       });
 
       const data = await response.json();

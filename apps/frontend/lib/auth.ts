@@ -1,9 +1,10 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
 import { z } from "zod";
-import prisma from "./db";
 import { authConfig } from "./auth.config";
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -25,30 +26,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const { email, password } = parsed.data;
 
-        const user = await prisma.user.findUnique({
-          where: { email },
-          include: { tenant: true },
+        const res = await fetch(`${BACKEND_URL}/api/platform/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
         });
 
-        if (!user) return null;
+        if (!res.ok) return null;
 
-        const isValidPassword = await compare(password, user.password);
-        if (!isValidPassword) return null;
+        const data = await res.json();
+        const user = data.user;
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           tenantId: user.tenantId,
-          tenantName: user.tenant.name,
-          tenantSlug: user.tenant.slug,
+          tenantName: user.tenantName,
+          tenantSlug: user.tenantSlug,
         };
       },
     }),
   ],
 });
 
-// Extended types for NextAuth
 declare module "next-auth" {
   interface User {
     tenantId: string;

@@ -1,0 +1,50 @@
+[package]
+name = "chronicle-sources-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Core abstractions for event source integrations"
+
+[dependencies]
+# Internal
+chronicle-domain = { workspace = true }
+
+# Async
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = "0.8"
+
+# JSONPath for field extraction
+jsonpath-rust = "0.5"
+
+# Time
+chrono = { workspace = true }
+
+# Errors
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Semver for adapter versioning
+semver = { version = "1.0", features = ["serde"] }
+
+# HTTP types for webhook handling
+axum = { workspace = true }
+http = "1.0"
+bytes = "1.5"
+
+# Cryptography (for signature verification)
+hmac = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
+

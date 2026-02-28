@@ -1,0 +1,41 @@
+# Rust build
+/target/
+**/*.rs.bk
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.cursor/
+
+# Environment
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+
+# Native build artifacts
+*.so
+*.dylib
+*.dll
+
+# WASM build outputs
+crates/ui/web/pkg/
+crates/timeline-widget/js/pkg/
+
+# JS/Node build outputs
+crates/timeline-widget/js/dist/
+crates/timeline-widget/js/node_modules/
+package-lock.json
+
+# Rerun (vendored reference code)
+/rerun/

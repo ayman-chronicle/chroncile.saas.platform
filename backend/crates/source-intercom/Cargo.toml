@@ -1,0 +1,45 @@
+[package]
+name = "chronicle-source-intercom"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Intercom source integration for events manager"
+
+[dependencies]
+# Internal
+chronicle-domain = { workspace = true }
+chronicle-sources-core = { workspace = true }
+chronicle-sources-registry = { workspace = true }
+
+# Async
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Web/HTTP
+axum = { workspace = true }
+http = "1.0"
+bytes = "1.5"
+
+# Cryptography
+hmac = { workspace = true }
+sha1 = { workspace = true }
+hex = { workspace = true }
+
+# Errors
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Registration
+inventory = "0.3"
+semver = { version = "1.0", features = ["serde"] }
+

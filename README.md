@@ -1,15 +1,16 @@
-# Chronicle.ai Platform
+# Chronicle Labs Platform
 
-Agent Warmup Platform MVP - A platform to turn AI agents into production-ready systems.
+A platform to turn AI agents into production-ready systems.
 
 ## Project Structure
 
 This is a monorepo using Yarn workspaces and Turbo:
 
 ```
-chronicle-ai-app/
+chronicle-platform/
 ├── apps/
 │   └── frontend/          # Next.js frontend application
+├── backend/               # Rust/Axum backend
 ├── packages/
 │   └── shared/            # Shared types and utilities
 ├── package.json           # Root package.json with workspaces

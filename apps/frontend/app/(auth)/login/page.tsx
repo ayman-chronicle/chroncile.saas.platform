@@ -26,6 +26,9 @@ function LoginForm() {
     setLoading(true);
 
     try {
+      // Still use NextAuth's signIn which calls our credentials provider.
+      // The credentials provider now validates against the same Postgres DB
+      // that the Rust backend uses.
       const result = await signIn("credentials", {
         email,
         password,

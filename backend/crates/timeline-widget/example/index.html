@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Widget Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #080a12;
+            color: #f8fafc;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #00d4ff;
+        }
+
+        .subtitle {
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: #1e2235;
+            color: #f8fafc;
+            border: 1px solid #2a3050;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2a3050;
+        }
+
+        button:active {
+            background: #006080;
+        }
+
+        .timeline-container {
+            background: #0c0f19;
+            border: 1px solid #2a3050;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #timeline-canvas {
+            width: 100%;
+            height: 500px;
+            display: block;
+        }
+
+        .info-panel {
+            margin-top: 24px;
+            padding: 16px;
+            background: #0c0f19;
+            border: 1px solid #2a3050;
+            border-radius: 8px;
+        }
+
+        .info-panel h3 {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .info-panel pre {
+            background: #080a12;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            overflow-x: auto;
+            color: #00d4ff;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 500px;
+            color: #94a3b8;
+        }
+
+        .loading.hidden {
+            display: none;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 24px;
+            margin-top: 16px;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .status-item {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .status-value {
+            color: #00d4ff;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Timeline Widget Demo</h1>
+        <p class="subtitle">Embeddable egui timeline viewer for React/web applications</p>
+
+        <div class="controls">
+            <button id="btn-add-event">Add Random Event</button>
+            <button id="btn-add-batch">Add 10 Events</button>
+            <button id="btn-clear">Clear Events</button>
+            <button id="btn-fit">Fit to Events</button>
+            <button id="btn-live">Toggle Live Mode</button>
+        </div>
+
+        <div class="timeline-container">
+            <div id="loading" class="loading">Loading timeline widget...</div>
+            <canvas id="timeline-canvas"></canvas>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                Events: <span id="event-count" class="status-value">0</span>
+            </div>
+            <div class="status-item">
+                Playback: <span id="playback-state" class="status-value">paused</span>
+            </div>
+            <div class="status-item">
+                Selected: <span id="selected-event" class="status-value">none</span>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>SELECTED EVENT DETAILS</h3>
+            <pre id="event-details">Select an event to view details...</pre>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the timeline widget (relative to timeline-widget root when served)
+        import init, { TimelineViewer } from '/js/pkg/events_manager_timeline_widget.js';
+
+        // Sample event sources and types
+        const sources = ['intercom', 'stripe', 'zendesk', 'slack', 'hubspot'];
+        const eventTypes = {
+            intercom: ['conversation.opened', 'conversation.closed', 'message.sent', 'message.received'],
+            stripe: ['charge.succeeded', 'charge.failed', 'subscription.created', 'invoice.paid'],
+            zendesk: ['ticket.created', 'ticket.updated', 'ticket.solved', 'comment.added'],
+            slack: ['message.posted', 'reaction.added', 'channel.joined', 'file.shared'],
+            hubspot: ['contact.created', 'deal.updated', 'email.sent', 'meeting.booked'],
+        };
+
+        const actors = ['John Doe', 'Jane Smith', 'Bob Wilson', 'Alice Brown', 'System'];
+
+        // Generate a random event
+        function generateEvent() {
+            const source = sources[Math.floor(Math.random() * sources.length)];
+            const types = eventTypes[source];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const actor = actors[Math.floor(Math.random() * actors.length)];
+
+            return {
+                id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                source,
+                type: `${source}.${type}`,
+                occurredAt: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+                actor,
+                message: `${type.replace('.', ' ')} by ${actor}`,
+                payload: {
+                    source,
+                    type,
+                    actor,
+                    timestamp: Date.now(),
+                },
+            };
+        }
+
+        // Initialize the widget
+        async function initTimeline() {
+            try {
+                // Initialize WASM module
+                await init();
+
+                // Hide loading indicator
+                document.getElementById('loading').classList.add('hidden');
+
+                // Create timeline viewer
+                const viewer = new TimelineViewer({
+                    showControls: true,
+                    showTree: true,
+                    followLive: false,
+                    theme: 'dark',
+                });
+
+                // Start rendering to canvas
+                await viewer.start('timeline-canvas');
+
+                // Add some initial events
+                const initialEvents = Array.from({ length: 20 }, generateEvent);
+                viewer.setEvents(initialEvents);
+
+                // Update status
+                updateStatus(viewer);
+
+                // Set up event listeners
+                document.getElementById('btn-add-event').addEventListener('click', () => {
+                    viewer.addEvent(generateEvent());
+                    updateStatus(viewer);
+                });
+
+                document.getElementById('btn-add-batch').addEventListener('click', () => {
+                    for (let i = 0; i < 10; i++) {
+                        viewer.addEvent(generateEvent());
+                    }
+                    updateStatus(viewer);
+                });
+
+                document.getElementById('btn-clear').addEventListener('click', () => {
+                    viewer.clear();
+                    updateStatus(viewer);
+                });
+
+                document.getElementById('btn-fit').addEventListener('click', () => {
+                    viewer.fitToEvents();
+                });
+
+                document.getElementById('btn-live').addEventListener('click', () => {
+                    const state = viewer.getPlaybackState();
+                    viewer.setPlaybackState(state === 'live' ? 'paused' : 'live');
+                    updateStatus(viewer);
+                });
+
+                // Listen for canvas events
+                const canvas = document.getElementById('timeline-canvas');
+                
+                canvas.addEventListener('timelineselect', (e) => {
+                    const detail = e.detail;
+                    document.getElementById('selected-event').textContent = 
+                        detail.eventId || 'none';
+                    document.getElementById('event-details').textContent = 
+                        detail.event ? JSON.stringify(detail.event, null, 2) : 'Select an event to view details...';
+                });
+
+                canvas.addEventListener('timelineplayhead', (e) => {
+                    // Playhead moved
+                });
+
+                canvas.addEventListener('timelinerangechange', (e) => {
+                    // Time range changed
+                });
+
+                // Periodic status update
+                setInterval(() => updateStatus(viewer), 1000);
+
+            } catch (error) {
+                console.error('Failed to initialize timeline:', error);
+                document.getElementById('loading').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        function updateStatus(viewer) {
+            document.getElementById('event-count').textContent = viewer.getEventCount();
+            document.getElementById('playback-state').textContent = viewer.getPlaybackState();
+        }
+
+        // Start initialization
+        initTimeline();
+    </script>
+</body>
+</html>

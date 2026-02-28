@@ -1,81 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hash } from "bcryptjs";
-import prisma from "@/lib/db";
-import { signupSchema } from "@/lib/validations";
-import { generateUniqueSlug } from "@/lib/utils";
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    const parsed = signupSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
-    }
 
-    const { name, email, password, organizationName } = parsed.data;
-
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const res = await fetch(`${BACKEND_URL}/api/platform/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: body.email,
+        password: body.password,
+        name: body.name,
+        orgName: body.organizationName,
+      }),
     });
 
-    if (existingUser) {
+    const data = await res.json();
+
+    if (!res.ok) {
       return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
+        { error: data.error || "Signup failed" },
+        { status: res.status },
       );
     }
-
-    const hashedPassword = await hash(password, 12);
-
-    const slug = generateUniqueSlug(organizationName);
-
-    const result = await prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.create({
-        data: {
-          name: organizationName,
-          slug,
-        },
-      });
-
-      const user = await tx.user.create({
-        data: {
-          email,
-          name,
-          password: hashedPassword,
-          tenantId: tenant.id,
-        },
-      });
-
-      return { user, tenant };
-    });
 
     return NextResponse.json(
       {
         message: "Account created successfully",
-        user: {
-          id: result.user.id,
-          email: result.user.email,
-          name: result.user.name,
-        },
-        tenant: {
-          id: result.tenant.id,
-          name: result.tenant.name,
-          slug: result.tenant.slug,
-        },
+        user: data.user,
       },
-      { status: 201 }
+      { status: 201 },
     );
-  } catch (error) {
-    console.error("Signup error:", error);
+  } catch {
     return NextResponse.json(
       { error: "An error occurred during signup. Please try again." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

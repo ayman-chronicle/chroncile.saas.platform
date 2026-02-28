@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import prisma from "@/lib/db";
+import { fetchFromBackend } from "@/lib/backend";
 import { redirect } from "next/navigation";
 import { ConnectionsClient } from "./connections-client";
 
@@ -40,30 +40,15 @@ export default async function ConnectionsPage({
 
   const params = await searchParams;
 
-  // Fetch existing connections for this tenant
-  const connections = await prisma.connection.findMany({
-    where: {
-      tenantId: session.user.tenantId,
-    },
-    select: {
-      id: true,
-      provider: true,
-      status: true,
-      pipedreamAuthId: true,
-      metadata: true,
-      createdAt: true,
-    },
-  });
-
-  // Transform to plain objects for client component
-  const connectionsData: ConnectionData[] = connections.map((conn) => ({
-    id: conn.id,
-    provider: conn.provider,
-    status: conn.status,
-    pipedreamAuthId: conn.pipedreamAuthId,
-    metadata: conn.metadata as ConnectionData["metadata"],
-    createdAt: conn.createdAt,
-  }));
+  let connectionsData: ConnectionData[] = [];
+  try {
+    const data = await fetchFromBackend<{ connections: ConnectionData[] }>(
+      "/api/platform/connections",
+    );
+    connectionsData = data.connections;
+  } catch {
+    // Backend unavailable -- render empty state
+  }
 
   return (
     <ConnectionsClient
