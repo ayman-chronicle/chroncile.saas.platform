@@ -40,7 +40,9 @@ async function vercelFetch(
 export interface VercelDeployment {
   uid: string;
   url: string;
-  state: string;
+  // List API uses `state`, single deployment API uses `readyState` — handle both
+  state?: string;
+  readyState?: string;
   meta?: {
     githubCommitSha?: string;
     githubCommitRef?: string;
@@ -230,8 +232,10 @@ export async function waitForDeployment(
     try {
       const res = await vercelFetch(`/v13/deployments/${deploymentId}`);
       const data: VercelDeployment = await res.json();
-      if (data.state === "READY") return { url: `https://${data.url}`, state: "READY" };
-      if (data.state === "ERROR" || data.state === "CANCELED") return { url: null, state: data.state };
+      // Single deployment endpoint returns readyState; list endpoint returns state
+      const deployState = data.readyState ?? data.state ?? "";
+      if (deployState === "READY") return { url: `https://${data.url}`, state: "READY" };
+      if (deployState === "ERROR" || deployState === "CANCELED") return { url: null, state: deployState };
     } catch {
       // transient error — keep polling
     }
