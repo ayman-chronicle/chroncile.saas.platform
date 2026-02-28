@@ -8,8 +8,10 @@
     "prepare": "husky",
     "dev": "turbo run dev",
     "dev:frontend": "turbo run dev --filter=frontend",
+    "dev:env-manager": "turbo run dev --filter=env-manager",
     "build": "turbo build",
     "build:frontend": "turbo build --filter=frontend",
+    "build:env-manager": "turbo build --filter=env-manager",
     "db:push": "turbo run db:push",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
@@ -32,7 +34,7 @@
   "engines": {
     "node": ">=20.14.0"
   },
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.6.0",
   "devDependencies": {
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
