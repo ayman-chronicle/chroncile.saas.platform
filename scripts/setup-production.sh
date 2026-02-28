@@ -1,101 +1,99 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Chronicle Labs -- Production Setup (Render + Vercel)
+# Chronicle Labs -- Multi-Environment Setup
 #
 # Prerequisites:
-#   - Render account at https://dashboard.render.com
+#   - flyctl installed and authenticated (fly auth login)
+#   - gh CLI installed and authenticated
 #   - Vercel CLI installed (npm i -g vercel) and linked to project
-#   - GitHub repo connected to Render via Blueprint
 #
 # Usage:
-#   ./scripts/setup-production.sh
+#   ./scripts/setup-production.sh [environment]
+#   Environments: development | staging | production | all (default)
 
-echo "=== Chronicle Labs Production Setup ==="
-echo ""
+ENV="${1:-all}"
 
-# ── 1. Generate Secrets ──
-
-AUTH_SECRET="${AUTH_SECRET:-$(openssl rand -base64 32)}"
-SERVICE_SECRET="${SERVICE_SECRET:-$(openssl rand -base64 32)}"
-ENCRYPTION_KEY="${ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
-
-# Use the session pooler (port 6543) for SQLx compatibility
-# The transaction pooler (port 5432) doesn't support prepared statements
-DATABASE_URL="${DATABASE_URL:-postgresql://postgres.civkodlunbswfhltbvqc:AydeaProxify@aws-1-us-east-1.pooler.supabase.com:6543/postgres}"
-
-echo "Generated secrets (save these — you'll enter them in the Render Dashboard):"
-echo ""
-echo "  DATABASE_URL           = ${DATABASE_URL:0:50}..."
-echo "  AUTH_SECRET             = $AUTH_SECRET"
-echo "  SERVICE_SECRET          = $SERVICE_SECRET"
-echo "  ENCRYPTION_KEY          = $ENCRYPTION_KEY"
+echo "=== Chronicle Labs Environment Setup ==="
 echo ""
 
-# ── 2. Render Backend Setup ──
+setup_env() {
+    local env_name="$1"
+    local fly_app="$2"
+    local fly_config="$3"
 
-echo "=== Render Configuration ==="
+    echo "── Setting up: $env_name ──"
+    echo ""
+
+    local auth_secret="${AUTH_SECRET:-$(openssl rand -base64 32)}"
+    local service_secret="${SERVICE_SECRET:-$(openssl rand -base64 32)}"
+    local encryption_key="${ENCRYPTION_KEY:-$(openssl rand -hex 32)}"
+
+    echo "  Fly.io app:    $fly_app"
+    echo "  Fly.io config: $fly_config"
+    echo "  URL:           https://$fly_app.fly.dev"
+    echo ""
+
+    flyctl secrets set \
+        AUTH_SECRET="$auth_secret" \
+        SERVICE_SECRET="$service_secret" \
+        ENCRYPTION_KEY="$encryption_key" \
+        PIPEDREAM_CLIENT_ID="${PIPEDREAM_CLIENT_ID:-}" \
+        PIPEDREAM_CLIENT_SECRET="${PIPEDREAM_CLIENT_SECRET:-}" \
+        PIPEDREAM_PROJECT_ID="${PIPEDREAM_PROJECT_ID:-}" \
+        STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY:-}" \
+        STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-}" \
+        --app "$fly_app" 2>/dev/null || true
+
+    echo "  Secrets configured for $fly_app"
+    echo ""
+
+    if [ "$env_name" = "production" ]; then
+        echo "  Vercel env vars (set in Dashboard):"
+        echo "    NEXT_PUBLIC_BACKEND_URL = https://$fly_app.fly.dev"
+        echo "    AUTH_SECRET             = $auth_secret"
+        echo "    AUTH_TRUST_HOST         = true"
+        echo "    SERVICE_SECRET          = $service_secret"
+        echo "    ENCRYPTION_KEY          = $encryption_key"
+        echo ""
+    fi
+}
+
+if [ "$ENV" = "development" ] || [ "$ENV" = "all" ]; then
+    setup_env "development" "chronicle-backend-dev" "fly.development.toml"
+fi
+
+if [ "$ENV" = "staging" ] || [ "$ENV" = "all" ]; then
+    setup_env "staging" "chronicle-backend-staging" "fly.staging.toml"
+fi
+
+if [ "$ENV" = "production" ] || [ "$ENV" = "all" ]; then
+    setup_env "production" "chronicle-backend" "fly.production.toml"
+fi
+
+echo "=== Branching Strategy ==="
 echo ""
-echo "1. Go to https://dashboard.render.com/select-repo?type=blueprint"
-echo "2. Connect the GitHub repo and select the render.yaml Blueprint"
-echo "3. Render will prompt you for the following secret environment variables:"
+echo "  develop  -> auto-deploys to chronicle-backend-dev.fly.dev"
+echo "  staging  -> auto-deploys to chronicle-backend-staging.fly.dev"
+echo "  main     -> auto-deploys to chronicle-backend.fly.dev"
 echo ""
-echo "   DATABASE_URL            = (paste from above)"
-echo "   AUTH_SECRET              = (paste from above)"
-echo "   SERVICE_SECRET           = (paste from above)"
-echo "   ENCRYPTION_KEY           = (paste from above)"
-echo "   PIPEDREAM_CLIENT_ID      = ${PIPEDREAM_CLIENT_ID:-<your Pipedream client ID>}"
-echo "   PIPEDREAM_CLIENT_SECRET  = ${PIPEDREAM_CLIENT_SECRET:-<your Pipedream client secret>}"
-echo "   PIPEDREAM_PROJECT_ID     = ${PIPEDREAM_PROJECT_ID:-<your Pipedream project ID>}"
-echo "   STRIPE_SECRET_KEY        = ${STRIPE_SECRET_KEY:-<your Stripe secret key>}"
-echo "   STRIPE_WEBHOOK_SECRET    = ${STRIPE_WEBHOOK_SECRET:-<your Stripe webhook secret>}"
-echo ""
-echo "4. Click 'Apply' — Render will build and deploy the backend from the Dockerfile"
-echo ""
-echo "   The backend URL will be: https://chronicle-backend.onrender.com"
+echo "  Feature branches: feat/* -> PR to develop"
+echo "  Promotion: develop -> PR to staging -> PR to main"
 echo ""
 
-# ── 3. Vercel Frontend Environment Variables ──
-
-echo "=== Vercel Configuration ==="
+echo "=== Manual Deploy ==="
 echo ""
-echo "Set these environment variables in the Vercel dashboard"
-echo "(Settings > Environment Variables) for the frontend project:"
-echo ""
-echo "  NEXT_PUBLIC_APP_URL        = https://<your-vercel-domain>"
-echo "  NEXT_PUBLIC_BACKEND_URL    = https://chronicle-backend.onrender.com"
-echo "  AUTH_SECRET                = $AUTH_SECRET"
-echo "  AUTH_TRUST_HOST            = true"
-echo "  SERVICE_SECRET             = $SERVICE_SECRET"
-echo "  ENCRYPTION_KEY             = $ENCRYPTION_KEY"
-echo "  PIPEDREAM_CLIENT_ID        = ${PIPEDREAM_CLIENT_ID:-<set in Vercel>}"
-echo "  PIPEDREAM_CLIENT_SECRET    = ${PIPEDREAM_CLIENT_SECRET:-<set in Vercel>}"
-echo "  PIPEDREAM_PROJECT_ID       = ${PIPEDREAM_PROJECT_ID:-<set in Vercel>}"
-echo "  STRIPE_SECRET_KEY          = ${STRIPE_SECRET_KEY:-<set in Vercel>}"
+echo "  Dev:     cd backend && flyctl deploy --config fly.development.toml --remote-only"
+echo "  Staging: cd backend && flyctl deploy --config fly.staging.toml --remote-only"
+echo "  Prod:    cd backend && flyctl deploy --config fly.production.toml --remote-only"
 echo ""
 
-# ── 4. CI/CD Flow ──
-
-echo "=== CI/CD Flow ==="
+echo "=== GitHub Environments ==="
 echo ""
-echo "  1. Push to main"
-echo "  2. GitHub Actions runs lint + test + build"
-echo "  3. When all checks pass, Render auto-deploys (autoDeployTrigger: checksPass)"
-echo "  4. Vercel auto-deploys the frontend on push"
+echo "  development  -- no protection, auto-deploy on develop push"
+echo "  staging      -- auto-deploy on staging push"
+echo "  production   -- branch restricted to main"
 echo ""
-
-# ── 5. First Deploy ──
-
-echo "=== First Deploy ==="
-echo ""
-echo "Backend:"
-echo "  Connect repo via Blueprint at https://dashboard.render.com/select-repo?type=blueprint"
-echo ""
-echo "Frontend:"
-echo "  Connect repo to Vercel at https://vercel.com/new"
-echo "  Set root directory to: apps/frontend"
-echo "  Framework preset: Next.js"
-echo ""
-echo "After first deploy, CI/CD handles subsequent deploys automatically."
+echo "  FLY_API_TOKEN is set as environment secret on each."
 echo ""
 echo "=== Setup Complete ==="
