@@ -156,6 +156,163 @@ function StatCard({ label, value }: { label: string; value: number | null }) {
   );
 }
 
+// ── Live Resources ────────────────────────────────────────────────────────────
+
+interface FlyMachine {
+  id: string;
+  name: string;
+  state: string;
+  region: string;
+  imageRef: string | null;
+  cpus: number | null;
+  memoryMb: number | null;
+  updatedAt: string;
+}
+
+interface FlyVolume {
+  id: string;
+  name: string;
+  state: string;
+  sizeGb: number | null;
+  region: string;
+  encrypted: boolean;
+  createdAt: string;
+}
+
+interface FlyIp {
+  address: string;
+  type: string;
+  region: string;
+  createdAt: string;
+}
+
+interface Resources {
+  machines: FlyMachine[];
+  volumes: FlyVolume[];
+  ips: FlyIp[];
+  postgres: { name: string; url: string } | null;
+  errors: string[];
+}
+
+const MACHINE_STATE_DOT: Record<string, string> = {
+  started: "status-dot--nominal",
+  stopped: "status-dot--offline",
+  created: "status-dot--data status-dot--pulse",
+  error: "status-dot--critical",
+};
+
+function LiveResourcesPanel({ envId }: { envId: string }) {
+  const { data, isLoading } = useSWR<Resources>(
+    `/api/environments/${envId}/resources`,
+    fetcher,
+    { refreshInterval: 30_000 }
+  );
+
+  return (
+    <div className="panel">
+      <div className="panel__header">
+        <span className="panel__title">Live Resources</span>
+        {isLoading && (
+          <div className="w-3 h-3 rounded-full border-2 border-border-bright border-t-data animate-spin" />
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border-dim">
+        {/* Machines */}
+        <div className="bg-surface p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="label">Machines</span>
+            <span className="font-mono text-[10px] text-tertiary">{data?.machines?.length ?? 0}</span>
+          </div>
+          {(data?.machines?.length ?? 0) === 0 ? (
+            <p className="text-xs text-tertiary">None</p>
+          ) : (
+            <div className="space-y-2">
+              {data!.machines.map((m) => (
+                <div key={m.id} className="flex items-start gap-2">
+                  <span className={`status-dot mt-1 shrink-0 ${MACHINE_STATE_DOT[m.state] ?? "status-dot--offline"}`} />
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs text-primary truncate">{m.name || m.id.slice(0, 12)}</p>
+                    <p className="font-mono text-[10px] text-tertiary">
+                      {m.region} · {m.cpus ?? "?"}vCPU · {m.memoryMb ?? "?"}MB
+                    </p>
+                    <p className="font-mono text-[10px] text-disabled">{m.state}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Volumes */}
+        <div className="bg-surface p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="label">Volumes</span>
+            <span className="font-mono text-[10px] text-tertiary">{data?.volumes?.length ?? 0}</span>
+          </div>
+          {(data?.volumes?.length ?? 0) === 0 ? (
+            <p className="text-xs text-tertiary">None</p>
+          ) : (
+            <div className="space-y-2">
+              {data!.volumes.map((v) => (
+                <div key={v.id} className="flex items-start gap-2">
+                  <svg className="w-3.5 h-3.5 text-tertiary shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+                  </svg>
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs text-primary truncate">{v.name}</p>
+                    <p className="font-mono text-[10px] text-tertiary">
+                      {v.region} · {v.sizeGb ?? "?"}GB{v.encrypted ? " · 🔒" : ""}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* IPs + Postgres */}
+        <div className="bg-surface p-4 space-y-4">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="label">IP Addresses</span>
+              <span className="font-mono text-[10px] text-tertiary">{data?.ips?.length ?? 0}</span>
+            </div>
+            {(data?.ips?.length ?? 0) === 0 ? (
+              <p className="text-xs text-tertiary">None allocated</p>
+            ) : (
+              <div className="space-y-1.5">
+                {data!.ips.map((ip, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className={`font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm ${
+                      ip.type === "v6" ? "bg-data-bg text-data" : "bg-caution-bg text-caution"
+                    }`}>{ip.type}</span>
+                    <span className="font-mono text-xs text-primary truncate">{ip.address}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {data?.postgres && (
+            <div>
+              <span className="label block mb-2">Postgres</span>
+              <a
+                href={data.postgres.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-xs text-data hover:underline"
+              >
+                {data.postgres.name}
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LogLevelDot({ level }: { level: string }) {
   const cls =
     level === "error" ? "status-dot--critical" :
@@ -614,6 +771,9 @@ export default function EnvironmentDetailPage({
           <StatCard label="Events" value={stats?.events ?? null} />
         </div>
       </div>
+
+      {/* Live Resources */}
+      <LiveResourcesPanel envId={id} />
 
       {/* Logs (full width) + Health */}
       <div className="grid grid-cols-1 gap-6">

@@ -181,6 +181,20 @@ impl TenantRepository for PgTenantRepo {
             .try_map(tenant_from_row)
             .fetch_one(&self.pool).await.map_err(to_repo_err)
     }
+
+    async fn list_all(&self, limit: usize, offset: usize) -> RepoResult<Vec<Tenant>> {
+        sqlx::query("SELECT * FROM \"Tenant\" ORDER BY \"createdAt\" ASC LIMIT $1 OFFSET $2")
+            .bind(limit as i64).bind(offset as i64)
+            .try_map(tenant_from_row)
+            .fetch_all(&self.pool).await.map_err(to_repo_err)
+    }
+
+    async fn count_all(&self) -> RepoResult<usize> {
+        let row = sqlx::query("SELECT COUNT(*) AS count FROM \"Tenant\"")
+            .fetch_one(&self.pool).await.map_err(to_repo_err)?;
+        let count: i64 = row.try_get("count").map_err(|e| RepoError::Internal(e.to_string()))?;
+        Ok(count as usize)
+    }
 }
 
 // === User ===
@@ -208,6 +222,13 @@ impl UserRepository for PgUserRepo {
     async fn find_by_email(&self, email: &str) -> RepoResult<Option<User>> {
         sqlx::query("SELECT * FROM \"User\" WHERE email = $1").bind(email)
             .try_map(user_from_row).fetch_optional(&self.pool).await.map_err(to_repo_err)
+    }
+
+    async fn list_by_tenant(&self, tenant_id: &str) -> RepoResult<Vec<User>> {
+        sqlx::query("SELECT * FROM \"User\" WHERE \"tenantId\" = $1 ORDER BY \"createdAt\" ASC")
+            .bind(tenant_id)
+            .try_map(user_from_row)
+            .fetch_all(&self.pool).await.map_err(to_repo_err)
     }
 }
 

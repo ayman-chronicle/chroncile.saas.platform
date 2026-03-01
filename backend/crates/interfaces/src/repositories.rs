@@ -29,6 +29,8 @@ pub trait TenantRepository: Send + Sync {
         subscription_status: Option<&str>,
         price_id: Option<&str>,
     ) -> RepoResult<Tenant>;
+    async fn list_all(&self, limit: usize, offset: usize) -> RepoResult<Vec<Tenant>>;
+    async fn count_all(&self) -> RepoResult<usize>;
 }
 
 #[async_trait]
@@ -36,6 +38,7 @@ pub trait UserRepository: Send + Sync {
     async fn create(&self, input: CreateUserInput) -> RepoResult<User>;
     async fn find_by_id(&self, id: &str) -> RepoResult<Option<User>>;
     async fn find_by_email(&self, email: &str) -> RepoResult<Option<User>>;
+    async fn list_by_tenant(&self, tenant_id: &str) -> RepoResult<Vec<User>>;
 }
 
 #[async_trait]

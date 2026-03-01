@@ -31,7 +31,7 @@ pub async fn stats(
 /// Returns what's available without per-tenant scope.
 pub async fn admin_stats(
     headers: HeaderMap,
-    _state: State<SaasAppState>,
+    State(state): State<SaasAppState>,
 ) -> ApiResult<Json<serde_json::Value>> {
     let expected = std::env::var("SERVICE_SECRET").unwrap_or_default();
     let provided = headers
@@ -43,13 +43,14 @@ pub async fn admin_stats(
         return Err(ApiError::unauthorized());
     }
 
+    let tenant_count = state.tenants.count_all().await.unwrap_or(0);
+
     Ok(Json(serde_json::json!({
-        "tenants": null,
+        "tenants": tenant_count,
         "users": null,
         "events": null,
         "runs": null,
         "connections": null,
-        "_note": "Global aggregate stats not yet implemented — per-tenant stats require user auth"
     })))
 }
 

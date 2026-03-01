@@ -75,6 +75,16 @@ impl TenantRepository for InMemoryTenantRepo {
         tenant.updated_at = Utc::now();
         Ok(tenant.clone())
     }
+
+    async fn list_all(&self, limit: usize, offset: usize) -> RepoResult<Vec<Tenant>> {
+        let mut tenants: Vec<Tenant> = self.store.iter().map(|e| e.value().clone()).collect();
+        tenants.sort_by_key(|t| t.created_at);
+        Ok(tenants.into_iter().skip(offset).take(limit).collect())
+    }
+
+    async fn count_all(&self) -> RepoResult<usize> {
+        Ok(self.store.len())
+    }
 }
 
 // === User ===
@@ -111,6 +121,15 @@ impl UserRepository for InMemoryUserRepo {
 
     async fn find_by_email(&self, email: &str) -> RepoResult<Option<User>> {
         Ok(self.store.iter().find(|e| e.value().email == email).map(|e| e.value().clone()))
+    }
+
+    async fn list_by_tenant(&self, tenant_id: &str) -> RepoResult<Vec<User>> {
+        let mut users: Vec<User> = self.store.iter()
+            .filter(|e| e.value().tenant_id == tenant_id)
+            .map(|e| e.value().clone())
+            .collect();
+        users.sort_by_key(|u| u.created_at);
+        Ok(users)
     }
 }
 
