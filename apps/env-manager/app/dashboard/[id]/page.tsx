@@ -1054,11 +1054,15 @@ export default function EnvironmentDetailPage({
         </div>
       </div>
 
-      {/* Tenants & Organizations */}
-      <TenantsPanel envId={id} />
+      {/* Tenants & Organizations — only when backend is live */}
+      {env.status === "RUNNING" && env.isHealthy && (
+        <TenantsPanel envId={id} />
+      )}
 
-      {/* Live Resources */}
-      <LiveResourcesPanel envId={id} />
+      {/* Live Resources — only when backend is live */}
+      {env.status === "RUNNING" && (
+        <LiveResourcesPanel envId={id} />
+      )}
 
       {/* Logs (full width) + Health */}
       <div className="grid grid-cols-1 gap-6">
