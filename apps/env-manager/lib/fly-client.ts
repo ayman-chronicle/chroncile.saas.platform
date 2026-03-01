@@ -270,28 +270,64 @@ export async function runSeedSql(
   dbAppName: string,
   seedSqlUrl: string
 ): Promise<void> {
-  const { execFile } = await import("child_process");
+  const { execFile, spawn } = await import("child_process");
   const { promisify } = await import("util");
   const exec = promisify(execFile);
 
-  // Download the seed SQL
   const res = await fetch(seedSqlUrl, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`Failed to download seed SQL from ${seedSqlUrl}: ${res.status}`);
   const sql = await res.text();
 
-  // Execute via flyctl postgres connect
+  // Get the Postgres operator password from the DB machine
+  const { stdout: pwOut } = await exec("flyctl", [
+    "ssh", "console", "-a", dbAppName,
+    "-C", "printenv OPERATOR_PASSWORD",
+  ], { env: { ...process.env }, timeout: 30_000 });
+  const password = pwOut.trim();
+  if (!password) throw new Error("Could not retrieve OPERATOR_PASSWORD from DB machine");
+
+  // Start a local proxy to the Fly Postgres
+  const proxyPort = 10000 + Math.floor(Math.random() * 50000);
+  const proxy = spawn("flyctl", [
+    "proxy", `${proxyPort}:5433`, "-a", dbAppName,
+  ], { env: { ...process.env }, stdio: "pipe" });
+
+  // Wait for proxy to be ready
+  await new Promise<void>((resolve, reject) => {
+    let started = false;
+    const onData = (chunk: Buffer) => {
+      if (!started && chunk.toString().includes("Proxying")) {
+        started = true;
+        resolve();
+      }
+    };
+    proxy.stdout?.on("data", onData);
+    proxy.stderr?.on("data", onData);
+    proxy.on("error", reject);
+    setTimeout(() => { if (!started) { started = true; resolve(); } }, 5_000);
+  });
+
   try {
-    await exec("flyctl", [
-      "postgres", "connect",
-      "-a", dbAppName,
-      "-c", sql,
-    ], {
-      env: { ...process.env },
-      timeout: 60_000,
+    // Connect via pg and execute the seed SQL
+    const { default: pg } = await import("pg");
+    const client = new pg.Client({
+      host: "127.0.0.1",
+      port: proxyPort,
+      user: "postgres",
+      password,
+      database: "postgres",
+      connectionTimeoutMillis: 15_000,
+      statement_timeout: 60_000,
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Seed SQL execution failed: ${message}`);
+
+    await client.connect();
+    try {
+      await client.query(sql);
+    } finally {
+      await client.end();
+    }
+  } finally {
+    proxy.kill();
   }
 }
 

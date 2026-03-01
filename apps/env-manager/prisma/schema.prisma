@@ -46,6 +46,7 @@ model Environment {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   healthChecks       HealthCheck[]
+  stressTests        StressTest[]
 
   @@index([type])
   @@index([status])
@@ -63,6 +64,23 @@ model HealthCheck {
   checkedAt      DateTime    @default(now())
 
   @@index([environmentId, checkedAt])
+}
+
+model StressTest {
+  id              String      @id @default(cuid())
+  environmentId   String
+  environment     Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  k6TestRunId     String?
+  name            String
+  status          String      @default("queued")
+  config          Json
+  resultSummary   Json?
+  k6Url           String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@index([environmentId, createdAt])
 }
 
 enum DbTemplateMode {

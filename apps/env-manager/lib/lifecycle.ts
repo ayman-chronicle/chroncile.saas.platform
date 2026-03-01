@@ -222,17 +222,6 @@ export async function provisionEphemeral(
     }
   }
 
-  // 3.5. Run seed SQL if template has one
-  if (dbTemplate?.seedSqlUrl) {
-    try {
-      await log(`Running seed SQL from ${dbTemplate.seedSqlUrl}...`);
-      await fly.runSeedSql(flyDbName, dbTemplate.seedSqlUrl);
-      await log("Seed SQL executed successfully");
-    } catch (err) {
-      await log(`Seed SQL failed: ${err instanceof Error ? err.message : String(err)} — continuing without seed`, "warn");
-    }
-  }
-
   // 4. Allocate public IPs
   try {
     await log("Allocating public IPs...");
@@ -267,6 +256,17 @@ export async function provisionEphemeral(
     await failWith(new Error(`Backend at ${flyAppUrl} did not become healthy within 120s — check machine logs`));
   }
   await log("Backend is healthy");
+
+  // 6.5. Run seed SQL now that the backend has applied migrations
+  if (dbTemplate?.seedSqlUrl) {
+    try {
+      await log(`Running seed SQL from ${dbTemplate.seedSqlUrl}...`);
+      await fly.runSeedSql(flyDbName, dbTemplate.seedSqlUrl);
+      await log("Seed SQL executed successfully");
+    } catch (err) {
+      await log(`Seed SQL failed: ${err instanceof Error ? err.message : String(err)} — continuing without seed`, "warn");
+    }
+  }
 
   // 7. Set Vercel env var NEXT_PUBLIC_BACKEND_URL pointing to the Fly backend
   let vercelUrl: string | null = null;

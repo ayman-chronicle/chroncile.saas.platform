@@ -19,7 +19,7 @@ const CreateSchema = z.object({
   mode: z.enum(["FLY_DB", "ENVIRONMENT", "SEED_ONLY"]),
   flyDbName: z.string().optional(),
   sourceEnvId: z.string().optional(),
-  seedSqlUrl: z.string().url().optional().or(z.literal("")),
+  seedSqlUrl: z.string().min(1).optional().or(z.literal("")),
 });
 
 export async function POST(request: Request) {
@@ -37,6 +37,13 @@ export async function POST(request: Request) {
   }
 
   const { mode, flyDbName, sourceEnvId } = parsed.data;
+
+  // Resolve relative seed URLs to absolute using the request origin
+  let seedSqlUrl = parsed.data.seedSqlUrl || null;
+  if (seedSqlUrl && seedSqlUrl.startsWith("/")) {
+    const origin = new URL(request.url).origin;
+    seedSqlUrl = `${origin}${seedSqlUrl}`;
+  }
 
   if (mode === "FLY_DB" && !flyDbName) {
     return NextResponse.json({ error: "flyDbName required for FLY_DB mode" }, { status: 400 });
@@ -58,7 +65,7 @@ export async function POST(request: Request) {
       mode: parsed.data.mode,
       flyDbName: parsed.data.flyDbName || null,
       sourceEnvId: parsed.data.sourceEnvId || null,
-      seedSqlUrl: parsed.data.seedSqlUrl || null,
+      seedSqlUrl,
     },
   });
 
