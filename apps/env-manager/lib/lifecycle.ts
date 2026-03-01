@@ -5,7 +5,7 @@ import * as github from "@/lib/github-client";
 
 const FLY_REGION = "ams";
 // Tag of the current production image. Update when a new version is deployed.
-const BACKEND_IMAGE = "registry.fly.io/chronicle-backend:deployment-01KJJ2JDP81TJ8D4DRQ265SR22";
+const BACKEND_IMAGE = "registry.fly.io/chronicle-backend:deployment-01KJKV4CE2AG4XE7GFHCFZGHJ0";
 // chronicle-backend- prefix = 18 chars, suffix = 5 chars (-xxxx), Fly max = 30 → base slug max = 7
 const MAX_SLUG_BASE_LEN = 7;
 

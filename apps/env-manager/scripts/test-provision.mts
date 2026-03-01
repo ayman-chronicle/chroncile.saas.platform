@@ -12,7 +12,7 @@ config({ path: resolve(process.cwd(), ".env") });
 
 const BRANCH = process.argv[2] ?? "test/ephemeral-env-test";
 const FLY_REGION = "ams";
-const BACKEND_IMAGE = "registry.fly.io/chronicle-backend@sha256:a0fd87f1725f814394735cc9511abfe855f96b697d93319d1d0090de147dd418";
+const BACKEND_IMAGE = "registry.fly.io/chronicle-backend:deployment-01KJKV4CE2AG4XE7GFHCFZGHJ0";
 
 const FLY_API_BASE = "https://api.machines.dev/v1";
 const rawToken = process.env.FLY_API_TOKEN ?? "";
