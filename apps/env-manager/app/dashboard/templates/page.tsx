@@ -31,17 +31,26 @@ const MODE_BADGE: Record<string, string> = {
   SEED_ONLY: "badge--nominal",
 };
 
+interface SeedFile {
+  name: string;
+  filename: string;
+  description: string;
+  url: string;
+}
+
 function CreateTemplateModal({ envs, onClose, onCreated }: {
   envs: EnvironmentRecord[];
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { data: availableSeeds } = useSWR<SeedFile[]>("/api/seeds", fetcher);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<"FLY_DB" | "ENVIRONMENT" | "SEED_ONLY">("FLY_DB");
   const [flyDbName, setFlyDbName] = useState("");
   const [sourceEnvId, setSourceEnvId] = useState("");
   const [seedSqlUrl, setSeedSqlUrl] = useState("");
+  const [seedSource, setSeedSource] = useState<"none" | "builtin" | "custom">("none");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -159,9 +168,50 @@ function CreateTemplateModal({ envs, onClose, onCreated }: {
             )}
 
             <div>
-              <label className="label block mb-1.5">Seed SQL URL (optional)</label>
-              <input type="url" value={seedSqlUrl} onChange={(e) => setSeedSqlUrl(e.target.value)} className="input font-mono text-xs" placeholder="https://raw.githubusercontent.com/.../seed.sql" />
-              <p className="text-[10px] text-tertiary mt-1">SQL file to execute after creating/forking the database.</p>
+              <label className="label block mb-2">Seed SQL (optional)</label>
+              <div className="space-y-2">
+                <label className={`flex items-center gap-3 p-2.5 rounded-sm border cursor-pointer transition-colors ${seedSource === "none" ? "border-data bg-data-bg" : "border-border-dim hover:border-border-bright"}`}>
+                  <input type="radio" name="seedSource" checked={seedSource === "none"} onChange={() => { setSeedSource("none"); setSeedSqlUrl(""); }} />
+                  <span className={`text-sm ${seedSource === "none" ? "text-data" : "text-primary"}`}>No seed data</span>
+                </label>
+
+                {(availableSeeds ?? []).map((seed) => (
+                  <label
+                    key={seed.name}
+                    className={`flex items-start gap-3 p-2.5 rounded-sm border cursor-pointer transition-colors ${seedSource === "builtin" && seedSqlUrl === seed.url ? "border-data bg-data-bg" : "border-border-dim hover:border-border-bright"}`}
+                  >
+                    <input
+                      type="radio"
+                      name="seedSource"
+                      checked={seedSource === "builtin" && seedSqlUrl === seed.url}
+                      onChange={() => { setSeedSource("builtin"); setSeedSqlUrl(seed.url); }}
+                      className="mt-0.5"
+                    />
+                    <div>
+                      <span className={`text-sm font-medium ${seedSource === "builtin" && seedSqlUrl === seed.url ? "text-data" : "text-primary"}`}>
+                        {seed.name}
+                      </span>
+                      <p className="text-[10px] text-tertiary mt-0.5">{seed.description}</p>
+                    </div>
+                  </label>
+                ))}
+
+                <label className={`flex items-start gap-3 p-2.5 rounded-sm border cursor-pointer transition-colors ${seedSource === "custom" ? "border-data bg-data-bg" : "border-border-dim hover:border-border-bright"}`}>
+                  <input type="radio" name="seedSource" checked={seedSource === "custom"} onChange={() => { setSeedSource("custom"); setSeedSqlUrl(""); }} className="mt-0.5" />
+                  <div className="flex-1">
+                    <span className={`text-sm ${seedSource === "custom" ? "text-data" : "text-primary"}`}>Custom URL</span>
+                    {seedSource === "custom" && (
+                      <input
+                        type="url"
+                        value={seedSqlUrl}
+                        onChange={(e) => setSeedSqlUrl(e.target.value)}
+                        className="input font-mono text-xs mt-2"
+                        placeholder="https://raw.githubusercontent.com/.../seed.sql"
+                      />
+                    )}
+                  </div>
+                </label>
+              </div>
             </div>
 
             {error && <div className="flex items-center gap-2"><span className="status-dot status-dot--critical" /><span className="text-xs text-critical">{error}</span></div>}
