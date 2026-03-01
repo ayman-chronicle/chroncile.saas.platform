@@ -1,15 +1,17 @@
 /**
  * Service-to-service client for the Chronicle Rust backend.
- * Uses SERVICE_SECRET + token-exchange to authenticate requests.
+ * Uses per-environment SERVICE_SECRET (from the Environment DB record)
+ * with token-exchange as fallback.
  */
 
-const SERVICE_SECRET = process.env.SERVICE_SECRET ?? "";
+// Fallback global secret (used for ephemeral envs or if per-env secret not set)
+const GLOBAL_SERVICE_SECRET = process.env.SERVICE_SECRET ?? "";
 const SERVICE_USER_ID = process.env.SERVICE_USER_ID ?? "env-manager-service-account";
 
 let cachedTokens: Map<string, { token: string; expiresAt: number }> = new Map();
 
-async function getServiceToken(backendUrl: string): Promise<string | null> {
-  const cacheKey = backendUrl;
+async function getServiceToken(backendUrl: string, secret: string): Promise<string | null> {
+  const cacheKey = `${backendUrl}:${secret.slice(0, 8)}`;
   const cached = cachedTokens.get(cacheKey);
   if (cached && cached.expiresAt > Date.now() + 60_000) {
     return cached.token;
@@ -20,7 +22,7 @@ async function getServiceToken(backendUrl: string): Promise<string | null> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        service_secret: SERVICE_SECRET,
+        service_secret: secret,
         user_id: SERVICE_USER_ID,
         email: "admin@chronicle-labs.com",
         name: "Env Manager",
@@ -50,8 +52,12 @@ const TIMEOUT_MS = 45_000;
 export async function backendFetch(
   backendUrl: string,
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  /** Per-environment service secret (from Environment.serviceSecret) */
+  envSecret?: string | null
 ): Promise<Response> {
+  const secret = envSecret || GLOBAL_SERVICE_SECRET;
+
   // Try x-service-secret first (new admin endpoints, available after latest deploy)
   let adminRes: Response | null = null;
   try {
@@ -59,13 +65,13 @@ export async function backendFetch(
       ...init,
       headers: {
         "Content-Type": "application/json",
-        "x-service-secret": SERVICE_SECRET,
+        "x-service-secret": secret,
         ...init?.headers,
       },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (adminRes.ok) return adminRes;
-    // 404 = endpoint not deployed yet; 401 = wrong secret → fall through to JWT
+    // 404 = endpoint not deployed yet; 401/403 = wrong secret → fall through to JWT
     if (adminRes.status !== 404 && adminRes.status !== 401 && adminRes.status !== 403) {
       return adminRes;
     }
@@ -75,9 +81,8 @@ export async function backendFetch(
   }
 
   // Fall back to JWT-based auth (works on all deployed backends)
-  const token = await getServiceToken(backendUrl);
+  const token = await getServiceToken(backendUrl, secret);
   if (!token) {
-    // If we got a 404 from the admin endpoint, surface a helpful message
     if (adminRes?.status === 404) {
       throw new Error("Admin endpoint not available — backend may need to be redeployed with the latest code");
     }

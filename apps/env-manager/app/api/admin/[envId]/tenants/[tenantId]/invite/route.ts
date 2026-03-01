@@ -21,7 +21,8 @@ export async function POST(
     const res = await backendFetch(
       env.flyAppUrl,
       `/api/platform/admin/tenants/${tenantId}/invite`,
-      { method: "POST", body: JSON.stringify(body) }
+      { method: "POST", body: JSON.stringify(body) },
+      env.serviceSecret
     );
     const data = await res.json();
     if (!res.ok) {

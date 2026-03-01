@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+const SERVICE_USER_ID = process.env.SERVICE_USER_ID ?? "env-manager-service-account";
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -22,15 +24,15 @@ export async function GET(
 
   if (!env.flyAppUrl) return NextResponse.json(stats);
 
-  const serviceSecret = process.env.SERVICE_SECRET;
-  const serviceUserId = process.env.SERVICE_USER_ID;
+  // Use per-environment secret if stored; fall back to global
+  const secret = env.serviceSecret || process.env.SERVICE_SECRET || "";
 
   try {
-    // Try the new admin stats endpoint first (available after latest deploy)
-    if (serviceSecret) {
+    // 1. Try the admin stats endpoint (new, requires latest backend deploy)
+    if (secret) {
       const adminRes = await fetch(`${env.flyAppUrl}/api/platform/admin/stats`, {
-        headers: { "x-service-secret": serviceSecret },
-        signal: AbortSignal.timeout(8_000),
+        headers: { "x-service-secret": secret },
+        signal: AbortSignal.timeout(45_000),
       });
       if (adminRes.ok) {
         const data = await adminRes.json();
@@ -44,54 +46,57 @@ export async function GET(
       }
     }
 
-    // Fall back: exchange SERVICE_SECRET for a JWT, then call dashboard stats
-    if (serviceSecret && serviceUserId) {
+    // 2. Fall back: token-exchange → dashboard/stats (works on all deployed backends)
+    if (secret) {
       const exchangeRes = await fetch(
         `${env.flyAppUrl}/api/platform/auth/token-exchange`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            service_secret: serviceSecret,
-            user_id: serviceUserId,
+            service_secret: secret,
+            user_id: SERVICE_USER_ID,
             email: "service@chronicle-labs.com",
             name: "Service Account",
-            tenant_id: serviceUserId,
+            tenant_id: SERVICE_USER_ID,
             tenant_name: "Chronicle Labs",
             tenant_slug: "chronicle-labs",
           }),
-          signal: AbortSignal.timeout(8_000),
+          signal: AbortSignal.timeout(45_000),
         }
       );
 
       if (exchangeRes.ok) {
         const { token } = await exchangeRes.json();
-        const dashRes = await fetch(
-          `${env.flyAppUrl}/api/platform/dashboard/stats`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(8_000),
+        if (token) {
+          const dashRes = await fetch(
+            `${env.flyAppUrl}/api/platform/dashboard/stats`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: AbortSignal.timeout(10_000),
+            }
+          );
+          if (dashRes.ok) {
+            const data = await dashRes.json();
+            stats.runs = data.totalRuns ?? null;
+            stats.connections = data.totalConnections ?? null;
+            return NextResponse.json(stats);
           }
-        );
-        if (dashRes.ok) {
-          const data = await dashRes.json();
-          // serde rename_all = camelCase on the backend
-          stats.runs = data.totalRuns ?? null;
-          stats.connections = data.totalConnections ?? null;
-          return NextResponse.json(stats);
         }
       }
     }
 
-    // Confirm backend is at least reachable
+    // 3. At least confirm the backend is alive
     const healthRes = await fetch(`${env.flyAppUrl}/health`, {
       signal: AbortSignal.timeout(5_000),
     });
     if (healthRes.ok) {
-      stats._note = "Add SERVICE_SECRET + SERVICE_USER_ID to .env to enable metrics";
+      stats._note = !secret
+        ? "Set serviceSecret on this environment to enable metrics"
+        : "Backend reachable but metrics unavailable";
     }
   } catch {
-    // backend unreachable — all nulls returned
+    // backend unreachable
   }
 
   return NextResponse.json(stats);

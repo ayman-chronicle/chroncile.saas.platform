@@ -17,6 +17,7 @@ export interface EnvironmentRecord {
   vercelEnvVarId: string | null;
   isHealthy: boolean;
   lastHealthAt: string | null;
+  serviceSecret: string | null;
   provisionLog: string | null;
   errorLog: string | null;
   expiresAt: string | null;

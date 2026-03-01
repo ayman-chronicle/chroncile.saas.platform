@@ -13,7 +13,7 @@ export async function GET(
   }
 
   try {
-    const res = await backendFetch(env.flyAppUrl, "/api/platform/admin/tenants");
+    const res = await backendFetch(env.flyAppUrl, "/api/platform/admin/tenants", undefined, env.serviceSecret);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       const msg = body?.error ?? `Backend returned ${res.status}`;

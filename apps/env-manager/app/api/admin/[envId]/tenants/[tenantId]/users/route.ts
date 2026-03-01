@@ -13,7 +13,7 @@ export async function GET(
   }
 
   try {
-    const res = await backendFetch(env.flyAppUrl, `/api/platform/admin/tenants/${tenantId}/users`);
+    const res = await backendFetch(env.flyAppUrl, `/api/platform/admin/tenants/${tenantId}/users`, undefined, env.serviceSecret);
     if (!res.ok) return NextResponse.json({ users: [] });
     return NextResponse.json(await res.json());
   } catch {

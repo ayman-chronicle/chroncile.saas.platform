@@ -38,6 +38,7 @@ model Environment {
   vercelEnvVarId     String?
   isHealthy          Boolean           @default(false)
   lastHealthAt       DateTime?
+  serviceSecret      String?
   provisionLog       String?
   errorLog           String?
   expiresAt          DateTime?

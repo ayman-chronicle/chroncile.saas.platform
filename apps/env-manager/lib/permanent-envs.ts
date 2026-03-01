@@ -7,13 +7,10 @@ export interface PermanentEnvConfig {
   flyAppName: string;
   flyAppUrl: string;
   vercelAlias: string | null;
+  serviceSecret: string | null;
 }
 
 export function getPermanentEnvs(): PermanentEnvConfig[] {
-  const vercelProductionUrl = process.env.VERCEL_PRODUCTION_URL ?? null;
-  const vercelStagingUrl = process.env.VERCEL_STAGING_URL ?? null;
-  const vercelDevUrl = process.env.VERCEL_DEV_URL ?? null;
-
   return [
     {
       name: "production",
@@ -21,7 +18,8 @@ export function getPermanentEnvs(): PermanentEnvConfig[] {
       gitBranch: "main",
       flyAppName: "chronicle-backend",
       flyAppUrl: "https://chronicle-backend.fly.dev",
-      vercelAlias: vercelProductionUrl,
+      vercelAlias: process.env.VERCEL_PRODUCTION_URL ?? null,
+      serviceSecret: process.env.SERVICE_SECRET_PRODUCTION ?? process.env.SERVICE_SECRET ?? null,
     },
     {
       name: "staging",
@@ -29,7 +27,8 @@ export function getPermanentEnvs(): PermanentEnvConfig[] {
       gitBranch: "staging",
       flyAppName: "chronicle-backend-staging",
       flyAppUrl: "https://chronicle-backend-staging.fly.dev",
-      vercelAlias: vercelStagingUrl,
+      vercelAlias: process.env.VERCEL_STAGING_URL ?? null,
+      serviceSecret: process.env.SERVICE_SECRET_STAGING ?? null,
     },
     {
       name: "development",
@@ -37,7 +36,8 @@ export function getPermanentEnvs(): PermanentEnvConfig[] {
       gitBranch: "develop",
       flyAppName: "chronicle-backend-dev",
       flyAppUrl: "https://chronicle-backend-dev.fly.dev",
-      vercelAlias: vercelDevUrl,
+      vercelAlias: process.env.VERCEL_DEV_URL ?? null,
+      serviceSecret: process.env.SERVICE_SECRET_DEV ?? null,
     },
   ];
 }
