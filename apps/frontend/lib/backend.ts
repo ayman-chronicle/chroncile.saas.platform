@@ -66,7 +66,13 @@ async function getBackendToken(user: SessionUser): Promise<string> {
   });
 
   if (!res.ok) {
-    throw new Error("Failed to exchange session for backend token");
+    const body = await res.json().catch(() => ({}));
+    const msg =
+      body?.error ?? (res.status === 401 ? "Unauthorized" : res.statusText);
+    throw new Error(
+      `Failed to exchange session for backend token: ${msg}. ` +
+        "Ensure SERVICE_SECRET is set and identical in frontend and backend .env."
+    );
   }
 
   const data = await res.json();
