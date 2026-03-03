@@ -24,8 +24,6 @@
     "react-dom": "^19.0.0",
     "remotion": "^4.0.410",
     "shared": "workspace:*",
-    "resend": "^6.9.3",
-    "svix": "^1.40.0",
     "stripe": "^20.3.1",
     "swr": "^2.2.5",
     "three": "^0.182.0",
