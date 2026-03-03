@@ -8,6 +8,7 @@
     "prepare": "husky",
     "dev": "turbo run dev",
     "dev:frontend": "turbo run dev --filter=frontend",
+    "dev:backend": "cd backend && cargo run --bin chronicle-backend",
     "dev:env-manager": "turbo run dev --filter=env-manager",
     "build": "turbo build",
     "build:frontend": "turbo build --filter=frontend",

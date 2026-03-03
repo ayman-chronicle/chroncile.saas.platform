@@ -281,6 +281,11 @@ export function buildOrgTree(): OrgNode[] {
   return build(null);
 }
 
+/** First available managers (canEscalate) for escalate-from-email action */
+export function getEscalationManagers(): OrgMember[] {
+  return ORG_MEMBERS.filter((m) => m.canEscalate);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Mock notification sender                                           */
 /* ------------------------------------------------------------------ */
