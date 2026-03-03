@@ -281,6 +281,10 @@ export function buildOrgTree(): OrgNode[] {
   return build(null);
 }
 
+export function getEscalationManagers(): OrgMember[] {
+  return ORG_MEMBERS.filter((m) => m.canEscalate);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Mock notification sender                                           */
 /* ------------------------------------------------------------------ */

@@ -10,6 +10,7 @@ pub mod team;
 pub mod tenant;
 pub mod pipedream;
 pub mod webhooks;
+pub mod labeling;
 
 use axum::{
     routing::{get, post, put, delete, patch},
@@ -35,6 +36,7 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route("/api/webhooks/pipedream/:tenantId", post(webhooks::pipedream_webhook))
         .route("/api/webhooks/stripe", post(webhooks::stripe_webhook))
         .route("/api/platform/auth/accept-invite/:token", post(team::accept_invite))
+        .route("/api/platform/email-actions/:token", get(labeling::email_action))
         .with_state(state.clone());
 
     let protected = Router::new()
@@ -63,6 +65,7 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route("/api/platform/team/invite", post(team::invite_member))
         .route("/api/platform/team/members/:user_id", delete(team::remove_member))
         .route("/api/platform/team/members/:user_id/role", patch(team::update_member_role))
+        .route("/api/platform/labeling/notify", post(labeling::notify))
         .layer(axum_mw::from_fn(move |mut req: axum::extract::Request, next: axum_mw::Next| {
             let jwt = jwt.clone();
             async move {
