@@ -6,7 +6,7 @@ use std::sync::Arc;
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
     CreateRunInput, CreateTenantInput, CreateUserInput, Invitation, PipedreamTrigger, Run, Tenant,
-    User,
+    User, UserRole,
 };
 use chronicle_interfaces::{
     AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, InvitationRepository,
@@ -666,6 +666,7 @@ mod tests {
                 name: Some("Test".to_string()),
                 password_hash: Some("hashed".to_string()),
                 auth_provider: "credentials".to_string(),
+                role: UserRole::Member,
                 tenant_id: "t1".to_string(),
             })
             .await
@@ -690,6 +691,7 @@ mod tests {
             name: None,
             password_hash: Some("h1".to_string()),
             auth_provider: "credentials".to_string(),
+            role: UserRole::Member,
             tenant_id: "t1".to_string(),
         })
         .await
@@ -701,6 +703,7 @@ mod tests {
                 name: None,
                 password_hash: Some("h2".to_string()),
                 auth_provider: "credentials".to_string(),
+                role: UserRole::Member,
                 tenant_id: "t2".to_string(),
             })
             .await;

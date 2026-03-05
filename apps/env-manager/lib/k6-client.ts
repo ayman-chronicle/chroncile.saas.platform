@@ -230,7 +230,7 @@ async function uploadArchive(
   formData.append("project_id", String(projectId));
   formData.append(
     "file",
-    new Blob([archive], { type: "application/x-tar" }),
+    new Blob([new Uint8Array(archive)], { type: "application/x-tar" }),
     "archive.tar"
   );
 
