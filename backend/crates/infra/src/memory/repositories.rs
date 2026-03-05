@@ -615,6 +615,7 @@ impl PipedreamTriggerRepository for InMemoryPipedreamTriggerRepo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chronicle_domain::UserRole;
 
     #[tokio::test]
     async fn test_tenant_create_and_find() {
