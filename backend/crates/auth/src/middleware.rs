@@ -95,6 +95,7 @@ mod tests {
             id: "user_1".to_string(),
             email: "test@example.com".to_string(),
             name: Some("Test".to_string()),
+            role: "member".to_string(),
             tenant_id: "tenant_1".to_string(),
             tenant_name: "Test Org".to_string(),
             tenant_slug: "test-org".to_string(),
