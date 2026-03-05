@@ -19,7 +19,6 @@ async function syncOne(config: PermanentEnvConfig): Promise<void> {
   let flyStatus: "RUNNING" | "STOPPED" | "ERROR" = "STOPPED";
   let gitSha: string | null = null;
   let gitTag: string | null = null;
-  let environment: string | null = null;
 
   try {
     const app = await fly.getApp(config.flyAppName);
@@ -39,7 +38,6 @@ async function syncOne(config: PermanentEnvConfig): Promise<void> {
         const data = await res.json();
         gitSha = data.gitSha ?? null;
         gitTag = data.gitTag ?? null;
-        environment = data.environment ?? null;
       }
     } catch {
       // health check failed but app exists

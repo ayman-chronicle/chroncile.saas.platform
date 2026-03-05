@@ -52,19 +52,19 @@ export async function POST(
           undefined,
           env.serviceSecret
         );
-        let tenantsData: Record<string, unknown> | null = null;
+        let tenantsData: { tenants?: Array<{ id: string; name?: string }> } | null = null;
         if (tenantRes.ok) {
           const t = await tenantRes.text();
-          try { tenantsData = t ? JSON.parse(t) : null; } catch { /* ignore */ }
+          try { tenantsData = t ? (JSON.parse(t) as { tenants?: Array<{ id: string; name?: string }> }) : null; } catch { /* ignore */ }
         }
-        const tenant = tenantsData?.tenants?.find((t: { id: string }) => t.id === tenantId);
+        const tenant = tenantsData?.tenants?.find((t) => t.id === tenantId);
         const orgName = tenant?.name ?? "your organization";
 
         await sendOrgInviteEmail({
           to: body.email,
           orgName,
           invitedByName: "Chronicle Labs Admin",
-          loginUrl: data.loginUrl,
+          loginUrl: data.loginUrl as string,
           environmentName: env.name,
         });
         emailSent = true;

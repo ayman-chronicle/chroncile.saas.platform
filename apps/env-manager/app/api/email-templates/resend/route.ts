@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { getResend } from "@/lib/email";
 
 export async function GET() {
+  const resend = getResend();
   const { data, error } = await resend.templates.list({ limit: 100 });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -27,6 +26,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const resend = getResend();
   const { data, error } = await resend.templates.create({
     name,
     alias,

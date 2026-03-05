@@ -1,8 +1,5 @@
 use async_trait::async_trait;
-use axum::{
-    extract::FromRequestParts,
-    http::request::Parts,
-};
+use axum::{extract::FromRequestParts, http::request::Parts};
 use std::sync::Arc;
 
 use crate::error::AuthError;
@@ -32,10 +29,7 @@ where
 {
     type Rejection = AuthError;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _state: &S,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let jwt = parts
             .extensions
             .get::<Arc<JwtService>>()
@@ -61,10 +55,7 @@ mod tests {
         format!("hello {}", user.email)
     }
 
-    async fn inject_jwt(
-        mut req: axum::extract::Request,
-        next: axum_mw::Next,
-    ) -> Response {
+    async fn inject_jwt(mut req: axum::extract::Request, next: axum_mw::Next) -> Response {
         let jwt = Arc::new(JwtService::new("test-secret-key-at-least-32-chars!"));
         req.extensions_mut().insert(jwt);
         next.run(req).await
@@ -104,6 +95,7 @@ mod tests {
             id: "user_1".to_string(),
             email: "test@example.com".to_string(),
             name: Some("Test".to_string()),
+            role: "member".to_string(),
             tenant_id: "tenant_1".to_string(),
             tenant_name: "Test Org".to_string(),
             tenant_slug: "test-org".to_string(),

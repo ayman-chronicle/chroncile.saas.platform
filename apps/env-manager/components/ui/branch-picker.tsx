@@ -11,7 +11,7 @@ interface Branch {
 interface BranchPickerProps {
   branches: Branch[];
   value: string;
-  onChange: (branch: string) => void;
+  onChange: (_branch: string) => void;
   loading?: boolean;
 }
 

@@ -76,7 +76,7 @@ export async function POST(
           to: body.adminEmail,
           orgName: body.orgName,
           invitedByName: "Chronicle Labs Admin",
-          loginUrl: data.loginUrl,
+          loginUrl: data.loginUrl as string,
           environmentName: env.name,
         });
         emailSent = true;

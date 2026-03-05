@@ -113,7 +113,7 @@ interface MetricCardProps {
   color: string;
   fillColor?: string;
   yMax?: number;
-  formatValue?: (v: number) => string;
+  formatValue?: (_value: number) => string;
 }
 
 export function MetricCard({

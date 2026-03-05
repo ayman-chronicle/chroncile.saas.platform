@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Logo } from "@/components/ui/logo";
@@ -160,10 +161,13 @@ export function Sidebar() {
             <div className="px-4 py-3 bg-elevated flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
                 {session.user.image ? (
-                  <img
+                  <Image
                     src={session.user.image}
                     alt=""
+                    width={24}
+                    height={24}
                     className="w-6 h-6 rounded-full shrink-0"
+                    unoptimized
                   />
                 ) : (
                   <div className="w-6 h-6 rounded-full bg-data-bg border border-data-dim flex items-center justify-center shrink-0">

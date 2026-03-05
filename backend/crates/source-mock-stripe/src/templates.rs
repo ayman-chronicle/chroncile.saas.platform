@@ -3,6 +3,8 @@
 //! Realistic templates for Stripe webhook events. These templates
 //! generate events that closely match the structure of real Stripe webhooks.
 
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -59,24 +61,6 @@ impl StripeEventType {
         }
     }
 
-    /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "payment_intent.succeeded" => Some(Self::PaymentIntentSucceeded),
-            "payment_intent.failed" => Some(Self::PaymentIntentFailed),
-            "customer.created" => Some(Self::CustomerCreated),
-            "customer.updated" => Some(Self::CustomerUpdated),
-            "invoice.paid" => Some(Self::InvoicePaid),
-            "invoice.payment_failed" => Some(Self::InvoicePaymentFailed),
-            "customer.subscription.created" => Some(Self::SubscriptionCreated),
-            "customer.subscription.updated" => Some(Self::SubscriptionUpdated),
-            "customer.subscription.deleted" => Some(Self::SubscriptionDeleted),
-            "charge.succeeded" => Some(Self::ChargeSucceeded),
-            "charge.failed" => Some(Self::ChargeFailed),
-            _ => None,
-        }
-    }
-
     /// Get event category for swim lanes
     pub fn category(&self) -> &'static str {
         match self {
@@ -99,12 +83,14 @@ impl StripeEventType {
 
     /// Get a random "success" event type (more likely in demos)
     pub fn random_success() -> Self {
-        let success_types = [Self::PaymentIntentSucceeded,
+        let success_types = [
+            Self::PaymentIntentSucceeded,
             Self::CustomerCreated,
             Self::CustomerUpdated,
             Self::InvoicePaid,
             Self::SubscriptionCreated,
-            Self::ChargeSucceeded];
+            Self::ChargeSucceeded,
+        ];
         let idx = rand::thread_rng().gen_range(0..success_types.len());
         success_types[idx]
     }
@@ -113,6 +99,27 @@ impl StripeEventType {
 impl std::fmt::Display for StripeEventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+impl FromStr for StripeEventType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "payment_intent.succeeded" => Ok(Self::PaymentIntentSucceeded),
+            "payment_intent.failed" => Ok(Self::PaymentIntentFailed),
+            "customer.created" => Ok(Self::CustomerCreated),
+            "customer.updated" => Ok(Self::CustomerUpdated),
+            "invoice.paid" => Ok(Self::InvoicePaid),
+            "invoice.payment_failed" => Ok(Self::InvoicePaymentFailed),
+            "customer.subscription.created" => Ok(Self::SubscriptionCreated),
+            "customer.subscription.updated" => Ok(Self::SubscriptionUpdated),
+            "customer.subscription.deleted" => Ok(Self::SubscriptionDeleted),
+            "charge.succeeded" => Ok(Self::ChargeSucceeded),
+            "charge.failed" => Ok(Self::ChargeFailed),
+            _ => Err(()),
+        }
     }
 }
 
@@ -405,14 +412,48 @@ fn random_amount() -> i64 {
 
 fn random_name() -> (&'static str, &'static str) {
     let first_names = [
-        "James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda", "David",
-        "Elizabeth", "William", "Barbara", "Richard", "Susan", "Joseph", "Jessica", "Thomas",
-        "Sarah", "Christopher", "Karen",
+        "James",
+        "Mary",
+        "John",
+        "Patricia",
+        "Robert",
+        "Jennifer",
+        "Michael",
+        "Linda",
+        "David",
+        "Elizabeth",
+        "William",
+        "Barbara",
+        "Richard",
+        "Susan",
+        "Joseph",
+        "Jessica",
+        "Thomas",
+        "Sarah",
+        "Christopher",
+        "Karen",
     ];
     let last_names = [
-        "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez",
-        "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor",
-        "Moore", "Jackson", "Martin",
+        "Smith",
+        "Johnson",
+        "Williams",
+        "Brown",
+        "Jones",
+        "Garcia",
+        "Miller",
+        "Davis",
+        "Rodriguez",
+        "Martinez",
+        "Hernandez",
+        "Lopez",
+        "Gonzalez",
+        "Wilson",
+        "Anderson",
+        "Thomas",
+        "Taylor",
+        "Moore",
+        "Jackson",
+        "Martin",
     ];
     let first = first_names[rand::thread_rng().gen_range(0..first_names.len())];
     let last = last_names[rand::thread_rng().gen_range(0..last_names.len())];
@@ -462,8 +503,25 @@ fn random_state() -> &'static str {
 
 fn random_street_name() -> &'static str {
     let streets = [
-        "Main", "Oak", "Maple", "Cedar", "Pine", "Elm", "Washington", "Lake", "Hill", "Park",
-        "Forest", "River", "Church", "Market", "Union", "Spring", "High", "Center", "School",
+        "Main",
+        "Oak",
+        "Maple",
+        "Cedar",
+        "Pine",
+        "Elm",
+        "Washington",
+        "Lake",
+        "Hill",
+        "Park",
+        "Forest",
+        "River",
+        "Church",
+        "Market",
+        "Union",
+        "Spring",
+        "High",
+        "Center",
+        "School",
         "Mill",
     ];
     streets[rand::thread_rng().gen_range(0..streets.len())]
@@ -491,26 +549,27 @@ mod tests {
 
     #[test]
     fn test_generate_payment_intent() {
-        let event = StripeEventTemplate::generate(
-            StripeEventType::PaymentIntentSucceeded,
-            Utc::now(),
-        );
-        
+        let event =
+            StripeEventTemplate::generate(StripeEventType::PaymentIntentSucceeded, Utc::now());
+
         assert!(event["id"].as_str().unwrap().starts_with("evt_"));
         assert_eq!(event["type"], "payment_intent.succeeded");
-        assert!(event["data"]["object"]["id"].as_str().unwrap().starts_with("pi_"));
+        assert!(event["data"]["object"]["id"]
+            .as_str()
+            .unwrap()
+            .starts_with("pi_"));
     }
 
     #[test]
     fn test_generate_customer() {
-        let event = StripeEventTemplate::generate(
-            StripeEventType::CustomerCreated,
-            Utc::now(),
-        );
-        
+        let event = StripeEventTemplate::generate(StripeEventType::CustomerCreated, Utc::now());
+
         assert!(event["id"].as_str().unwrap().starts_with("evt_"));
         assert_eq!(event["type"], "customer.created");
-        assert!(event["data"]["object"]["id"].as_str().unwrap().starts_with("cus_"));
+        assert!(event["data"]["object"]["id"]
+            .as_str()
+            .unwrap()
+            .starts_with("cus_"));
         assert!(event["data"]["object"]["email"].as_str().is_some());
     }
 
@@ -518,9 +577,8 @@ mod tests {
     fn test_event_type_roundtrip() {
         for event_type in StripeEventType::all() {
             let str_repr = event_type.as_str();
-            let parsed = StripeEventType::from_str(str_repr);
+            let parsed = str_repr.parse().ok();
             assert_eq!(parsed, Some(event_type));
         }
     }
 }
-
