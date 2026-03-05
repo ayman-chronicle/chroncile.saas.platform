@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import useSWR from "swr";
 import type { EnvironmentRecord } from "@/lib/types";
 import { fetcher } from "@/lib/constants";

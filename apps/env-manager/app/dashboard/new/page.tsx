@@ -48,8 +48,6 @@ export default function NewEnvironmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedBranchInfo = branches?.find((b) => b.name === selectedBranch);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBranch) return;

@@ -149,12 +149,12 @@ export async function GET(
 
   // Build summary metrics
   const metrics = {
-    totalCpus: machineList.reduce((acc, m) => acc + (m.cpus ?? 0), 0),
-    totalMemoryMb: machineList.reduce((acc, m) => acc + (m.memoryMb ?? 0), 0),
+    totalCpus: machineList.reduce((acc: number, m) => acc + (m.cpus ?? 0), 0),
+    totalMemoryMb: machineList.reduce((acc: number, m) => acc + (m.memoryMb ?? 0), 0),
     runningMachines: machineList.filter((m) => m.state === "started").length,
     stoppedMachines: machineList.filter((m) => m.state === "stopped").length,
     totalMachines: machineList.length,
-    totalVolumeGb: volumeList.reduce((acc, v) => acc + (v.sizeGb ?? 0), 0),
+    totalVolumeGb: volumeList.reduce((acc: number, v) => acc + (v.sizeGb ?? 0), 0),
     totalIps: ips.length,
     dbStorageGb: postgres?.storageGb ?? 0,
     dbMachines: postgres?.machines?.length ?? 0,

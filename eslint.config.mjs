@@ -15,6 +15,14 @@ const eslintConfig = [
         rootDir: ["apps/frontend", "apps/env-manager"],
       },
     },
+    languageOptions: {
+      globals: {
+        React: "readonly",
+        JSX: "readonly",
+        RequestInit: "readonly",
+        HeadersInit: "readonly",
+      },
+    },
   },
   prettier,
   {

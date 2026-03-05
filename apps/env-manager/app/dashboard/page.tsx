@@ -67,7 +67,9 @@ function RelativeTime({ date }: { date: string | null }) {
   return <span>{Math.floor(hours / 24)}d ago</span>;
 }
 
-function EnvironmentCard({ env, onDestroyRequest }: { env: EnvironmentRecord; onDestroyRequest: (env: EnvironmentRecord) => void }) {
+function EnvironmentCard(
+  { env, onDestroyRequest }: { env: EnvironmentRecord; onDestroyRequest: (record: EnvironmentRecord) => void }
+) {
   return (
     <Link
       href={`/dashboard/${env.id}`}
