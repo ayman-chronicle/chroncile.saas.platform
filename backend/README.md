@@ -88,20 +88,18 @@ cargo install wasm-bindgen-cli
 ### Development Mode (In-Memory)
 
 ```bash
-# Clone and enter directory
-cd events-manager
+# From repo root, enter backend
+cd backend
 
-# Copy environment file
+# Option A — Doppler (if your team uses it): run once from root: doppler setup --no-interactive
+doppler run -- cargo run --bin chronicle-backend
+
+# Option B — Local .env
 cp env.example .env
-
-# Run the server
-cargo run --bin events-manager
-
-# In another terminal, open the web UI
-open http://localhost:3000
+cargo run --bin chronicle-backend
 ```
 
-The server starts at `http://127.0.0.1:3000` and serves the web UI.
+The server starts at `http://127.0.0.1:3000` (or `API_PORT` from env) and serves the web UI. See [docs/DOPPLER_SETUP.md](../docs/DOPPLER_SETUP.md) for Doppler project setup.
 
 ### Running the Native egui UI
 

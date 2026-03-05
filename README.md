@@ -41,6 +41,15 @@ yarn dev
 yarn dev:frontend
 ```
 
+**Optional: Doppler (secrets from dashboard)**  
+If your team uses [Doppler](https://www.doppler.com) for env vars, run once from repo root: `doppler login` and `doppler setup --no-interactive`, then start apps with secrets injected:
+
+- Frontend: `cd apps/frontend && doppler run -- yarn dev`
+- Backend: `cd backend && doppler run -- cargo run --bin chronicle-backend`
+- Env-manager: `cd apps/env-manager && doppler run -- yarn dev`
+
+See [docs/DOPPLER_SETUP.md](docs/DOPPLER_SETUP.md) for what to configure in Doppler and [docs/doppler-integration-proposal.md](docs/doppler-integration-proposal.md) for the full proposal.
+
 ### Build
 
 ```bash
@@ -71,6 +80,8 @@ yarn build:frontend
 - [Product Summary](./PRODUCT_SUMMARY.md)
 - [Architecture Diagrams](./ARCHITECTURE_DIAGRAM.md)
 - [FigJam Diagrams Index](./FIGJAM_DIAGRAMS_INDEX.md)
+- [Doppler setup (secrets)](./docs/DOPPLER_SETUP.md) — what to configure in Doppler and how to run with `doppler run`
+- [Doppler integration proposal](./docs/doppler-integration-proposal.md) — full inventory and phased rollout
 
 ## License
 
