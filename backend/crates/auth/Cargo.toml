@@ -22,6 +22,8 @@ axum-extra = { workspace = true }
 bcrypt = { workspace = true }
 jsonwebtoken = { workspace = true }
 cuid2 = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 ts-rs = { workspace = true }
 
 [dev-dependencies]

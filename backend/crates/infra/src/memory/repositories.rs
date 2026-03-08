@@ -5,13 +5,13 @@ use std::sync::Arc;
 
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
-    CreateRunInput, CreateTenantInput, CreateUserInput, Invitation, PipedreamTrigger, Run, Tenant,
-    User,
+    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput, Invitation,
+    PasswordResetToken, PipedreamTrigger, Run, Tenant, User,
 };
 use chronicle_interfaces::{
     AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, InvitationRepository,
-    PipedreamTriggerRepository, RepoError, RepoResult, RunRepository, TenantRepository,
-    UserRepository,
+    PasswordResetRepository, PipedreamTriggerRepository, RepoError, RepoResult, RunRepository,
+    TenantRepository, UserRepository,
 };
 
 fn new_id() -> String {
@@ -189,6 +189,16 @@ impl UserRepository for InMemoryUserRepo {
         entry.updated_at = Utc::now();
         Ok(entry.clone())
     }
+
+    async fn update_password(&self, id: &str, password_hash: &str) -> RepoResult<User> {
+        let mut entry = self
+            .store
+            .get_mut(id)
+            .ok_or_else(|| RepoError::NotFound(format!("user: {id}")))?;
+        entry.password = Some(password_hash.to_string());
+        entry.updated_at = Utc::now();
+        Ok(entry.clone())
+    }
 }
 
 // === Invitation ===
@@ -267,6 +277,56 @@ impl InvitationRepository for InMemoryInvitationRepo {
             .remove(id)
             .ok_or_else(|| RepoError::NotFound(format!("invitation: {id}")))?;
         Ok(())
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct InMemoryPasswordResetRepo {
+    store: Arc<DashMap<String, PasswordResetToken>>,
+}
+
+#[async_trait]
+impl PasswordResetRepository for InMemoryPasswordResetRepo {
+    async fn create(&self, input: CreatePasswordResetTokenInput) -> RepoResult<PasswordResetToken> {
+        let token = PasswordResetToken {
+            id: new_id(),
+            user_id: input.user_id,
+            token_hash: input.token_hash,
+            expires_at: input.expires_at,
+            used_at: None,
+            created_at: Utc::now(),
+        };
+        self.store.insert(token.id.clone(), token.clone());
+        Ok(token)
+    }
+
+    async fn consume(&self, token_hash: &str) -> RepoResult<Option<PasswordResetToken>> {
+        let now = Utc::now();
+        let target_id = self
+            .store
+            .iter()
+            .find(|entry| {
+                entry.value().token_hash == token_hash
+                    && entry.value().used_at.is_none()
+                    && entry.value().expires_at > now
+            })
+            .map(|entry| entry.key().clone());
+
+        let Some(target_id) = target_id else {
+            return Ok(None);
+        };
+
+        let mut entry = self
+            .store
+            .get_mut(&target_id)
+            .ok_or_else(|| RepoError::NotFound(format!("password_reset_token: {target_id}")))?;
+
+        if entry.used_at.is_some() || entry.expires_at <= now {
+            return Ok(None);
+        }
+
+        entry.used_at = Some(now);
+        Ok(Some(entry.clone()))
     }
 }
 

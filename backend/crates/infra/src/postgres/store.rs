@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use chronicle_store::postgres::PostgresBackend;
+use chronicle_store::postgres::{PostgresBackend, TracedPgPool};
 use chronicle_store::StorageEngine;
 use chrono::{DateTime, Utc};
 use serde_json::{value::RawValue, Value};
-use sqlx::{PgPool, Row};
+use sqlx::Row;
 
 use crate::conversion::legacy_event_to_chronicle;
 use chronicle_domain::{Actor, ActorType, EventEnvelope, Permissions, PiiFlags, Subject, TenantId};
@@ -54,8 +54,8 @@ impl PostgresStore {
         }
     }
 
-    fn pool(&self) -> &PgPool {
-        self.backend.pg_pool()
+    fn pool(&self) -> &TracedPgPool {
+        self.backend.traced_pool()
     }
 
     async fn rename_legacy_events_table(&self) -> Result<(), PostgresError> {

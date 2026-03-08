@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
-    CreateRunInput, CreateTenantInput, CreateUserInput, FeatureFlagDefinition, FeatureFlagKey,
-    FeatureFlagOverride, FeatureFlagScope, Invitation, PipedreamTrigger, Run, Tenant,
-    UpsertFeatureFlagDefinitionInput, UpsertFeatureFlagOverrideInput, User,
+    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput,
+    FeatureFlagDefinition, FeatureFlagKey, FeatureFlagOverride, FeatureFlagScope, Invitation,
+    PasswordResetToken, PipedreamTrigger, Run, Tenant, UpsertFeatureFlagDefinitionInput,
+    UpsertFeatureFlagOverrideInput, User,
 };
 
 pub type RepoResult<T> = Result<T, RepoError>;
@@ -45,6 +46,7 @@ pub trait UserRepository: Send + Sync {
     async fn list_by_tenant(&self, tenant_id: &str) -> RepoResult<Vec<User>>;
     async fn delete(&self, id: &str) -> RepoResult<()>;
     async fn update_role(&self, id: &str, role: &str) -> RepoResult<User>;
+    async fn update_password(&self, id: &str, password_hash: &str) -> RepoResult<User>;
 }
 
 #[async_trait]
@@ -59,6 +61,12 @@ pub trait InvitationRepository: Send + Sync {
     async fn list_by_tenant(&self, tenant_id: &str) -> RepoResult<Vec<Invitation>>;
     async fn mark_accepted(&self, id: &str) -> RepoResult<Invitation>;
     async fn delete(&self, id: &str) -> RepoResult<()>;
+}
+
+#[async_trait]
+pub trait PasswordResetRepository: Send + Sync {
+    async fn create(&self, input: CreatePasswordResetTokenInput) -> RepoResult<PasswordResetToken>;
+    async fn consume(&self, token_hash: &str) -> RepoResult<Option<PasswordResetToken>>;
 }
 
 #[async_trait]

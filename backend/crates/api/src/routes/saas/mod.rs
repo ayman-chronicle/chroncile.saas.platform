@@ -29,6 +29,14 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route("/api/platform/auth/signup", post(auth::signup))
         .route("/api/platform/auth/login", post(auth::login))
         .route(
+            "/api/platform/auth/forgot-password",
+            post(auth::forgot_password),
+        )
+        .route(
+            "/api/platform/auth/reset-password",
+            post(auth::reset_password),
+        )
+        .route(
             "/api/platform/auth/token-exchange",
             post(auth::exchange_token),
         )

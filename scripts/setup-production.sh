@@ -13,6 +13,7 @@ set -euo pipefail
 #   Environments: development | staging | production | all (default)
 
 ENV="${1:-all}"
+BACKEND_DEPLOY_DIR="deploy"
 
 echo "=== Chronicle Labs Environment Setup ==="
 echo ""
@@ -38,6 +39,7 @@ setup_env() {
         AUTH_SECRET="$auth_secret" \
         SERVICE_SECRET="$service_secret" \
         ENCRYPTION_KEY="$encryption_key" \
+        SENTRY_DSN="${SENTRY_DSN:-}" \
         PIPEDREAM_CLIENT_ID="${PIPEDREAM_CLIENT_ID:-}" \
         PIPEDREAM_CLIENT_SECRET="${PIPEDREAM_CLIENT_SECRET:-}" \
         PIPEDREAM_PROJECT_ID="${PIPEDREAM_PROJECT_ID:-}" \
@@ -60,15 +62,15 @@ setup_env() {
 }
 
 if [ "$ENV" = "development" ] || [ "$ENV" = "all" ]; then
-    setup_env "development" "chronicle-backend-dev" "fly.development.toml"
+    setup_env "development" "chronicle-backend-dev" "${BACKEND_DEPLOY_DIR}/fly.development.toml"
 fi
 
 if [ "$ENV" = "staging" ] || [ "$ENV" = "all" ]; then
-    setup_env "staging" "chronicle-backend-staging" "fly.staging.toml"
+    setup_env "staging" "chronicle-backend-staging" "${BACKEND_DEPLOY_DIR}/fly.staging.toml"
 fi
 
 if [ "$ENV" = "production" ] || [ "$ENV" = "all" ]; then
-    setup_env "production" "chronicle-backend" "fly.production.toml"
+    setup_env "production" "chronicle-backend" "${BACKEND_DEPLOY_DIR}/fly.production.toml"
 fi
 
 echo "=== Branching Strategy ==="
@@ -83,9 +85,9 @@ echo ""
 
 echo "=== Manual Deploy ==="
 echo ""
-echo "  Dev:     cd backend && flyctl deploy --config fly.development.toml --remote-only"
-echo "  Staging: cd backend && flyctl deploy --config fly.staging.toml --remote-only"
-echo "  Prod:    cd backend && flyctl deploy --config fly.production.toml --remote-only"
+echo "  Dev:     cd backend && flyctl deploy --config ${BACKEND_DEPLOY_DIR}/fly.development.toml --remote-only"
+echo "  Staging: cd backend && flyctl deploy --config ${BACKEND_DEPLOY_DIR}/fly.staging.toml --remote-only"
+echo "  Prod:    cd backend && flyctl deploy --config ${BACKEND_DEPLOY_DIR}/fly.production.toml --remote-only"
 echo ""
 
 echo "=== GitHub Environments ==="

@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use chronicle_store::postgres::TracedPgPool;
 use chrono::{NaiveDateTime, TimeZone, Utc};
-use sqlx::{PgPool, Row};
+use sqlx::Row;
 
 use chronicle_domain::{
     FeatureFlagDefinition, FeatureFlagKey, FeatureFlagOverride, FeatureFlagScope, FeatureFlagType,
@@ -77,11 +78,11 @@ fn override_from_row(row: sqlx::postgres::PgRow) -> Result<FeatureFlagOverride, 
 
 #[derive(Clone)]
 pub struct PgFeatureFlagRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 
 impl PgFeatureFlagRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }

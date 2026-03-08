@@ -128,7 +128,9 @@ export const authConfig: NextAuthConfig = {
       const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
       const isOnAuth =
         nextUrl.pathname.startsWith("/login") ||
-        nextUrl.pathname.startsWith("/signup");
+        nextUrl.pathname.startsWith("/signup") ||
+        nextUrl.pathname.startsWith("/forgot-password") ||
+        nextUrl.pathname.startsWith("/reset-password");
 
       if (isOnDashboard) {
         if (isLoggedIn) return true;

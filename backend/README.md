@@ -42,7 +42,7 @@ Events Manager is an enterprise-grade event system that:
 
 ### Prerequisites
 
-- **Rust 1.75+** (via rustup - recommended)
+- **Rust 1.81+** (via rustup - recommended)
 - Docker + Docker Compose (optional, for real backends)
 
 ### Fixing PATH Issues (macOS)
@@ -126,10 +126,10 @@ open http://localhost:8080?api_url=http://localhost:3000
 
 ```bash
 # Start infrastructure
-docker-compose up -d
+docker compose -f deploy/docker-compose.yml up -d
 
 # Wait for services to be healthy
-docker-compose ps
+docker compose -f deploy/docker-compose.yml ps
 
 # Run with real backends
 BACKEND_MODE=real cargo run --bin events-manager --features full
@@ -141,6 +141,7 @@ BACKEND_MODE=real cargo run --bin events-manager --features full
 
 ```
 events-manager/
+├── deploy/              # Fly and Docker deployment assets
 ├── crates/
 │   ├── domain/          # Pure business logic (no vendor deps)
 │   ├── interfaces/      # Trait definitions + enum dispatch
@@ -150,7 +151,7 @@ events-manager/
 │   └── ui/              # Desktop + Web UI (egui/wgpu)
 ├── bin/server/          # Main server binary
 ├── ui/                  # Static web UI (HTML/CSS/JS)
-└── docker-compose.yml   # Kafka + Postgres for production
+└── migrations/          # SQLx migrations
 ```
 
 ---
@@ -266,9 +267,15 @@ See `env.example` for all configuration options:
 | `BACKEND_MODE` | `memory` | Backend type: `memory` or `real` |
 | `API_HOST` | `127.0.0.1` | Server bind address |
 | `API_PORT` | `3000` | Server port |
+| `SENTRY_DSN` | - | Enables backend Sentry error reporting, log ingestion, request tracing, and Postgres query analysis |
+| `SENTRY_ENVIRONMENT` | - | Environment label sent with backend Sentry events |
+| `SENTRY_TRACES_SAMPLE_RATE` | `0.1` | Fraction of backend requests and child database spans sent to Sentry tracing |
 | `STREAM_CHANNEL_CAPACITY` | `10000` | Broadcast channel size |
 | `KAFKA_BROKERS` | `localhost:9092` | Kafka broker addresses |
 | `DATABASE_URL` | - | Postgres connection string |
+
+Set `SENTRY_TRACES_SAMPLE_RATE=1.0` during local verification, then lower it for
+steady-state environments.
 
 ---
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { EntitlementKey, FeatureFlagKey } from "shared/generated";
 import { isEntitled, isFeatureFlagEnabled } from "shared";
 import { Logo } from "ui";
@@ -185,12 +186,30 @@ const navigation: NavItem[] = [
   },
 ];
 
+const CLOCK_TICK_MS = 1000;
+
+function formatCurrentTime() {
+  return new Date().toLocaleTimeString("en-US", { hour12: false });
+}
+
 export function Sidebar() {
   const pathname = usePathname();
   const access = useFeatureAccess();
+  const [currentTime, setCurrentTime] = useState("");
   const sandboxEnabled = access
     ? isFeatureFlagEnabled(access, "sandbox") && isEntitled(access, "sandbox")
     : false;
+
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      setCurrentTime(formatCurrentTime());
+    };
+
+    updateCurrentTime();
+    const interval = window.setInterval(updateCurrentTime, CLOCK_TICK_MS);
+
+    return () => window.clearInterval(interval);
+  }, []);
 
   const isVisible = (item: NavItem) => {
     if (item.hidden) return false;
@@ -223,8 +242,8 @@ export function Sidebar() {
                 System Nominal
               </span>
             </div>
-            <span className="font-mono text-[10px] text-tertiary tabular-nums">
-              {new Date().toLocaleTimeString("en-US", { hour12: false })}
+            <span className="min-w-[4.5rem] text-right font-mono text-[10px] text-tertiary tabular-nums">
+              {currentTime}
             </span>
           </div>
         </div>

@@ -13,9 +13,11 @@ mod entity_refs;
 pub(crate) mod events;
 mod links;
 pub mod query_builder;
+mod query_tracing;
 mod schemas;
 
 use chronicle_core::error::StoreError;
+pub use query_tracing::TracedPgPool;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
@@ -29,7 +31,7 @@ use sqlx::PgPool;
 /// batches (< 2000 events) and asynchronously for large batches.
 #[derive(Clone)]
 pub struct PostgresBackend {
-    pub(crate) pool: PgPool,
+    pub(crate) pool: TracedPgPool,
 }
 
 impl PostgresBackend {
@@ -41,17 +43,22 @@ impl PostgresBackend {
             .connect(database_url)
             .await
             .map_err(|e| StoreError::Connection(e.to_string()))?;
-        Ok(Self { pool })
+        Ok(Self { pool: pool.into() })
     }
 
     /// Create from an existing pool (useful for testing).
     pub fn from_pool(pool: PgPool) -> Self {
-        Self { pool }
+        Self { pool: pool.into() }
+    }
+
+    /// Access the traced connection pool used for query execution.
+    pub fn traced_pool(&self) -> &TracedPgPool {
+        &self.pool
     }
 
     /// Access the connection pool (for administrative operations in tests).
     pub fn pg_pool(&self) -> &PgPool {
-        &self.pool
+        self.pool.inner()
     }
 
     /// Run database migrations to create/update the schema.
@@ -84,13 +91,11 @@ impl PostgresBackend {
     /// Must be called before any tenant-scoped operation when RLS is
     /// enabled. The Postgres RLS policies check `app.current_org_id`.
     pub async fn set_tenant(&self, org_id: &str) -> Result<(), StoreError> {
-        sqlx::query(&format!(
-            "SET LOCAL app.current_org_id = '{}'",
-            org_id.replace('\'', "''")
-        ))
-        .execute(&self.pool)
-        .await
-        .map_err(|e| StoreError::Internal(e.to_string()))?;
+        sqlx::query_scalar::<_, String>("SELECT set_config('app.current_org_id', $1, true)")
+            .bind(org_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| StoreError::Internal(e.to_string()))?;
         Ok(())
     }
 }

@@ -1,17 +1,17 @@
-# Ephemeral environment template for branch-based Fly.io deployments.
-# The app name placeholder {{BRANCH_SLUG}} is replaced at provision time
-# by the env-manager or CI script.
-app = 'chronicle-backend-{{BRANCH_SLUG}}'
+app = 'chronicle-backend-staging'
 primary_region = 'ams'
 
 [build]
+  dockerfile = 'deploy/Dockerfile'
 
 [env]
   API_HOST = "0.0.0.0"
   API_PORT = "8080"
   BACKEND_MODE = "real"
-  RUST_LOG = "info,tower_http=debug"
-  ENVIRONMENT = "ephemeral"
+  RUST_LOG = "info,tower_http=info"
+  PIPEDREAM_ENVIRONMENT = "staging"
+  SENTRY_ENVIRONMENT = "staging"
+  SENTRY_TRACES_SAMPLE_RATE = "1.0"
 
 [http_service]
   internal_port = 8080

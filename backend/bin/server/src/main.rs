@@ -4,9 +4,14 @@
 //! Serves both the events-manager API and the SaaS platform API.
 
 use anyhow::Result;
+use axum::{body::Body, http::Request};
+use sentry_tower::{NewSentryLayer, SentryHttpLayer};
+use std::borrow::Cow;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::net::TcpListener;
+use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -20,8 +25,7 @@ use chronicle_infra::{StoreBackend, StreamBackend};
 mod config;
 mod simulation;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     dotenvy::dotenv().ok();
     let config::CliArgs {
         config_path: cli_config_path,
@@ -30,18 +34,78 @@ async fn main() -> Result<()> {
     let config_path = config::LaunchConfig::config_path(cli_config_path);
     let launch_config = config::LaunchConfig::load(config_path.as_deref())?;
 
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(
-            launch_config.server.rust_log.clone(),
-        ))
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
     if print_config {
         println!("{}", toml::to_string_pretty(&launch_config)?);
         return Ok(());
     }
 
+    let _sentry_guard = init_sentry(&launch_config)?;
+    init_tracing(&launch_config);
+    log_sentry_configuration(&launch_config);
+
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run(launch_config, config_path))
+}
+
+fn init_sentry(launch_config: &config::LaunchConfig) -> Result<sentry::ClientInitGuard> {
+    let dsn = launch_config
+        .integrations
+        .sentry
+        .dsn
+        .as_deref()
+        .map(|dsn| dsn.parse::<sentry::types::Dsn>())
+        .transpose()?;
+
+    Ok(sentry::init(sentry::ClientOptions {
+        dsn,
+        release: sentry::release_name!(),
+        environment: launch_config
+            .integrations
+            .sentry
+            .environment
+            .clone()
+            .map(Cow::Owned),
+        traces_sample_rate: launch_config.integrations.sentry.traces_sample_rate,
+        enable_logs: true,
+        send_default_pii: false,
+        ..Default::default()
+    }))
+}
+
+fn init_tracing(launch_config: &config::LaunchConfig) {
+    let sentry_layer = sentry::integrations::tracing::layer().event_filter(|metadata| {
+        use sentry::integrations::tracing::EventFilter;
+        use tracing::Level;
+
+        match *metadata.level() {
+            Level::ERROR => EventFilter::Event | EventFilter::Log,
+            Level::WARN | Level::INFO => EventFilter::Breadcrumb | EventFilter::Log,
+            Level::DEBUG => EventFilter::Log,
+            Level::TRACE => EventFilter::Ignore,
+        }
+    });
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::new(
+            launch_config.server.rust_log.clone(),
+        ))
+        .with(tracing_subscriber::fmt::layer())
+        .with(sentry_layer)
+        .init();
+}
+
+fn log_sentry_configuration(launch_config: &config::LaunchConfig) {
+    tracing::info!(
+        enabled = launch_config.integrations.sentry.dsn.is_some(),
+        environment = ?launch_config.integrations.sentry.environment,
+        traces_sample_rate = launch_config.integrations.sentry.traces_sample_rate,
+        "Sentry configuration resolved"
+    );
+}
+
+async fn run(launch_config: config::LaunchConfig, config_path: Option<PathBuf>) -> Result<()> {
     tracing::info!("Starting Chronicle backend");
     if let Some(path) = config_path.as_ref() {
         tracing::info!(path = %path.display(), "Loaded launch configuration file");
@@ -110,9 +174,11 @@ async fn main() -> Result<()> {
         config::BackendKind::Postgres => {
             let db_url = require_database_url("storage.saas", &launch_config.storage.saas)?;
             tracing::info!("Using Postgres SaaS repositories");
-            let pool = sqlx::PgPool::connect(db_url)
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to create SaaS connection pool: {e}"))?;
+            let pool = chronicle_infra::postgres::TracedPgPool::from(
+                sqlx::PgPool::connect(db_url)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to create SaaS connection pool: {e}"))?,
+            );
             build_saas_state_postgres(
                 pool,
                 Arc::clone(&store_backend),
@@ -169,12 +235,16 @@ async fn main() -> Result<()> {
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
+    let sentry_layer = ServiceBuilder::new()
+        .layer(NewSentryLayer::<Request<Body>>::new_from_top())
+        .layer(SentryHttpLayer::new().enable_transaction());
 
     let app = axum::Router::new()
         .merge(saas_router)
         .merge(events_router)
         .layer(cors)
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .layer(sentry_layer);
 
     let addr: SocketAddr = format!(
         "{}:{}",
@@ -226,7 +296,7 @@ fn build_email_service(
 }
 
 fn build_saas_state_postgres(
-    pool: sqlx::PgPool,
+    pool: chronicle_infra::postgres::TracedPgPool,
     event_store: Arc<StoreBackend>,
     event_stream: Arc<StreamBackend>,
     launch_config: &config::LaunchConfig,
@@ -244,7 +314,8 @@ fn build_saas_state_postgres(
         Arc::new(PgAgentEndpointConfigRepo::new(pool.clone())),
         Arc::new(PgPipedreamTriggerRepo::new(pool.clone())),
         Arc::new(PgFeatureFlagRepo::new(pool.clone())),
-        Arc::new(PgInvitationRepo::new(pool)),
+        Arc::new(PgInvitationRepo::new(pool.clone())),
+        Arc::new(PgPasswordResetRepo::new(pool)),
         build_pipedream_client(launch_config),
         build_email_service(launch_config),
         event_store,
@@ -272,6 +343,7 @@ fn build_saas_state_memory(
         Arc::new(InMemoryPipedreamTriggerRepo::default()),
         Arc::new(InMemoryFeatureFlagRepo::default()),
         Arc::new(InMemoryInvitationRepo::default()),
+        Arc::new(InMemoryPasswordResetRepo::default()),
         build_pipedream_client(launch_config),
         build_email_service(launch_config),
         event_store,

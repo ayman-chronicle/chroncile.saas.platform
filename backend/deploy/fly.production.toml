@@ -1,21 +1,24 @@
-app = 'chronicle-backend-dev'
+app = 'chronicle-backend'
 primary_region = 'ams'
 
 [build]
+  dockerfile = 'deploy/Dockerfile'
 
 [env]
   API_HOST = "0.0.0.0"
   API_PORT = "8080"
   BACKEND_MODE = "real"
-  RUST_LOG = "debug,tower_http=debug"
-  PIPEDREAM_ENVIRONMENT = "development"
+  RUST_LOG = "info,tower_http=info"
+  PIPEDREAM_ENVIRONMENT = "production"
+  SENTRY_ENVIRONMENT = "production"
+  SENTRY_TRACES_SAMPLE_RATE = "0.1"
 
 [http_service]
   internal_port = 8080
   force_https = true
   auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [http_service.concurrency]
@@ -31,6 +34,6 @@ primary_region = 'ams'
   timeout = "5s"
 
 [[vm]]
-  memory = '256mb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1

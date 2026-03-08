@@ -1,10 +1,11 @@
 .PHONY: build check test test-full clippy fmt fmt-check backend-dev migrate \
-	doppler-check doppler-login doppler-setup doppler-sync doppler-sync-backend \
-	doppler-sync-frontend doppler-sync-env-manager
+	docker-up doppler-check doppler-login doppler-setup doppler-sync \
+	doppler-sync-backend doppler-sync-frontend doppler-sync-env-manager
 
 BACKEND_DIR := backend
 FRONTEND_DIR := apps/frontend
 ENV_MANAGER_DIR := apps/env-manager
+LOCAL_COMPOSE_FILE := deploy/docker-compose.yml
 
 build:
 	cd $(BACKEND_DIR) && cargo build
@@ -33,6 +34,9 @@ backend-dev:
 migrate:
 	cd $(BACKEND_DIR) && sqlx migrate run
 
+docker-up:
+	docker compose -f $(LOCAL_COMPOSE_FILE) up --build
+
 doppler-check:
 	@command -v doppler >/dev/null 2>&1 || (echo "Doppler CLI is not installed or not on PATH." && exit 1)
 
@@ -52,10 +56,10 @@ doppler-setup: doppler-check
 doppler-sync: doppler-sync-backend doppler-sync-frontend doppler-sync-env-manager
 
 doppler-sync-backend: doppler-setup
-	cd $(BACKEND_DIR) && tmp_file="$$(mktemp ./.env.XXXXXX)" && doppler secrets download --no-file --format env > "$$tmp_file" && mv "$$tmp_file" .env
+	cd $(BACKEND_DIR) && tmp_file="$$(mktemp ./.env.XXXXXX)" && doppler secrets download --project chronicle-platform --config dev_backend --no-file --format env > "$$tmp_file" && mv "$$tmp_file" .env
 
 doppler-sync-frontend: doppler-setup
-	cd $(FRONTEND_DIR) && tmp_file="$$(mktemp ./.env.XXXXXX)" && doppler secrets download --no-file --format env > "$$tmp_file" && mv "$$tmp_file" .env
+	cd $(FRONTEND_DIR) && tmp_file="$$(mktemp ./.env.XXXXXX)" && doppler secrets download --project chronicle-platform --config dev_frontend --no-file --format env > "$$tmp_file" && mv "$$tmp_file" .env
 
 doppler-sync-env-manager: doppler-setup
-	cd $(ENV_MANAGER_DIR) && tmp_file="$$(mktemp ./.env.XXXXXX)" && doppler secrets download --no-file --format env > "$$tmp_file" && mv "$$tmp_file" .env
+	cd $(ENV_MANAGER_DIR) && tmp_file="$$(mktemp ./.env.XXXXXX)" && doppler secrets download --project chronicle-platform --config dev_env_manager --no-file --format env > "$$tmp_file" && mv "$$tmp_file" .env

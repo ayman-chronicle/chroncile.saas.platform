@@ -6,6 +6,7 @@ pub mod feature_flag_repositories;
 pub mod repositories;
 mod store;
 
+pub use chronicle_store::postgres::TracedPgPool;
 pub use feature_flag_repositories::*;
 pub use repositories::*;
 pub use store::PostgresStore;

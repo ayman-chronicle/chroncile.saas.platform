@@ -1,13 +1,12 @@
 # Chronicle Labs Backend - Docker Compose
-# 
+#
 # Use this for running with real backends (Kafka + Postgres)
-# Start with: docker-compose up -d
-# Stop with: docker-compose down
+# Start with: docker compose -f backend/deploy/docker-compose.yml up -d
+# Stop with: docker compose -f backend/deploy/docker-compose.yml down
 
-version: "3.9"
+name: chronicle-backend-infra
 
 services:
-  # Zookeeper (required for Kafka)
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: chronicle-zookeeper
@@ -22,7 +21,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # Kafka
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: chronicle-kafka
@@ -48,7 +46,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # Postgres
   postgres:
     image: postgres:16-alpine
     container_name: chronicle-postgres
@@ -60,15 +57,13 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Initialize with our schema
-      - ./crates/infra/src/postgres/migrations:/docker-entrypoint-initdb.d:ro
+      - ../crates/infra/src/postgres/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # Kafka UI (optional - for debugging)
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: chronicle-kafka-ui

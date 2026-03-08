@@ -19,37 +19,29 @@ This is the Next.js frontend application for Chronicle Labs.
    ```
 
    **Option B — Local `.env`:**  
-   Create a `.env` file in the `apps/frontend` directory with:
+   Start from the checked-in example:
    ```env
-   # Database
-   DATABASE_URL="postgresql://user:password@localhost:5432/chronicle_ai?schema=public"
-   
-   # NextAuth
-   AUTH_SECRET="your-secret-key-here-generate-with-openssl-rand-base64-32"
-   AUTH_TRUST_HOST=true
-   
-   # App URL (use your Vercel URL in production)
-   NEXT_PUBLIC_APP_URL="http://localhost:3000"
-   
-   # Encryption key for storing tokens (32 bytes = 64 hex chars)
-   ENCRYPTION_KEY="generate-with-openssl-rand-hex-32"
-   
-   # Pipedream (for integrations: Intercom, Slack, Stripe, etc.)
-   PIPEDREAM_CLIENT_ID="your-pipedream-client-id"
-   PIPEDREAM_CLIENT_SECRET="your-pipedream-client-secret"
-   PIPEDREAM_PROJECT_ID="your-pipedream-project-id"
-   
-   # Events Manager
-   EVENTS_MANAGER_URL="http://localhost:8080"
+   cp .env.example .env
    ```
 
-   To generate secrets:
+   Then update the copied file with your local secrets and provider credentials.
+   The frontend observability layer also reads:
+   ```env
+   NEXT_PUBLIC_POSTHOG_KEY=
+   NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+   NEXT_PUBLIC_SENTRY_DSN=
+   NEXT_PUBLIC_SENTRY_ORG=
+   NEXT_PUBLIC_SENTRY_PROJECT=
+   ```
+
+   To generate the required secrets:
    ```bash
    # Generate AUTH_SECRET
    openssl rand -base64 32
    
-   # Generate ENCRYPTION_KEY (64 hex characters)
+   # Generate ENCRYPTION_KEY and SERVICE_SECRET
    openssl rand -hex 32
+   openssl rand -base64 32
    ```
 
 3. **Set up the database**:
@@ -98,6 +90,13 @@ This is the Next.js frontend application for Chronicle Labs.
 - ✅ Event forwarding to Events Manager
 - ✅ Events timeline UI with real-time refresh
 
+### Observability
+- ✅ PostHog client initialization through `instrumentation-client.ts`
+- ✅ Sentry browser initialization with tracing and replay through `instrumentation-client.ts`
+- ✅ Vendor-agnostic `AnalyticsProvider` abstraction for product analytics events
+- ✅ Session-driven PostHog identify/reset plus Sentry user context sync
+- ✅ Local hidden developer widget for PostHog and Sentry session diagnostics
+
 ### Pages
 - `/login` - Login page
 - `/signup` - Signup page with organization creation
@@ -135,10 +134,11 @@ So in this application, **triggers** = “subscriptions” to event types per co
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16.1 (App Router)
 - **Styling**: Tailwind CSS
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: NextAuth.js v5
+- **Observability**: PostHog analytics plus Sentry browser error, trace, and replay monitoring
 - **Validation**: Zod
 - **Password Hashing**: bcryptjs
 

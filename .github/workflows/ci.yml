@@ -129,7 +129,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Fly.io (dev)
         run: |
-          flyctl deploy --config fly.development.toml --remote-only \
+          flyctl deploy --config deploy/fly.development.toml --remote-only \
             --build-arg GIT_SHA=${{ github.sha }} \
             --build-arg GIT_TAG="" \
             --build-arg ENVIRONMENT=development
@@ -148,7 +148,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Fly.io (staging)
         run: |
-          flyctl deploy --config fly.staging.toml --remote-only \
+          flyctl deploy --config deploy/fly.staging.toml --remote-only \
             --build-arg GIT_SHA=${{ github.sha }} \
             --build-arg GIT_TAG="" \
             --build-arg ENVIRONMENT=staging
@@ -167,7 +167,7 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy to Fly.io (production)
         run: |
-          flyctl deploy --config fly.production.toml --remote-only \
+          flyctl deploy --config deploy/fly.production.toml --remote-only \
             --build-arg GIT_SHA=${{ github.sha }} \
             --build-arg GIT_TAG="" \
             --build-arg ENVIRONMENT=production
@@ -194,7 +194,7 @@ jobs:
       - name: Generate ephemeral fly.toml
         run: |
           sed "s/{{BRANCH_SLUG}}/${{ steps.slug.outputs.slug }}/g" \
-            fly.ephemeral.toml > fly.branch.toml
+            deploy/fly.ephemeral.toml > deploy/fly.branch.toml
         working-directory: backend
       - name: Create Fly app (if not exists)
         run: flyctl apps create ${{ steps.slug.outputs.app_name }} --org ${{ vars.FLY_ORG_SLUG }} || true
@@ -202,7 +202,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - name: Deploy to Fly.io (branch)
         run: |
-          flyctl deploy --config fly.branch.toml --remote-only \
+          flyctl deploy --config deploy/fly.branch.toml --remote-only \
             --build-arg GIT_SHA=${{ github.event.pull_request.head.sha }} \
             --build-arg GIT_TAG="" \
             --build-arg ENVIRONMENT=ephemeral

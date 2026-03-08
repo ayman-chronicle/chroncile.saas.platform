@@ -9,12 +9,15 @@ import Link from "next/link";
 import { FormField, Input } from "ui";
 import { AydeaIcon } from "@/components/icons/AydeaIcon";
 import { loginSchema, type LoginInput } from "@/lib/validations";
+import { useTrack } from "@/shared/analytics";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const track = useTrack();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const registered = searchParams.get("registered");
+  const reset = searchParams.get("reset");
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -28,6 +31,8 @@ function LoginForm() {
     form.clearErrors("root");
 
     try {
+      track("auth_login_attempted", { method: "credentials" });
+
       const result = await signIn("credentials", {
         email: values.email,
         password: values.password,
@@ -66,7 +71,10 @@ function LoginForm() {
 
       <button
         type="button"
-        onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+        onClick={() => {
+          track("auth_login_attempted", { method: "google" });
+          void signIn("google", { callbackUrl: "/dashboard" });
+        }}
         className="w-full flex items-center justify-center gap-3 bg-white border border-[hsl(0,0%,90%)] text-[hsl(0,0%,8%)] py-3.5 text-sm font-medium rounded-[0.75rem] hover:bg-[hsl(0,0%,97%)] focus:outline-none focus:ring-2 focus:ring-[hsl(0,0%,8%)] focus:ring-offset-2 transition-colors"
       >
         <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -89,6 +97,9 @@ function LoginForm() {
 
       {registered && (
         <p className="text-sm text-[#00ff88]">Account created successfully</p>
+      )}
+      {reset && (
+        <p className="text-sm text-[#00ff88]">Password reset successfully</p>
       )}
       {form.formState.errors.root?.message && (
         <p className="text-sm text-[#ff3b3b]">{form.formState.errors.root.message}</p>
@@ -129,6 +140,15 @@ function LoginForm() {
               {...form.register("password")}
             />
           </FormField>
+
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-[hsl(0,0%,45%)] underline underline-offset-2 hover:text-[hsl(0,0%,8%)] transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
         </div>
 
         <button

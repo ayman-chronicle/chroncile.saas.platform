@@ -53,6 +53,11 @@ environment = "development"
 [integrations.resend.templates]
 # team-invite = "tmpl_123"
 
+[integrations.sentry]
+dsn = "https://962563178590206d935ae42ee0af131d@o4511003800109056.ingest.us.sentry.io/4511003805351936"
+environment = "development"
+traces_sample_rate = 1.0
+
 [webhooks]
 # stripe_secret = "whsec_xxx"
 

@@ -10,8 +10,13 @@ import type {
   DeployTriggerRequest,
   DeployedTriggersResponse,
   FeatureAccessResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
   ListRunsResponse,
+  LoginRequest,
   PipedreamTokenRequest,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
   RunDetailResponse,
   RunResponse,
   SignupRequest,
@@ -270,10 +275,26 @@ class PlatformApi {
     });
   }
 
-  login(body: { email: string; password: string }) {
+  login(body: LoginRequest) {
     return this.request<AuthResponse>("POST", "/api/platform/auth/login", {
       body,
     });
+  }
+
+  forgotPassword(body: ForgotPasswordRequest) {
+    return this.request<ForgotPasswordResponse>(
+      "POST",
+      "/api/platform/auth/forgot-password",
+      { body },
+    );
+  }
+
+  resetPassword(body: ResetPasswordRequest) {
+    return this.request<ResetPasswordResponse>(
+      "POST",
+      "/api/platform/auth/reset-password",
+      { body },
+    );
   }
 }
 

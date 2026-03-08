@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "stripe:sync-plans": "node scripts/stripe-sync-plans.mjs"
   },
   "dependencies": {
@@ -15,11 +15,14 @@
     "@react-three/postprocessing": "^3.0.4",
     "@remotion/player": "^4.0.410",
     "@remotion/three": "^4.0.410",
+    "@sentry/browser": "10.42.0",
+    "@sentry/nextjs": "^10.42.0",
     "@xyflow/react": "^12.10.0",
-    "next": "^15.1.7",
+    "next": "16.1.6",
     "next-auth": "^5.0.0-beta.25",
     "plans": "workspace:*",
     "platform-api": "workspace:*",
+    "posthog-js": "^1.359.1",
     "postprocessing": "^6.38.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -41,7 +44,7 @@
     "autoprefixer": "^10.4.0",
     "dotenv": "^16.6.1",
     "eslint": "^9.0.0",
-    "eslint-config-next": "^15.1.7",
+    "eslint-config-next": "^16.1.6",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.8.0"

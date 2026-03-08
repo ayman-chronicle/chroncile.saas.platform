@@ -37,7 +37,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-rust-version = "1.75"
+rust-version = "1.81"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
@@ -104,6 +104,8 @@ dashmap = "5"
 # Logging/tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sentry = { version = "0.46.2", features = ["tracing", "logs"] }
+sentry-tower = { version = "0.46.2", features = ["http"] }
 
 # Configuration
 dotenvy = "0.15"

@@ -30,7 +30,7 @@ use chronicle_core::media::MediaAttachment;
 use chronicle_core::query::{EventResult, StructuredQuery, TimelineQuery};
 
 use super::query_builder::{bind_params, SelectBuilder};
-use super::PostgresBackend;
+use super::{PostgresBackend, TracedPgPool};
 use crate::traits::EventStore;
 
 /// Above this count we split across multiple pool connections.
@@ -236,7 +236,7 @@ async fn unnest_insert_refs_on(
 // ---------------------------------------------------------------------------
 
 async fn unnest_insert_events_pool(
-    pool: &sqlx::PgPool,
+    pool: &TracedPgPool,
     cols: &EventColumns,
 ) -> Result<(), StoreError> {
     unnest_insert_events_on(pool, cols).await
@@ -436,11 +436,11 @@ impl PostgresBackend {
             .map_err(|e| StoreError::Internal(e.to_string()))?;
 
         sqlx::query("SET LOCAL synchronous_commit = off")
-            .execute(&mut *tx)
+            .execute(&mut tx)
             .await
             .ok();
 
-        unnest_insert_events_on(&mut *tx, &evt_cols).await?;
+        unnest_insert_events_on(&mut tx, &evt_cols).await?;
 
         tx.commit()
             .await

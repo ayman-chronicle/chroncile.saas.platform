@@ -1,6 +1,7 @@
 use async_trait::async_trait;
+use chronicle_store::postgres::TracedPgPool;
 use chrono::{NaiveDateTime, TimeZone, Utc};
-use sqlx::{PgPool, Row};
+use sqlx::Row;
 
 fn naive_to_utc(naive: NaiveDateTime) -> chrono::DateTime<Utc> {
     Utc.from_utc_datetime(&naive)
@@ -8,13 +9,13 @@ fn naive_to_utc(naive: NaiveDateTime) -> chrono::DateTime<Utc> {
 
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
-    CreateRunInput, CreateTenantInput, CreateUserInput, Invitation, PipedreamTrigger, Run, Tenant,
-    User, UserRole,
+    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput, Invitation,
+    PasswordResetToken, PipedreamTrigger, Run, Tenant, User, UserRole,
 };
 use chronicle_interfaces::{
     AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, InvitationRepository,
-    PipedreamTriggerRepository, RepoError, RepoResult, RunRepository, TenantRepository,
-    UserRepository,
+    PasswordResetRepository, PipedreamTriggerRepository, RepoError, RepoResult, RunRepository,
+    TenantRepository, UserRepository,
 };
 
 fn new_id() -> String {
@@ -152,11 +153,11 @@ fn trigger_from_row(row: sqlx::postgres::PgRow) -> Result<PipedreamTrigger, sqlx
 
 #[derive(Clone)]
 pub struct PgTenantRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 
 impl PgTenantRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -262,10 +263,10 @@ impl TenantRepository for PgTenantRepo {
 
 #[derive(Clone)]
 pub struct PgUserRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgUserRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -331,6 +332,19 @@ impl UserRepository for PgUserRepo {
             .await
             .map_err(to_repo_err)
     }
+
+    async fn update_password(&self, id: &str, password_hash: &str) -> RepoResult<User> {
+        sqlx::query(
+            "UPDATE \"User\" SET password = $1, \"updatedAt\" = $3 WHERE id = $2 RETURNING *",
+        )
+        .bind(password_hash)
+        .bind(id)
+        .bind(Utc::now().naive_utc())
+        .try_map(user_from_row)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(to_repo_err)
+    }
 }
 
 // === Invitation ===
@@ -355,12 +369,28 @@ fn invitation_from_row(row: sqlx::postgres::PgRow) -> Result<Invitation, sqlx::E
     })
 }
 
+fn password_reset_token_from_row(
+    row: sqlx::postgres::PgRow,
+) -> Result<PasswordResetToken, sqlx::Error> {
+    let expires: NaiveDateTime = row.try_get("expiresAt")?;
+    let used: Option<NaiveDateTime> = row.try_get("usedAt")?;
+    let created: NaiveDateTime = row.try_get("createdAt")?;
+    Ok(PasswordResetToken {
+        id: row.try_get("id")?,
+        user_id: row.try_get("userId")?,
+        token_hash: row.try_get("tokenHash")?,
+        expires_at: naive_to_utc(expires),
+        used_at: used.map(naive_to_utc),
+        created_at: naive_to_utc(created),
+    })
+}
+
 #[derive(Clone)]
 pub struct PgInvitationRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgInvitationRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -435,14 +465,58 @@ impl InvitationRepository for PgInvitationRepo {
     }
 }
 
+#[derive(Clone)]
+pub struct PgPasswordResetRepo {
+    pool: TracedPgPool,
+}
+
+impl PgPasswordResetRepo {
+    pub fn new(pool: TracedPgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl PasswordResetRepository for PgPasswordResetRepo {
+    async fn create(&self, input: CreatePasswordResetTokenInput) -> RepoResult<PasswordResetToken> {
+        let id = new_id();
+        let now = Utc::now().naive_utc();
+        sqlx::query(
+            "INSERT INTO \"PasswordResetToken\" (id, \"userId\", \"tokenHash\", \"expiresAt\", \"createdAt\") VALUES ($1, $2, $3, $4, $5) RETURNING *",
+        )
+        .bind(&id)
+        .bind(&input.user_id)
+        .bind(&input.token_hash)
+        .bind(input.expires_at.naive_utc())
+        .bind(now)
+        .try_map(password_reset_token_from_row)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(to_repo_err)
+    }
+
+    async fn consume(&self, token_hash: &str) -> RepoResult<Option<PasswordResetToken>> {
+        let now = Utc::now().naive_utc();
+        sqlx::query(
+            "UPDATE \"PasswordResetToken\" SET \"usedAt\" = $2 WHERE \"tokenHash\" = $1 AND \"usedAt\" IS NULL AND \"expiresAt\" > $2 RETURNING *",
+        )
+        .bind(token_hash)
+        .bind(now)
+        .try_map(password_reset_token_from_row)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(to_repo_err)
+    }
+}
+
 // === Run ===
 
 #[derive(Clone)]
 pub struct PgRunRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgRunRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -525,10 +599,10 @@ impl RunRepository for PgRunRepo {
 
 #[derive(Clone)]
 pub struct PgConnectionRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgConnectionRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -601,10 +675,10 @@ impl ConnectionRepository for PgConnectionRepo {
 
 #[derive(Clone)]
 pub struct PgAuditLogRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgAuditLogRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -652,10 +726,10 @@ impl AuditLogRepository for PgAuditLogRepo {
 
 #[derive(Clone)]
 pub struct PgAgentEndpointConfigRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgAgentEndpointConfigRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }
@@ -688,10 +762,10 @@ impl AgentEndpointConfigRepository for PgAgentEndpointConfigRepo {
 
 #[derive(Clone)]
 pub struct PgPipedreamTriggerRepo {
-    pool: PgPool,
+    pool: TracedPgPool,
 }
 impl PgPipedreamTriggerRepo {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: TracedPgPool) -> Self {
         Self { pool }
     }
 }

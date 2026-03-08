@@ -86,10 +86,11 @@ graph TB
         BROWSER[Browser]
     end
 
-    subgraph Frontend["Frontend — Next.js 15 &nbsp;/&nbsp; apps/frontend"]
+    subgraph Frontend["Frontend — Next.js 16.1 &nbsp;/&nbsp; apps/frontend"]
         NEXTJS["App Router<br/>Dashboard · Auth · Events · Sandbox"]
         NEXTAUTH["NextAuth v5<br/>JWT Sessions"]
         API_CLIENT["PlatformApi Client<br/>useApiSwr · usePlatformApi"]
+        ANALYTICS["Observability Layer<br/>AnalyticsProvider · PostHog · Sentry"]
     end
 
     subgraph SharedTypes["Shared Types — packages/shared"]
@@ -134,6 +135,8 @@ graph TB
 
     subgraph External["External Services"]
         PIPEDREAM["Pipedream<br/>Event Sources"]
+        POSTHOG["PostHog<br/>Product Analytics"]
+        SENTRY["Sentry<br/>Errors · Tracing · Replay"]
         STRIPE["Stripe<br/>Payments"]
     end
 
@@ -145,9 +148,13 @@ graph TB
     BROWSER --> NEXTJS
     NEXTJS --> NEXTAUTH
     NEXTJS --> API_CLIENT
+    NEXTJS --> ANALYTICS
+    NEXTAUTH -.->|"session identity"| ANALYTICS
     API_CLIENT -.->|imports| TS_TYPES
     API_CLIENT -->|"HTTP + JWT"| SAAS_API
     API_CLIENT -->|"HTTP + JWT"| EVENT_API
+    ANALYTICS --> POSTHOG
+    ANALYTICS --> SENTRY
 
     SAAS_API --> AUTH
     EVENT_API --> AUTH
@@ -183,10 +190,10 @@ graph TB
     classDef client fill:#2d2d2d,stroke:#8b949e,color:#e1e4e8
 
     class BROWSER client
-    class NEXTJS,NEXTAUTH,API_CLIENT frontend
+    class NEXTJS,NEXTAUTH,API_CLIENT,ANALYTICS frontend
     class TS_TYPES shared
     class SAAS_API,EVENT_API,DOMAIN,AUTH,API_TYPES,TRAITS,IN_MEM,PG_STORES,KAFKA_STREAM,PD_CLIENT,STRIPE_INT,ENCRYPTION,SRC_CORE,SRC_REGISTRY,SRC_MOCK,SRC_INTERCOM backend
-    class PIPEDREAM,STRIPE external
+    class PIPEDREAM,POSTHOG,SENTRY,STRIPE external
     class POSTGRES,KAFKA datastore
     </pre>
   </div>
@@ -194,7 +201,7 @@ graph TB
   <div class="legend">
     <div class="legend-card">
       <h3>Frontend</h3>
-      <p>Next.js 15 App Router with NextAuth v5 (JWT sessions). Typed API client (<code>PlatformApi</code>) with SWR hooks for data fetching. Calls backend directly over HTTP with Bearer tokens.</p>
+      <p>Next.js 16.1 App Router with NextAuth v5 (JWT sessions). Typed API client (<code>PlatformApi</code>) with SWR hooks for data fetching plus an observability layer that routes product analytics through PostHog and browser error, trace, and replay monitoring through Sentry.</p>
     </div>
     <div class="legend-card">
       <h3>Backend</h3>
@@ -210,11 +217,11 @@ graph TB
     </div>
     <div class="legend-card">
       <h3>External Integrations</h3>
-      <p><strong>Pipedream</strong> provides event source triggers. <strong>Stripe</strong> handles payments and subscriptions. Both send webhooks back to the backend.</p>
+      <p><strong>Pipedream</strong> provides event source triggers. <strong>Stripe</strong> handles payments and subscriptions. <strong>PostHog</strong> receives frontend analytics events through the app's vendor-agnostic analytics provider, and <strong>Sentry</strong> receives frontend browser errors, traces, and replay data.</p>
     </div>
     <div class="legend-card">
       <h3>Deployment</h3>
-      <p>Deployed to <strong>Render.com</strong> (Frankfurt) via Docker. Local dev uses <code>docker-compose.yml</code> for Postgres, Kafka, and services.</p>
+      <p>Backend deploys to <strong>Fly.io</strong> and the frontend apps deploy through app-level Vercel configs. Local Docker workflows live in <code>deploy/docker-compose.yml</code> and <code>backend/deploy/docker-compose.yml</code>.</p>
     </div>
   </div>
 

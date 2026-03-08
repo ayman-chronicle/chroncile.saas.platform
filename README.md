@@ -22,52 +22,11 @@ packages, alongside a Rust backend in `backend/`.
 
 ## Getting Started
 
-### Prerequisites
+For first-time local setup, install steps, and standard startup commands, use
+[docs/getting-started.md](./docs/getting-started.md).
 
-- Node.js `>= 20.14.0`
-- Yarn `4.6.0`
-- Rust `1.75+` if you are working in `backend/`
-- Docker Desktop if you need local Postgres or Kafka-backed backend workflows
-- Doppler CLI if your team uses managed secrets
-
-If you do not already have Yarn 4 enabled locally, run `corepack enable` first.
-
-### Install Dependencies
-
-```bash
-yarn install
-```
-
-### Optional: Configure Secrets With Doppler
-
-Run these commands from the repo root if you want Doppler-managed `.env` files:
-
-```bash
-doppler login
-make doppler-setup
-make doppler-sync
-```
-
-`make doppler-sync` writes environment files for `backend/`,
-`apps/frontend/`, and `apps/env-manager/`.
-
-### Run The Local Stack
-
-Start the pieces you need in separate terminals:
-
-```bash
-# Frontend app
-yarn dev:frontend
-
-# Env manager app
-yarn dev:env-manager
-
-# Rust backend
-make backend-dev
-```
-
-`yarn dev` runs Turbo workspace dev scripts for the JavaScript apps. The Rust
-backend is started separately via `make backend-dev`.
+That guide covers prerequisites, `yarn install`, optional Doppler sync, and
+the default local development flow for the backend, frontend, and env manager.
 
 ## Common Commands
 
@@ -85,6 +44,7 @@ backend is started separately via `make backend-dev`.
 | Run the full test suite | `yarn test:all` |
 | Start backend in dev mode | `make backend-dev` |
 | Run backend SQLx migrations | `make migrate` |
+| Launch the local Docker stack | `make docker-up` |
 | Sync Doppler env files | `make doppler-sync` |
 
 For subsystem-specific environment variables, database setup, and runtime
@@ -122,10 +82,11 @@ Use these docs for deeper context by topic:
 
 ### Backend And Platform Services
 
-- Rust 1.75+
+- Rust 1.81+
 - Axum
 - SQLx with PostgreSQL
 - Kafka (feature-gated and optional)
+- Sentry for backend error monitoring, logs, and request tracing
 - Server-sent events for streaming
 - `ts-rs` generated TypeScript bindings shared through `packages/shared`
 

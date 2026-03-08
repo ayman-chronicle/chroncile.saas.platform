@@ -261,6 +261,23 @@ pub struct CreateInvitationInput {
 }
 
 #[derive(Debug, Clone)]
+pub struct PasswordResetToken {
+    pub id: String,
+    pub user_id: String,
+    pub token_hash: String,
+    pub expires_at: DateTime<Utc>,
+    pub used_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CreatePasswordResetTokenInput {
+    pub user_id: String,
+    pub token_hash: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
 pub struct CreateRunInput {
     pub tenant_id: String,
     pub workflow_id: Option<String>,

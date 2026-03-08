@@ -159,6 +159,15 @@ impl LaunchConfig {
             self.integrations.resend.templates = serde_json::from_str(&value)
                 .context("failed to parse RESEND_TEMPLATES_JSON as JSON object")?;
         }
+        if let Some(value) = non_empty_env("SENTRY_DSN") {
+            self.integrations.sentry.dsn = Some(value);
+        }
+        if let Some(value) = non_empty_env("SENTRY_ENVIRONMENT") {
+            self.integrations.sentry.environment = Some(value);
+        }
+        if let Some(value) = parse_env::<f32>("SENTRY_TRACES_SAMPLE_RATE")? {
+            self.integrations.sentry.traces_sample_rate = value;
+        }
 
         if let Some(value) = non_empty_env("STRIPE_WEBHOOK_SECRET") {
             self.webhooks.stripe_secret = Some(value);
@@ -337,6 +346,7 @@ pub struct HealthConfig {
 pub struct IntegrationsConfig {
     pub pipedream: PipedreamConfig,
     pub resend: ResendConfig,
+    pub sentry: SentryConfig,
 }
 
 impl Default for IntegrationsConfig {
@@ -344,6 +354,7 @@ impl Default for IntegrationsConfig {
         Self {
             pipedream: PipedreamConfig::default(),
             resend: ResendConfig::default(),
+            sentry: SentryConfig::default(),
         }
     }
 }
@@ -372,6 +383,23 @@ pub struct ResendConfig {
     pub api_key: Option<String>,
     pub from_address: Option<String>,
     pub templates: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SentryConfig {
+    pub dsn: Option<String>,
+    pub environment: Option<String>,
+    pub traces_sample_rate: f32,
+}
+
+impl Default for SentryConfig {
+    fn default() -> Self {
+        Self {
+            dsn: None,
+            environment: None,
+            traces_sample_rate: 0.1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -553,6 +581,15 @@ impl FileConfig {
         if !self.integrations.resend.templates.is_empty() {
             config.integrations.resend.templates = self.integrations.resend.templates;
         }
+        if let Some(value) = self.integrations.sentry.dsn {
+            config.integrations.sentry.dsn = Some(value);
+        }
+        if let Some(value) = self.integrations.sentry.environment {
+            config.integrations.sentry.environment = Some(value);
+        }
+        if let Some(value) = self.integrations.sentry.traces_sample_rate {
+            config.integrations.sentry.traces_sample_rate = value;
+        }
 
         if let Some(value) = self.webhooks.stripe_secret {
             config.webhooks.stripe_secret = Some(value);
@@ -635,6 +672,7 @@ struct FileHealthConfig {
 struct FileIntegrationsConfig {
     pipedream: FilePipedreamConfig,
     resend: FileResendConfig,
+    sentry: FileSentryConfig,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -652,6 +690,14 @@ struct FileResendConfig {
     api_key: Option<String>,
     from_address: Option<String>,
     templates: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+struct FileSentryConfig {
+    dsn: Option<String>,
+    environment: Option<String>,
+    traces_sample_rate: Option<f32>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
