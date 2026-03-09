@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ConfirmModal, Skeleton } from "ui";
 import { AddEventSourcesModal } from "@/components/connections/AddEventSourcesModal";
 import { usePlatformApi } from "@/shared/hooks/use-platform-api";
@@ -141,7 +142,9 @@ export function ConnectionsClient({
   pipedreamApp,
 }: ConnectionsClientProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const api = usePlatformApi();
+  const backendToken = session?.backendToken;
   const [connections, setConnections] = useState(initialConnections);
   
   const [showToast, setShowToast] = useState(false);
@@ -269,6 +272,7 @@ export function ConnectionsClient({
   }, [showToast]);
 
   const fetchApps = useCallback(async (query?: string) => {
+    if (!backendToken) return [];
     try {
       const data = await api.listPipedreamApps({ q: query, limit: 50 });
       return (data.data as PipedreamApp[]) || [];
@@ -277,9 +281,14 @@ export function ConnectionsClient({
       setIsPipedreamConfigured(false);
       return [];
     }
-  }, []);
+  }, [api, backendToken]);
 
   useEffect(() => {
+    if (!backendToken) {
+      setLoadingApps(false);
+      return;
+    }
+
     async function loadInitialApps() {
       setLoadingApps(true);
       try {
@@ -306,7 +315,7 @@ export function ConnectionsClient({
       }
     }
     loadInitialApps();
-  }, [fetchApps]);
+  }, [fetchApps, backendToken]);
 
   useEffect(() => {
     if (loadingApps || searchQuery.trim() || pipedreamApps.length === 0) {
@@ -391,6 +400,8 @@ export function ConnectionsClient({
   }, [searchQuery, fetchApps, loadingApps]);
 
   useEffect(() => {
+    if (!backendToken || !isPipedreamConfigured) return;
+
     async function fetchTriggers() {
       try {
         const data = await api.listDeployedTriggers();
@@ -399,10 +410,8 @@ export function ConnectionsClient({
         console.error("Failed to fetch deployed triggers:", error);
       }
     }
-    if (isPipedreamConfigured) {
-      fetchTriggers();
-    }
-  }, [isPipedreamConfigured, api]);
+    fetchTriggers();
+  }, [isPipedreamConfigured, api, backendToken]);
 
   useEffect(() => {
     if (!pipedreamSuccess || !pipedreamApp || hasShownPostConnectModalRef.current) return;
@@ -417,6 +426,11 @@ export function ConnectionsClient({
   }, [pipedreamSuccess, pipedreamApp, connections, router]);
 
   const handleConnectPipedream = useCallback(async (app: string) => {
+    if (!backendToken) {
+      showToastMessage("Your session is not ready yet. Please retry.", "error");
+      return;
+    }
+
     setConnectingApp(app);
     try {
       const responseData = await api.createPipedreamToken({ appId: app }) as Record<string, unknown>;
@@ -435,7 +449,7 @@ export function ConnectionsClient({
       showToastMessage("Failed to start connection flow", "error");
       setConnectingApp(null);
     }
-  }, [showToastMessage]);
+  }, [api, backendToken, showToastMessage]);
 
   const handleDeleteTrigger = async (deploymentId: string) => {
     if (!confirm("Are you sure you want to delete this trigger?")) return;

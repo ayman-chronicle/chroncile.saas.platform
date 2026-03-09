@@ -86,5 +86,6 @@ declare module "@auth/core/jwt" {
     tenantSlug: string;
     backendToken?: string;
     backendTokenExpiresAt?: number;
+    backendTokenRefreshedAt?: number;
   }
 }

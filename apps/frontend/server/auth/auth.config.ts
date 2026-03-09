@@ -5,6 +5,7 @@ const BACKEND_URL = getBackendUrl();
 const SERVICE_SECRET = process.env.SERVICE_SECRET || "";
 
 const BACKEND_TOKEN_LIFETIME_MS = 23 * 60 * 60 * 1000;
+const BACKEND_TOKEN_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 async function refreshBackendToken(token: {
   id: string;
@@ -96,17 +97,27 @@ export const authConfig: NextAuthConfig = {
         token.tenantSlug = user.tenantSlug;
         token.backendToken = user.backendToken;
         token.backendTokenExpiresAt = Date.now() + BACKEND_TOKEN_LIFETIME_MS;
+        token.backendTokenRefreshedAt = Date.now();
       }
 
       const bufferMs = 5 * 60 * 1000;
+      const now = Date.now();
+      const shouldPeriodicRefresh =
+        !token.backendTokenRefreshedAt ||
+        now - token.backendTokenRefreshedAt > BACKEND_TOKEN_REFRESH_INTERVAL_MS;
+      const shouldRefreshByExpiry =
+        !!token.backendTokenExpiresAt &&
+        now > token.backendTokenExpiresAt - bufferMs;
       if (
-        token.backendTokenExpiresAt &&
-        Date.now() > token.backendTokenExpiresAt - bufferMs
+        !token.backendToken ||
+        shouldRefreshByExpiry ||
+        shouldPeriodicRefresh
       ) {
         const refreshed = await refreshBackendToken(token);
         if (refreshed) {
           token.backendToken = refreshed.backendToken;
           token.backendTokenExpiresAt = refreshed.backendTokenExpiresAt;
+          token.backendTokenRefreshedAt = now;
         }
       }
 
