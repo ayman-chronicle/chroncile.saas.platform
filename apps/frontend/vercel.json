@@ -3,6 +3,5 @@
   "framework": "nextjs",
   "installCommand": "cd ../.. && node .yarn/releases/yarn-4.6.0.cjs install --immutable",
   "buildCommand": "cd ../.. && node .yarn/releases/yarn-4.6.0.cjs build:frontend",
-  "outputDirectory": ".next",
-  "ignoreCommand": "cd ../.. && git diff --quiet HEAD^ HEAD -- apps/frontend/ packages/"
+  "outputDirectory": ".next"
 }
