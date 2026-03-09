@@ -8,8 +8,7 @@ use chrono::Utc;
 use chronicle_auth::types::AuthUser;
 use chronicle_domain::{
     CreateConnectionInput, DeployTriggerRequest, DeployedTriggersResponse, ListAppsParams,
-    ListTriggersParams,
-    PipedreamTokenRequest,
+    ListTriggersParams, PipedreamTokenRequest,
 };
 use chronicle_interfaces::RepoError;
 use chronicle_pipedream_connect::types::UpdateDeploymentRequest;
@@ -32,7 +31,10 @@ pub struct SyncAccountsResponse {
 }
 
 fn connections_page_url(state: &SaasAppState) -> String {
-    format!("{}/dashboard/connections", state.config.app_url.trim_end_matches('/'))
+    format!(
+        "{}/dashboard/connections",
+        state.config.app_url.trim_end_matches('/')
+    )
 }
 
 fn build_success_redirect_uri(state: &SaasAppState, app_id: Option<&str>) -> String {
@@ -120,7 +122,10 @@ fn build_connection_metadata(
         metadata.insert("workspace_id".to_string(), serde_json::json!(external_id));
     }
     if let Some(app) = &account.app {
-        metadata.insert("app".to_string(), serde_json::to_value(app).unwrap_or_default());
+        metadata.insert(
+            "app".to_string(),
+            serde_json::to_value(app).unwrap_or_default(),
+        );
     }
     if let Some(data) = &account.data {
         metadata.insert("data".to_string(), data.clone());
@@ -210,7 +215,11 @@ pub async fn list_deployed(
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
 
-    let triggers = match state.pipedream_triggers.list_by_tenant(&user.tenant_id).await {
+    let triggers = match state
+        .pipedream_triggers
+        .list_by_tenant(&user.tenant_id)
+        .await
+    {
         Ok(triggers) => triggers,
         Err(RepoError::Internal(detail))
             if detail.contains("PipedreamTrigger") && detail.contains("does not exist") =>

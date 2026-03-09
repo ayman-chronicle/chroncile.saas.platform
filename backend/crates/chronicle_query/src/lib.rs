@@ -12,9 +12,7 @@ use chronicle_core::ids::{EntityType, EventId, EventType, OrgId, Source};
 use chronicle_core::query::{
     EventResult, GraphQuery, SemanticQuery, StructuredQuery, TimelineQuery,
 };
-use chronicle_store::{
-    EntityInfo, EntityTypeInfo, SourceInfo, SourceSchema, StorageEngine,
-};
+use chronicle_store::{EntityInfo, EntityTypeInfo, SourceInfo, SourceSchema, StorageEngine};
 
 /// Unified query interface over the [`StorageEngine`].
 ///

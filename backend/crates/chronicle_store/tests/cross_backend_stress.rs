@@ -392,7 +392,10 @@ async fn cross_backend_stress() {
     // --- Test 7: Event link graph ---
     eprintln!("[Test 7] Graph traversal (links)…");
     let mem_links = mem
-        .get_links_for_event(&OrgId::new(&mem_ds.org_id), &mem_ds.links[0].source_event_id)
+        .get_links_for_event(
+            &OrgId::new(&mem_ds.org_id),
+            &mem_ds.links[0].source_event_id,
+        )
         .await
         .unwrap();
     let pg_links = pg

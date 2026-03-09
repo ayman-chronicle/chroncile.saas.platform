@@ -660,10 +660,12 @@ impl ConnectionRepository for PgConnectionRepo {
     ) -> RepoResult<Connection> {
         let now = Utc::now().naive_utc();
         let existing_id: Option<String> = with_sqlx_retry(|| {
-            sqlx::query_scalar("SELECT id FROM \"Connection\" WHERE \"tenantId\" = $1 AND provider = $2 LIMIT 1")
-                .bind(&input.tenant_id)
-                .bind(&input.provider)
-                .fetch_optional(&self.pool)
+            sqlx::query_scalar(
+                "SELECT id FROM \"Connection\" WHERE \"tenantId\" = $1 AND provider = $2 LIMIT 1",
+            )
+            .bind(&input.tenant_id)
+            .bind(&input.provider)
+            .fetch_optional(&self.pool)
         })
         .await
         .map_err(to_repo_err)?;
@@ -724,11 +726,11 @@ impl ConnectionRepository for PgConnectionRepo {
     async fn list_by_tenant(&self, tenant_id: &str) -> RepoResult<Vec<Connection>> {
         with_sqlx_retry(|| {
             sqlx::query(
-            "SELECT * FROM \"Connection\" WHERE \"tenantId\" = $1 ORDER BY \"createdAt\" DESC",
-        )
-        .bind(tenant_id)
-        .try_map(connection_from_row)
-        .fetch_all(&self.pool)
+                "SELECT * FROM \"Connection\" WHERE \"tenantId\" = $1 ORDER BY \"createdAt\" DESC",
+            )
+            .bind(tenant_id)
+            .try_map(connection_from_row)
+            .fetch_all(&self.pool)
         })
         .await
         .map_err(to_repo_err)

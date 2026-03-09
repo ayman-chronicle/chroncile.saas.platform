@@ -6,12 +6,12 @@
 use anyhow::Result;
 use axum::{body::Body, http::Request};
 use sentry_tower::{NewSentryLayer, SentryHttpLayer};
+use sqlx::postgres::PgPoolOptions;
 use std::borrow::Cow;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};

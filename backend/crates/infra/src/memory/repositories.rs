@@ -480,7 +480,9 @@ impl ConnectionRepository for InMemoryConnectionRepo {
         if let Some(existing) = self
             .store
             .iter()
-            .find(|e| e.value().tenant_id == input.tenant_id && e.value().provider == input.provider)
+            .find(|e| {
+                e.value().tenant_id == input.tenant_id && e.value().provider == input.provider
+            })
             .map(|e| e.value().clone())
         {
             let mut conn = self
