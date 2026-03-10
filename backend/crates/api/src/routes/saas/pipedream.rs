@@ -187,17 +187,44 @@ pub async fn deploy_trigger(
     Json(input): Json<DeployTriggerRequest>,
 ) -> ApiResult<(StatusCode, Json<serde_json::Value>)> {
     let pd = get_pipedream(&state)?;
+    let connection_id = input
+        .connection_id
+        .clone()
+        .ok_or_else(|| ApiError::bad_request("connectionId is required"))?;
+    let connection = state
+        .connections
+        .find_by_id(&connection_id)
+        .await?
+        .ok_or_else(|| ApiError::not_found("Connection"))?;
+    if connection.tenant_id != user.tenant_id {
+        return Err(ApiError::forbidden(
+            "Connection does not belong to the current tenant",
+        ));
+    }
+    let trigger_id = input.trigger_id.clone();
+    let configured_props = input.configured_props.clone();
 
     let result = pd
         .deploy_trigger(chronicle_pipedream_connect::types::DeployTriggerRequest {
             id: input.trigger_id,
             external_user_id: user.tenant_id.clone(),
-            configured_props: input.configured_props,
+            configured_props: configured_props.clone(),
             webhook_url: input.webhook_url,
             workflow_id: None,
         })
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
+
+    state
+        .pipedream_triggers
+        .create(
+            &user.tenant_id,
+            &connection_id,
+            &trigger_id,
+            &result.data.id,
+            configured_props,
+        )
+        .await?;
 
     Ok((
         StatusCode::CREATED,
@@ -274,6 +301,14 @@ pub async fn delete_deployed(
     pd.delete_deployment(&deployment_id)
         .await
         .map_err(|e| ApiError::bad_request(e.to_string()))?;
+
+    if let Ok(Some(trigger)) = state
+        .pipedream_triggers
+        .find_by_deployment_id(&deployment_id)
+        .await
+    {
+        let _ = state.pipedream_triggers.delete(&trigger.id).await;
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }

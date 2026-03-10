@@ -4,7 +4,10 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ConfirmModal, Skeleton } from "ui";
-import { AddEventSourcesModal } from "@/components/connections/AddEventSourcesModal";
+import {
+  AddEventSourcesModal,
+  type DeployedTriggerPreview,
+} from "@/components/connections/AddEventSourcesModal";
 import { usePlatformApi } from "@/shared/hooks/use-platform-api";
 
 interface ConnectionData {
@@ -13,6 +16,7 @@ interface ConnectionData {
   status: string;
   pipedreamAuthId?: string | null;
   metadata: {
+    account_id?: string;
     workspace_id?: string;
     workspace_name?: string;
     account_name?: string;
@@ -39,9 +43,7 @@ interface DeployedTrigger {
   deploymentId: string;
   triggerId: string;
   connectionId: string;
-  provider: string;
   status: string;
-  active: boolean;
   createdAt: string;
 }
 
@@ -132,6 +134,25 @@ function ConnectionsIntegrationsSkeleton() {
   );
 }
 
+function EventSourcesSkeleton() {
+  return (
+    <div className="divide-y divide-border-dim">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-4 flex-1">
+            <Skeleton className="w-10 h-10 shrink-0" />
+            <div className="space-y-2 w-full max-w-md">
+              <Skeleton className="h-3.5 w-44" />
+              <Skeleton className="h-3 w-60" />
+            </div>
+          </div>
+          <Skeleton className="w-8 h-8 shrink-0" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ConnectionsClient({
   connections: initialConnections,
   successMessage,
@@ -157,6 +178,7 @@ export function ConnectionsClient({
   const [searchingApps, setSearchingApps] = useState(false);
   const [connectingApp, setConnectingApp] = useState<string | null>(null);
   const [deployedTriggers, setDeployedTriggers] = useState<DeployedTrigger[]>([]);
+  const [loadingDeployedTriggers, setLoadingDeployedTriggers] = useState(true);
   const [isPipedreamConfigured, setIsPipedreamConfigured] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -184,6 +206,41 @@ export function ConnectionsClient({
     setToastType(type);
     setShowToast(true);
   }, []);
+
+  const upsertDeployedTrigger = useCallback((trigger: DeployedTriggerPreview) => {
+    setDeployedTriggers((prev) => {
+      const index = prev.findIndex(
+        (t) =>
+          t.deploymentId === trigger.deploymentId ||
+          (t.connectionId === trigger.connectionId && t.triggerId === trigger.triggerId)
+      );
+      if (index === -1) return [trigger, ...prev];
+      const next = [...prev];
+      next[index] = { ...next[index], ...trigger };
+      return next;
+    });
+  }, []);
+
+  const refreshDeployedTriggers = useCallback(
+    async (showLoading = false) => {
+      if (!backendToken || !isPipedreamConfigured) {
+        setLoadingDeployedTriggers(false);
+        return;
+      }
+      if (showLoading) {
+        setLoadingDeployedTriggers(true);
+      }
+      try {
+        const data = await api.listDeployedTriggers();
+        setDeployedTriggers((data.triggers as unknown as DeployedTrigger[]) ?? []);
+      } catch (error) {
+        console.error("Failed to fetch deployed triggers:", error);
+      } finally {
+        setLoadingDeployedTriggers(false);
+      }
+    },
+    [api, backendToken, isPipedreamConfigured]
+  );
 
   useEffect(() => {
     if (successMessage === "disconnected") {
@@ -400,18 +457,8 @@ export function ConnectionsClient({
   }, [searchQuery, fetchApps, loadingApps]);
 
   useEffect(() => {
-    if (!backendToken || !isPipedreamConfigured) return;
-
-    async function fetchTriggers() {
-      try {
-        const data = await api.listDeployedTriggers();
-        setDeployedTriggers((data.data as unknown as DeployedTrigger[]) ?? []);
-      } catch (error) {
-        console.error("Failed to fetch deployed triggers:", error);
-      }
-    }
-    fetchTriggers();
-  }, [isPipedreamConfigured, api, backendToken]);
+    refreshDeployedTriggers(true);
+  }, [refreshDeployedTriggers]);
 
   useEffect(() => {
     if (!pipedreamSuccess || !pipedreamApp || hasShownPostConnectModalRef.current) return;
@@ -593,6 +640,8 @@ export function ConnectionsClient({
   const displayedApps = showAllApps ? filteredApps : filteredApps.slice(0, 12);
   const hasMoreApps = filteredApps.length > 12;
   const activeConnections = connections.filter(c => c.status === "active").length;
+  const showMainSkeleton =
+    loadingApps || (isPipedreamConfigured && loadingDeployedTriggers);
 
   const getHealthIndicator = (connectionId: string) => {
     const health = connectionHealth[connectionId];
@@ -642,6 +691,9 @@ export function ConnectionsClient({
     const connection = getConnection(app.name_slug);
     const isConnected = !!connection;
     const isConnecting = connectingApp === app.name_slug;
+    const connectionTriggers = connection
+      ? deployedTriggers.filter((t) => t.connectionId === connection.id)
+      : [];
 
     return (
       <div key={app.name_slug} className={`panel transition-all ${isConnected ? "border-nominal-dim" : ""}`}>
@@ -718,20 +770,23 @@ export function ConnectionsClient({
                 <div className="text-[10px] font-mono font-medium tracking-wider uppercase text-tertiary mb-1.5">
                   Event sources
                 </div>
-                {deployedTriggers.filter((t) => t.connectionId === connection.id).length === 0 ? (
+                {loadingDeployedTriggers ? (
+                  <div className="space-y-1.5 mb-2">
+                    <Skeleton className="h-3 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
+                  </div>
+                ) : connectionTriggers.length === 0 ? (
                   <p className="text-xs text-tertiary mb-2">No event sources. Add one to receive events.</p>
                 ) : (
                   <ul className="space-y-1 mb-2">
-                    {deployedTriggers
-                      .filter((t) => t.connectionId === connection.id)
-                      .map((t) => (
-                        <li key={t.id} className="flex items-center justify-between text-xs">
-                          <span className="text-secondary truncate">{t.triggerId}</span>
-                          <span className={`badge ${t.active ? "badge--nominal" : "badge--neutral"} flex-shrink-0 ml-2`}>
-                            {t.active ? "Active" : "Paused"}
-                          </span>
-                        </li>
-                      ))}
+                    {connectionTriggers.map((t) => (
+                      <li key={t.id} className="flex items-center justify-between text-xs">
+                        <span className="text-secondary truncate">{t.triggerId}</span>
+                        <span className={`badge ${t.status === "active" ? "badge--nominal" : "badge--neutral"} flex-shrink-0 ml-2`}>
+                          {t.status === "active" ? "Active" : "Paused"}
+                        </span>
+                      </li>
+                    ))}
                   </ul>
                 )}
                 <button
@@ -879,13 +934,11 @@ export function ConnectionsClient({
               .filter((t) => t.connectionId === (postConnectModalConnection ?? addTriggerModalConnection!)?.id)
               .map((t) => t.triggerId)
           }
-          onDeployed={async () => {
-            try {
-              const data = await api.listDeployedTriggers();
-              setDeployedTriggers((data.data as unknown as DeployedTrigger[]) ?? []);
-            } catch (e) {
-              console.error("Failed to refresh deployed triggers", e);
+          onDeployed={async (trigger) => {
+            if (trigger) {
+              upsertDeployedTrigger(trigger);
             }
+            await refreshDeployedTriggers(false);
           }}
         />
       )}
@@ -927,7 +980,7 @@ export function ConnectionsClient({
           {isPipedreamConfigured && <span className="badge badge--neutral">Pipedream</span>}
         </div>
 
-        {loadingApps ? (
+        {showMainSkeleton ? (
           <ConnectionsIntegrationsSkeleton />
         ) : (
           <>
@@ -1157,52 +1210,66 @@ export function ConnectionsClient({
         </div>
       )}
 
-      {isPipedreamConfigured && deployedTriggers.length > 0 && (
+      {isPipedreamConfigured && (loadingDeployedTriggers || deployedTriggers.length > 0) && (
         <div className="panel">
           <div className="panel__header">
             <span className="panel__title">Event Sources</span>
-            <span className="badge badge--data">{deployedTriggers.length} Deployed</span>
+            {!loadingDeployedTriggers && (
+              <span className="badge badge--data">{deployedTriggers.length} Deployed</span>
+            )}
           </div>
-          <div className="divide-y divide-border-dim">
-            {deployedTriggers.map((trigger) => (
-              <div
-                key={trigger.id}
-                className="flex items-center justify-between px-4 py-4 hover:bg-hover transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 border flex items-center justify-center ${
-                    trigger.active 
-                      ? "border-nominal bg-nominal-bg text-nominal" 
-                      : "border-border-default bg-elevated text-tertiary"
-                  }`}>
-                    <span className="text-sm font-bold">
-                      {trigger.provider.slice(0, 2).toUpperCase()}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-primary">{trigger.triggerId}</span>
-                      <span className={`badge ${trigger.active ? "badge--nominal" : "badge--neutral"}`}>
-                        {trigger.active ? "Active" : "Paused"}
+          {loadingDeployedTriggers ? (
+            <EventSourcesSkeleton />
+          ) : (
+            <div className="divide-y divide-border-dim">
+              {deployedTriggers.map((trigger) => {
+                const provider =
+                  connections.find((c) => c.id === trigger.connectionId)?.provider ||
+                  "unknown";
+                const initials = provider.slice(0, 2).toUpperCase();
+                const isActive = trigger.status === "active";
+
+                return (
+                <div
+                  key={trigger.id}
+                  className="flex items-center justify-between px-4 py-4 hover:bg-hover transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 border flex items-center justify-center ${
+                      isActive
+                        ? "border-nominal bg-nominal-bg text-nominal" 
+                        : "border-border-default bg-elevated text-tertiary"
+                    }`}>
+                      <span className="text-sm font-bold">
+                        {initials}
                       </span>
                     </div>
-                    <div className="text-xs text-tertiary mt-0.5">
-                      {trigger.provider} · Created <span className="font-mono tabular-nums">{formatDate(trigger.createdAt)}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-primary">{trigger.triggerId}</span>
+                        <span className={`badge ${isActive ? "badge--nominal" : "badge--neutral"}`}>
+                          {isActive ? "Active" : "Paused"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-tertiary mt-0.5">
+                        {provider} · Created <span className="font-mono tabular-nums">{formatDate(trigger.createdAt)}</span>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    onClick={() => handleDeleteTrigger(trigger.deploymentId)}
+                    className="p-2 text-tertiary hover:text-critical transition-colors"
+                    title="Delete trigger"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeleteTrigger(trigger.deploymentId)}
-                  className="p-2 text-tertiary hover:text-critical transition-colors"
-                  title="Delete trigger"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

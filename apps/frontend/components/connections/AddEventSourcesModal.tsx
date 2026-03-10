@@ -8,14 +8,31 @@ interface TriggerOption {
   name: string;
   description?: string;
   version: string;
-  configurable_props?: unknown[];
+  configurable_props?: Array<{
+    name?: string;
+    optional?: boolean;
+  }>;
+}
+
+export interface DeployedTriggerPreview {
+  id: string;
+  deploymentId: string;
+  triggerId: string;
+  connectionId: string;
+  status: string;
+  createdAt: string;
 }
 
 interface AddEventSourcesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  connection: { id: string; provider: string };
-  onDeployed?: () => void;
+  connection: {
+    id: string;
+    provider: string;
+    pipedreamAuthId?: string | null;
+    metadata?: { account_id?: string } | null;
+  };
+  onDeployed?: (trigger?: DeployedTriggerPreview) => void;
   source?: "post-connect" | "card";
   initialDeployedKeys?: string[];
 }
@@ -63,13 +80,44 @@ export function AddEventSourcesModal({
   const handleEnable = async (trigger: TriggerOption) => {
     setDeployingKey(trigger.key);
     try {
-      await api.deployPipedreamTrigger({
+      const requiredProps = trigger.configurable_props
+        ?.filter((prop) => prop && prop.optional === false && prop.name)
+        .map((prop) => prop.name as string) ?? [];
+      const accountId = connection.pipedreamAuthId || connection.metadata?.account_id;
+      const configuredProps: Record<string, string> = {};
+      for (const propName of requiredProps) {
+        if (propName === connection.provider && accountId) {
+          configuredProps[propName] = accountId;
+        }
+      }
+      if (requiredProps.includes(connection.provider) && !accountId) {
+        setError(`Missing ${connection.provider} account for this trigger.`);
+        setDeployingKey(null);
+        return;
+      }
+
+      const deployResponse = await api.deployPipedreamTrigger({
         triggerId: trigger.key,
+        connectionId: connection.id,
         webhookUrl: null,
-        configuredProps: null,
+        configuredProps: Object.keys(configuredProps).length ? configuredProps : null,
       });
+
+      const deploymentId =
+        (deployResponse as { data?: { id?: string } })?.data?.id ||
+        `pending-${trigger.key}-${Date.now()}`;
+
+      const optimisticTrigger: DeployedTriggerPreview = {
+        id: `optimistic-${connection.id}-${trigger.key}-${Date.now()}`,
+        deploymentId,
+        triggerId: trigger.key,
+        connectionId: connection.id,
+        status: "active",
+        createdAt: new Date().toISOString(),
+      };
+
       setDeployedKeys((prev) => new Set(prev).add(trigger.key));
-      onDeployed?.();
+      onDeployed?.(optimisticTrigger);
     } catch (e) {
       console.error("Deploy trigger error:", e);
     } finally {

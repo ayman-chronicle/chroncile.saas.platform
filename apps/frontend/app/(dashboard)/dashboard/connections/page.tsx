@@ -9,6 +9,7 @@ interface ConnectionData {
   status: string;
   pipedreamAuthId?: string | null;
   metadata: {
+    account_id?: string;
     workspace_id?: string;
     workspace_name?: string;
     account_name?: string;

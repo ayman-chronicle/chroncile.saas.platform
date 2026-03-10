@@ -211,6 +211,7 @@ pub struct ListTriggersParams {
 #[ts(export, export_to = "generated/")]
 pub struct DeployTriggerRequest {
     pub trigger_id: String,
+    pub connection_id: Option<String>,
     pub webhook_url: Option<String>,
     pub configured_props: Option<serde_json::Value>,
 }
