@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/chronicle_mcp",
     "crates/domain",
     "crates/interfaces",
     "crates/infra",
@@ -30,6 +31,7 @@ members = [
     "crates/ui",
     "crates/timeline-core",
     "crates/timeline-widget",
+    "bin/chronicle-mcp",
     "bin/server",
 ]
 
@@ -113,6 +115,8 @@ chronicle_embed = { path = "crates/chronicle_embed" }
 chronicle_sdk = { path = "crates/chronicle_sdk" }
 chronicle_py = { path = "crates/chronicle_py" }
 chronicle_viewer_common = { path = "crates/chronicle_viewer_common" }
+chronicle_mcp = { path = "crates/chronicle_mcp" }
+chronicle_backend = { path = "bin/server" }
 
 # Async runtime
 tokio = { version = "1.35", features = ["full"] }
@@ -176,6 +180,7 @@ jsonwebtoken = "9"
 # HTTP client
 reqwest = { version = "0.12", features = ["json"] }
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "json", "migrate"] }
+rmcp = "1.1"
 
 # IDs
 cuid2 = "0.1"

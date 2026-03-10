@@ -1,5 +1,7 @@
 //! Chronicle-native infrastructure adapters for the platform backend.
 
+use std::sync::Arc;
+
 pub mod conversion;
 
 #[cfg(feature = "memory")]
@@ -19,6 +21,7 @@ use chronicle_core::query::{FilterOp, OrderBy, PayloadFilter, StructuredQuery};
 use chronicle_domain::{
     EventEnvelope, StoreError, StoreResult, StreamResult, TenantId, LEGACY_METADATA_KEY,
 };
+use chronicle_store::SubscriptionService;
 use chronicle_interfaces::StreamReceiver;
 use chronicle_link::LinkService;
 use chronicle_query::QueryService;
@@ -114,6 +117,10 @@ impl StoreBackend {
 
     pub fn link_service(&self) -> LinkService {
         LinkService::new(self.engine())
+    }
+
+    pub fn subscription_service(&self) -> Option<Arc<dyn SubscriptionService>> {
+        self.engine().subscriptions
     }
 
     pub async fn insert_events(

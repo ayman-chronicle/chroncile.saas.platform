@@ -1,12 +1,20 @@
+use std::convert::Infallible;
+use std::sync::Arc;
+use std::time::Duration;
+
+use async_trait::async_trait;
 use std::collections::HashMap;
 
 use axum::{
     extract::{Path, Query, State},
+    response::sse::{Event, KeepAlive, Sse},
     routing::{get, post},
     Json, Router,
 };
 use chrono::Utc;
+use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
 
 use chronicle_core::error::{ChronicleError, ValidationError};
 use chronicle_core::event::EventBuilder;
@@ -18,12 +26,14 @@ use chronicle_core::query::{
     EventResult, GraphQuery, OrderBy, SemanticQuery, StructuredQuery, TimelineQuery,
 };
 use chronicle_core::time_range::TimeRange;
+use chronicle_store::{EventHandler, SubFilter, SubscriptionPosition};
 use chronicle_store::traits::{EntityInfo, EntityTypeInfo, SourceInfo, SourceSchema};
 
 use crate::{ApiError, AppState};
 
 pub fn build_native_routes() -> Router<AppState> {
     Router::new()
+        .route("/v1/events/stream", get(stream_events))
         .route("/v1/events", get(query_events).post(ingest_event))
         .route("/v1/events/batch", post(ingest_batch))
         .route("/v1/timeline/:entity_type/:entity_id", get(timeline))
@@ -61,6 +71,39 @@ pub struct IngestResponse {
     pub count: usize,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct StreamQueryParams {
+    pub org_id: String,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub event_type: Option<String>,
+    #[serde(default)]
+    pub entity_type: Option<String>,
+    #[serde(default)]
+    pub entity_id: Option<String>,
+}
+
+struct SseEventHandler {
+    sender: mpsc::UnboundedSender<EventResult>,
+}
+
+#[async_trait]
+impl EventHandler for SseEventHandler {
+    async fn handle(
+        &self,
+        event: &chronicle_core::event::Event,
+    ) -> Result<(), chronicle_core::error::StoreError> {
+        self.sender
+            .send(EventResult {
+                event: event.clone(),
+                entity_refs: vec![],
+                search_distance: None,
+            })
+            .map_err(|error| chronicle_core::error::StoreError::Internal(error.to_string()))
+    }
+}
+
 async fn ingest_event(
     State(state): State<AppState>,
     Json(req): Json<IngestRequest>,
@@ -83,6 +126,71 @@ async fn ingest_batch(
         count: ids.len(),
         event_ids: ids.iter().map(ToString::to_string).collect(),
     }))
+}
+
+async fn stream_events(
+    State(state): State<AppState>,
+    Query(params): Query<StreamQueryParams>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>> + Send>, ApiError> {
+    let subscriptions = state
+        .store
+        .subscription_service()
+        .ok_or_else(|| ApiError::Store("store backend does not support subscriptions".to_string()))?;
+
+    let filter = build_stream_filter(&params)?;
+    let (sender, mut receiver) = mpsc::unbounded_channel::<EventResult>();
+    let handle = subscriptions
+        .subscribe(filter, SubscriptionPosition::End, Arc::new(SseEventHandler { sender }))
+        .await
+        .map_err(|error| ApiError::Store(error.to_string()))?;
+
+    let stream = async_stream::stream! {
+        let _subscription_handle = handle;
+
+        while let Some(event) = receiver.recv().await {
+            match serde_json::to_string(&event) {
+                Ok(data) => yield Ok(Event::default().event("event").data(data)),
+                Err(error) => {
+                    tracing::warn!(error = %error, "failed to serialize live event");
+                }
+            }
+        }
+    };
+
+    Ok(Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("ping"),
+    ))
+}
+
+fn build_stream_filter(params: &StreamQueryParams) -> Result<SubFilter, ApiError> {
+    let entity = match (params.entity_type.as_deref(), params.entity_id.as_deref()) {
+        (Some(entity_type), Some(entity_id)) => Some((
+            EntityType::new(entity_type),
+            EntityId::new(entity_id.to_string()),
+        )),
+        (None, None) => None,
+        _ => {
+            return Err(ApiError::BadRequest(
+                "entity_type and entity_id must be provided together".to_string(),
+            ));
+        }
+    };
+
+    Ok(SubFilter {
+        org_id: Some(OrgId::new(&params.org_id)),
+        sources: params
+            .source
+            .as_ref()
+            .map(|source| vec![Source::new(source)]),
+        event_types: params
+            .event_type
+            .as_ref()
+            .map(|event_type| vec![EventType::new(event_type)]),
+        entity,
+        payload_contains: None,
+    })
 }
 
 fn build_event(req: IngestRequest) -> chronicle_core::event::Event {

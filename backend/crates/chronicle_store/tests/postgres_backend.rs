@@ -5,9 +5,16 @@
 
 #![cfg(feature = "postgres")]
 
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
+use std::time::Duration;
+
 use chronicle_core::ids::*;
 use chronicle_core::query::*;
 use chronicle_store::postgres::PostgresBackend;
+use chronicle_store::subscriptions::*;
 use chronicle_store::traits::*;
 use chronicle_test_fixtures::{factories, trait_tests};
 
@@ -162,4 +169,131 @@ async fn pg_event_links() {
     let found = b.get_links_for_event(&org_id, &id_a).await.unwrap();
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].link_type, "caused_by");
+}
+
+struct CountHandler {
+    count: Arc<AtomicU32>,
+}
+
+#[async_trait::async_trait]
+impl EventHandler for CountHandler {
+    async fn handle(
+        &self,
+        _event: &chronicle_core::event::Event,
+    ) -> Result<(), chronicle_core::error::StoreError> {
+        self.count.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires local Postgres on :5433"]
+async fn pg_subscription_receives_events() {
+    let b = backend().await;
+    let received = Arc::new(AtomicU32::new(0));
+
+    let handle = b
+        .subscribe(
+            SubFilter {
+                org_id: Some(OrgId::new("pg_sub_delivery")),
+                ..Default::default()
+            },
+            SubscriptionPosition::End,
+            Arc::new(CountHandler {
+                count: received.clone(),
+            }),
+        )
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+
+    b.insert_events(&[
+        factories::stripe_payment("pg_sub_delivery", "cust_1", 4999),
+        factories::support_ticket("pg_sub_delivery", "cust_1", "hello"),
+    ])
+    .await
+    .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(750)).await;
+    assert_eq!(received.load(Ordering::SeqCst), 2);
+
+    handle.cancel();
+}
+
+#[tokio::test]
+#[ignore = "requires local Postgres on :5433"]
+async fn pg_subscription_filters_by_entity() {
+    let b = backend().await;
+    let received = Arc::new(AtomicU32::new(0));
+
+    let handle = b
+        .subscribe(
+            SubFilter {
+                org_id: Some(OrgId::new("pg_sub_entity")),
+                entity: Some((EntityType::new("customer"), EntityId::new("cust_042"))),
+                ..Default::default()
+            },
+            SubscriptionPosition::End,
+            Arc::new(CountHandler {
+                count: received.clone(),
+            }),
+        )
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+
+    b.insert_events(&[
+        factories::stripe_payment("pg_sub_entity", "cust_042", 4999),
+        factories::support_ticket("pg_sub_entity", "cust_999", "ignore me"),
+        factories::support_ticket("pg_sub_entity", "cust_042", "include me"),
+    ])
+    .await
+    .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(750)).await;
+    assert_eq!(received.load(Ordering::SeqCst), 2);
+
+    handle.cancel();
+}
+
+#[tokio::test]
+#[ignore = "requires local Postgres on :5433"]
+async fn pg_subscription_cancel_stops_delivery() {
+    let b = backend().await;
+    let received = Arc::new(AtomicU32::new(0));
+
+    let handle = b
+        .subscribe(
+            SubFilter {
+                org_id: Some(OrgId::new("pg_sub_cancel")),
+                ..Default::default()
+            },
+            SubscriptionPosition::End,
+            Arc::new(CountHandler {
+                count: received.clone(),
+            }),
+        )
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+
+    b.insert_events(&[factories::stripe_payment("pg_sub_cancel", "cust_1", 1000)])
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(received.load(Ordering::SeqCst), 1);
+
+    handle.cancel();
+    tokio::time::sleep(Duration::from_millis(250)).await;
+
+    b.insert_events(&[factories::support_ticket("pg_sub_cancel", "cust_1", "after cancel")])
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(received.load(Ordering::SeqCst), 1);
 }

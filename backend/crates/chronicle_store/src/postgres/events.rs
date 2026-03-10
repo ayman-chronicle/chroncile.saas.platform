@@ -24,13 +24,14 @@ use async_trait::async_trait;
 use sqlx::Row;
 
 use chronicle_core::error::StoreError;
-use chronicle_core::event::Event;
+use chronicle_core::event::{Event, PendingEntityRef};
 use chronicle_core::ids::*;
 use chronicle_core::media::MediaAttachment;
 use chronicle_core::query::{EventResult, StructuredQuery, TimelineQuery};
 
 use super::query_builder::{bind_params, SelectBuilder};
-use super::{PostgresBackend, TracedPgPool};
+use super::subscriptions::{notification_channel, notification_payloads};
+use super::PostgresBackend;
 use crate::traits::EventStore;
 
 /// Above this count we split across multiple pool connections.
@@ -235,17 +236,6 @@ async fn unnest_insert_refs_on(
 // Pool-level helpers (for concurrent pipeline)
 // ---------------------------------------------------------------------------
 
-async fn unnest_insert_events_pool(
-    pool: &TracedPgPool,
-    cols: &EventColumns,
-) -> Result<(), StoreError> {
-    unnest_insert_events_on(pool, cols).await
-}
-
-// ---------------------------------------------------------------------------
-// EventStore implementation
-// ---------------------------------------------------------------------------
-
 #[async_trait]
 impl EventStore for PostgresBackend {
     async fn insert_events(&self, events: &[Event]) -> Result<Vec<EventId>, StoreError> {
@@ -428,6 +418,7 @@ impl PostgresBackend {
     /// the `entity_refs` table is populated asynchronously after this returns.
     async fn insert_events_transactional(&self, events: &[Event]) -> Result<(), StoreError> {
         let evt_cols = EventColumns::from_events(events);
+        let notifications = notification_payloads(events)?;
 
         let mut tx = self
             .pool
@@ -441,6 +432,14 @@ impl PostgresBackend {
             .ok();
 
         unnest_insert_events_on(&mut tx, &evt_cols).await?;
+        for payload in notifications {
+            sqlx::query("SELECT pg_notify($1, $2)")
+                .bind(notification_channel())
+                .bind(payload)
+                .execute(&mut tx)
+                .await
+                .map_err(|error| StoreError::Internal(format!("pg_notify: {error}")))?;
+        }
 
         tx.commit()
             .await
@@ -457,9 +456,33 @@ impl PostgresBackend {
         let mut futs = Vec::new();
         for chunk in events.chunks(chunk_size) {
             let evt_cols = EventColumns::from_events(chunk);
+            let notifications = notification_payloads(chunk)?;
             let pool = self.pool.clone();
             futs.push(tokio::spawn(async move {
-                unnest_insert_events_pool(&pool, &evt_cols).await
+                let mut tx = pool
+                    .begin()
+                    .await
+                    .map_err(|error| StoreError::Internal(error.to_string()))?;
+
+                sqlx::query("SET LOCAL synchronous_commit = off")
+                    .execute(&mut tx)
+                    .await
+                    .ok();
+
+                unnest_insert_events_on(&mut tx, &evt_cols).await?;
+                for payload in notifications {
+                    sqlx::query("SELECT pg_notify($1, $2)")
+                        .bind(notification_channel())
+                        .bind(payload)
+                        .execute(&mut tx)
+                        .await
+                        .map_err(|error| StoreError::Internal(format!("pg_notify: {error}")))?;
+                }
+
+                tx.commit()
+                    .await
+                    .map_err(|error| StoreError::Internal(error.to_string()))?;
+                Ok::<(), StoreError>(())
             }));
         }
 
@@ -485,6 +508,7 @@ pub(crate) fn row_to_event(row: &sqlx::postgres::PgRow) -> Event {
     let media_ref: Option<String> = row.get("media_ref");
     let media_blob: Option<Vec<u8>> = row.get("media_blob");
     let media_size: Option<i64> = row.get("media_size_bytes");
+    let payload: Option<serde_json::Value> = row.get("payload");
 
     let media = media_type.map(|mt| MediaAttachment {
         media_type: mt,
@@ -501,9 +525,9 @@ pub(crate) fn row_to_event(row: &sqlx::postgres::PgRow) -> Event {
         event_type: EventType::new(row.get::<String, _>("event_type").as_str()),
         event_time: row.get("event_time"),
         ingestion_time: row.get("ingestion_time"),
-        payload: row.get("payload"),
+        entity_refs: extract_pending_entity_refs(payload.as_ref()),
+        payload,
         media,
-        entity_refs: vec![],
         raw_body: row.get("raw_body"),
     }
 }
@@ -528,4 +552,28 @@ fn row_to_event_light(row: &sqlx::postgres::PgRow) -> Event {
         entity_refs: vec![],
         raw_body: None,
     }
+}
+
+fn extract_pending_entity_refs(payload: Option<&serde_json::Value>) -> Vec<PendingEntityRef> {
+    let Some(serde_json::Value::Object(payload)) = payload else {
+        return Vec::new();
+    };
+    let Some(serde_json::Value::Array(entity_refs)) = payload.get("_entity_refs") else {
+        return Vec::new();
+    };
+
+    entity_refs
+        .iter()
+        .filter_map(|entity_ref| {
+            let serde_json::Value::Object(entity_ref) = entity_ref else {
+                return None;
+            };
+            let entity_type = entity_ref.get("type")?.as_str()?;
+            let entity_id = entity_ref.get("id")?.as_str()?;
+            Some(PendingEntityRef {
+                entity_type: EntityType::new(entity_type),
+                entity_id: EntityId::new(entity_id),
+            })
+        })
+        .collect()
 }

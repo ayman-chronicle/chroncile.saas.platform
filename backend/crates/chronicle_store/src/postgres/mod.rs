@@ -15,6 +15,7 @@ mod links;
 pub mod query_builder;
 mod query_tracing;
 mod schemas;
+mod subscriptions;
 
 use chronicle_core::error::StoreError;
 pub use query_tracing::TracedPgPool;

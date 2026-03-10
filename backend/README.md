@@ -135,6 +135,42 @@ docker compose -f deploy/docker-compose.yml ps
 BACKEND_MODE=real cargo run --bin events-manager --features full
 ```
 
+### Running Live Anthropic MCP Evals
+
+The Chronicle MCP crate includes an ignored integration test that seeds a fresh
+in-memory Chronicle runtime, exposes the real MCP tool surface, and lets an
+Anthropic model interact with it over MCP.
+
+```bash
+cd backend
+
+# Run the default live eval set (incident + historical debugging) over stdio
+cargo test -p chronicle_mcp anthropic_live_eval_runs_against_real_mcp_tools -- --ignored --nocapture
+
+# Run a specific scenario and transport
+CHRONICLE_MCP_EVAL_SCENARIOS=incident_investigation \
+CHRONICLE_MCP_EVAL_TRANSPORTS=streamable_http \
+cargo test -p chronicle_mcp anthropic_live_eval_runs_against_real_mcp_tools -- --ignored --nocapture
+
+# Compare Chronicle MCP against a raw context-dump baseline on the same seeded scenario
+CHRONICLE_MCP_EVAL_SCENARIOS=user_interaction_story \
+cargo test -p chronicle_mcp anthropic_live_reasoning_comparison_runs_mcp_and_context_dump_baselines -- --ignored --nocapture
+```
+
+Environment variables:
+
+- `ANTHROPIC_API_KEY` — required for live Anthropic runs
+- `ANTHROPIC_MODEL` — optional override, defaults to `claude-sonnet-4-6`
+- `ANTHROPIC_MAX_TOKENS` — optional token limit for each model turn
+- `CHRONICLE_MCP_EVAL_SCENARIOS` — comma-separated scenario ids
+- `CHRONICLE_MCP_EVAL_TRANSPORTS` — comma-separated transport ids: `stdio`, `streamable_http`
+
+The comparison test prints three sections as JSON:
+
+- `mcpResults` — the standard tool-using Chronicle MCP runs, including tool calls, latency, and token counts
+- `baselineResults` — the no-tool raw context-dump runs over the same seeded dataset
+- `comparisons` — scenario-level verdicts like `mcp_better`, `baseline_better`, `mcp_more_grounded`, or `tie`
+
 ---
 
 ## Project Structure

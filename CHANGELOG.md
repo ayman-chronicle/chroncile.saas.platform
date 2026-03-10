@@ -3,6 +3,25 @@
 Rolling record of notable changes in `chronicle.platform`. Entries are kept
 newest-first and grouped by date.
 
+## 2026-03-08
+
+### Added
+
+- Added a Postgres-backed `chronicle_store::SubscriptionService` that uses `LISTEN/NOTIFY` plus event rehydration so whole Chronicle events can be pushed to live subscribers in `BACKEND_MODE=real`.
+- Added a native `/v1/events/stream` SSE endpoint and frontend `EventSource` client wiring so the dashboard timeline can consume store-level live event subscriptions.
+- Added ignored Postgres integration coverage for subscription delivery, entity filtering, and cancellation semantics.
+- Added an official Tau² benchmark integration layer under `benchmarks/tau2/` plus repo-local setup, run, summary, ingestion, and side-by-side report scripts under `scripts/`.
+- Added a Tau²-to-Chronicle ingestion path that translates official Tau² run metadata, task definitions, messages, tool calls, tool results, outcomes, and event-link sequences into Chronicle's native events API.
+
+### Changed
+
+- Switched the live events timeline path to consume store-backed subscriptions instead of the separate app-local stream, and restored pending entity refs during Postgres event rehydration so entity-based subscription filters work with persisted events.
+- Scoped `apps/env-manager` Google OAuth to dedicated `ENV_MANAGER_GOOGLE_CLIENT_ID` and `ENV_MANAGER_GOOGLE_CLIENT_SECRET` secrets so the internal app no longer reuses the customer frontend's Google credentials.
+
+### Docs
+
+- Added `docs/tau2-benchmark.md` and linked it from the root README so the official Tau² setup, Chronicle ingestion flow, and benchmark-report workflow are documented in one place.
+
 ## 2026-03-07
 
 ### Fixed
@@ -12,6 +31,10 @@ newest-first and grouped by date.
 
 ### Added
 
+- Added a new `chronicle-mcp` backend service and `chronicle_mcp` crate that expose tenant-scoped Chronicle event, run, audit, schema, replay, and live-watch capabilities over both `stdio` and Streamable HTTP using `rmcp`.
+- Added a live Anthropic-backed Chronicle MCP eval runner that seeds deterministic incident, historical-debugging, and replay/live-monitoring datasets and can drive the real MCP tool surface from Claude via an ignored integration test.
+- Added a new Chronicle MCP eval scenario for reconstructing a user interaction story from a shared user id carried across product, billing, and support events.
+- Added a second Anthropic eval path that compares Chronicle MCP tool use against a raw context-dump baseline on the same seeded scenarios, including latency, token, grounding, and verdict reporting.
 - Added a generic frontend analytics layer with an `AnalyticsProvider`,
   PostHog-backed adapter, early client initialization via
   `apps/frontend/instrumentation-client.ts`, and the first tracked auth event
@@ -25,6 +48,7 @@ newest-first and grouped by date.
 
 ### Changed
 
+- Extracted backend runtime construction into the shared `chronicle_backend` library so the HTTP API server and the new Chronicle MCP server now reuse the same storage, repo, stream, JWT, and integration wiring.
 - Updated the local developer diagnostics widget to use a fixed-height,
   scrollable panel with provider tabs so PostHog, Sentry, and context details
   can be inspected without one long stacked list.
@@ -54,6 +78,8 @@ newest-first and grouped by date.
 
 ### Docs
 
+- Updated the master architecture diagram for the new Chronicle MCP service boundary and added an MCP evaluation matrix covering incident investigation, historical debugging, and replay/live-monitoring scenarios across both transports.
+- Documented how to run the live Anthropic Chronicle MCP evals from `backend/README.md`, including scenario and transport selection via environment variables.
 - Added a dedicated getting-started onboarding guide for first-time local setup
   and split the main README so it links to the dedicated setup flow.
 - Moved the onboarding guide into `docs/getting-started.md` and refreshed

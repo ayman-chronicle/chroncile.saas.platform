@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import type { EventEnvelopeDto } from "@/features/events/lib/events-manager-sse";
+import {
+  subscribeToStream,
+  type EventEnvelopeDto,
+} from "@/features/events/lib/events-manager-sse";
 import { eventEnvelopeToTimelineEvent } from "@/features/events/timeline/map-event";
 import type { TimelineEvent } from "@/features/events/timeline/types";
 import { TimelinePanel } from "@/features/events/timeline/TimelinePanel";
@@ -61,6 +64,21 @@ const getEntityRefs = (event: EventEnvelope): Array<{ entity_type: string; entit
 const getPrimaryEntity = (event: EventEnvelope): string => {
   const entity = getEntityRefs(event)[0];
   return entity ? `${entity.entity_type}:${entity.entity_id}` : "N/A";
+};
+
+const sortTimelineEvents = (events: TimelineEvent[]): TimelineEvent[] =>
+  [...events].sort((left, right) => {
+    const timeDelta =
+      new Date(left.occurredAt).getTime() - new Date(right.occurredAt).getTime();
+    return timeDelta !== 0 ? timeDelta : left.id.localeCompare(right.id);
+  });
+
+const mergeTimelineEvents = (...groups: TimelineEvent[][]): TimelineEvent[] => {
+  const merged = new Map<string, TimelineEvent>();
+  groups.flat().forEach((event) => {
+    merged.set(event.id, event);
+  });
+  return sortTimelineEvents(Array.from(merged.values()));
 };
 
 const MESSENGER_STORAGE_KEY = "chronicle-labs-events-messenger";
@@ -152,6 +170,7 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
   const recordingBufferRef = useRef<TimelineEvent[]>([]);
   const [timelineFilter, setTimelineFilter] = useState<string>("all");
   const [newEventsCount, setNewEventsCount] = useState(0);
+  const timelinePlaybackRef = useRef<"live" | "playing" | "paused">("paused");
 
   const [messengerPanelOpen, setMessengerPanelOpen] = useState(false);
   const [messengerStep, setMessengerStep] = useState<"provider" | "appId">("provider");
@@ -194,10 +213,45 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
   }, [fetchEvents]);
 
   useEffect(() => {
+    timelinePlaybackRef.current = timelinePlayback;
+    if (timelinePlayback === "live") {
+      setNewEventsCount(0);
+    }
+  }, [timelinePlayback]);
+
+  useEffect(() => {
     if (viewTab !== "timeline") return;
     let closed = false;
     setTimelineLoading(true);
     setSseConnected(false);
+    setTimelineBuffer([]);
+    setSelectedTimelineEventId(null);
+    setNewEventsCount(0);
+
+    const unsubscribe = subscribeToStream(
+      eventsManagerUrl,
+      {
+        orgId: tenantId,
+        source: timelineFilter !== "all" ? timelineFilter : undefined,
+      },
+      (event) => {
+        if (closed) return;
+        const mapped = eventEnvelopeToTimelineEvent(event);
+        setTimelineBuffer((current) => mergeTimelineEvents(current, [mapped]));
+        if (timelinePlaybackRef.current !== "live") {
+          setNewEventsCount((count) => count + 1);
+        }
+      },
+      {
+        onOpen: () => {
+          if (!closed) setSseConnected(true);
+        },
+        onError: () => {
+          if (!closed) setSseConnected(false);
+        },
+      }
+    );
+
     const params = new URLSearchParams();
     params.set("limit", "500");
     params.set("org_id", tenantId);
@@ -207,8 +261,10 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
       .then((data) => {
         if (closed) return;
         const list = (data || []) as EventEnvelope[];
-        const mapped = list.map((event) => eventEnvelopeToTimelineEvent(event));
-        setTimelineBuffer(mapped);
+        const mapped = sortTimelineEvents(
+          list.map((event) => eventEnvelopeToTimelineEvent(event))
+        );
+        setTimelineBuffer((current) => mergeTimelineEvents(current, mapped));
       })
       .catch(() => {})
       .finally(() => {
@@ -216,6 +272,8 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
       });
     return () => {
       closed = true;
+      unsubscribe();
+      setSseConnected(false);
     };
   }, [viewTab, tenantId, eventsManagerUrl, timelineFilter]);
 

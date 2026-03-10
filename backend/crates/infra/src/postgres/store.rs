@@ -50,7 +50,7 @@ impl PostgresStore {
             links: self.backend.clone(),
             embeddings: self.backend.clone(),
             schemas: self.backend.clone(),
-            subscriptions: None,
+            subscriptions: Some(self.backend.clone()),
         }
     }
 

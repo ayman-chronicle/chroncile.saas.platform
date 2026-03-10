@@ -60,6 +60,7 @@ Use these docs for deeper context by topic:
 | Backend setup, architecture, API endpoints, and runtime modes | [Backend README](./backend/README.md) |
 | Backend status, known issues, and remaining implementation work | [Backend Development Notes](./backend/DEVELOPMENT.md) |
 | Feature flags, entitlements, ownership, and cleanup rules | [Feature Access](./docs/feature-access.md) |
+| Official Tau² setup, Chronicle ingestion, and benchmark reporting | [Tau² Benchmark Guide](./docs/tau2-benchmark.md) |
 | High-level system diagram and service/data flow overview | [Architecture Diagram](./docs/architecture.html) |
 
 ### Component Docs
