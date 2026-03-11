@@ -15,6 +15,8 @@ import type {
   ListRunsResponse,
   LoginRequest,
   PipedreamTokenRequest,
+  SandboxAiChatRequest,
+  SandboxAiChatResponse,
   ResetPasswordRequest,
   ResetPasswordResponse,
   RunDetailResponse,
@@ -150,6 +152,14 @@ class PlatformApi {
     return this.request<AgentEndpointResponse>(
       "PUT",
       "/api/platform/settings/agent-endpoint",
+      { body },
+    );
+  }
+
+  sandboxAiChat(body: SandboxAiChatRequest) {
+    return this.request<SandboxAiChatResponse>(
+      "POST",
+      "/api/platform/sandboxes/ai/chat",
       { body },
     );
   }

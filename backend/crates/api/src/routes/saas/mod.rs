@@ -7,6 +7,7 @@ mod error;
 pub mod feature_access;
 pub mod pipedream;
 pub mod runs;
+pub mod sandboxes;
 pub mod settings;
 pub mod team;
 pub mod tenant;
@@ -86,6 +87,10 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route(
             "/api/platform/settings/agent-endpoint",
             put(settings::update_agent_endpoint),
+        )
+        .route(
+            "/api/platform/sandboxes/ai/chat",
+            post(sandboxes::chat_graph),
         )
         .route(
             "/api/platform/connections",

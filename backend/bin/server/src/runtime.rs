@@ -189,6 +189,28 @@ fn build_email_service(
     )
 }
 
+fn build_sandbox_ai_service(
+    launch_config: &config::LaunchConfig,
+) -> Option<Arc<dyn chronicle_interfaces::SandboxAiConfigService>> {
+    let api_key = launch_config.integrations.sandbox_ai.api_key.clone()?;
+    let config = chronicle_integrations::sandbox_ai::AnthropicSandboxAiConfig {
+        api_key,
+        api_url: launch_config.integrations.sandbox_ai.api_url.clone(),
+        model: launch_config.integrations.sandbox_ai.model.clone(),
+        max_tokens: launch_config.integrations.sandbox_ai.max_tokens,
+        temperature: launch_config.integrations.sandbox_ai.temperature,
+        timeout_ms: launch_config.integrations.sandbox_ai.timeout_ms,
+    };
+
+    match chronicle_integrations::sandbox_ai::AnthropicSandboxAiConfigService::new(config) {
+        Ok(service) => Some(Arc::new(service)),
+        Err(error) => {
+            tracing::warn!(error = %error, "Sandbox AI service configuration is invalid");
+            None
+        }
+    }
+}
+
 fn build_saas_state_postgres(
     pool: chronicle_infra::postgres::TracedPgPool,
     event_store: Arc<StoreBackend>,
@@ -212,6 +234,7 @@ fn build_saas_state_postgres(
         Arc::new(PgPasswordResetRepo::new(pool)),
         build_pipedream_client(launch_config),
         build_email_service(launch_config),
+        build_sandbox_ai_service(launch_config),
         event_store,
         event_stream,
         runtime_config,
@@ -240,6 +263,7 @@ fn build_saas_state_memory(
         Arc::new(InMemoryPasswordResetRepo::default()),
         build_pipedream_client(launch_config),
         build_email_service(launch_config),
+        build_sandbox_ai_service(launch_config),
         event_store,
         event_stream,
         runtime_config,

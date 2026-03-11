@@ -1727,6 +1727,7 @@ dependencies = [
  "aes-gcm",
  "anyhow",
  "async-trait",
+ "chronicle_domain",
  "chronicle_interfaces",
  "chrono",
  "hex",

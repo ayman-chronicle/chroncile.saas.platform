@@ -214,6 +214,13 @@
   stroke-width: 2px !important;
 }
 
+.react-flow__node-output {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
 .react-flow__attribution {
   display: none !important;
 }

@@ -3,7 +3,9 @@ use ts_rs::TS;
 
 use crate::{
     AgentEndpointConfig, AuditLog, Connection, FeatureAccessSnapshot, FeatureFlagDefinition,
-    FeatureFlagOverride, PipedreamTrigger, Run, Tenant,
+    FeatureFlagOverride, GraphEditCommand, GraphEditPreview, GraphEditValidationError,
+    PipedreamTrigger, Run, SandboxAiChatMessage, SandboxEdgeDto, SandboxNodeDto,
+    SandboxValidationResponse, Tenant,
 };
 
 // ── Dashboard ──
@@ -229,6 +231,30 @@ pub struct DeployedTriggersResponse {
 #[ts(export, export_to = "generated/")]
 pub struct PipedreamTokenRequest {
     pub app_id: Option<String>,
+}
+
+// ── Sandbox AI ──
+
+#[derive(Debug, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "generated/")]
+pub struct SandboxAiChatRequest {
+    pub prompt: String,
+    pub nodes: Vec<SandboxNodeDto>,
+    pub edges: Vec<SandboxEdgeDto>,
+    pub selected_node_id: Option<String>,
+    pub recent_messages: Vec<SandboxAiChatMessage>,
+}
+
+#[derive(Debug, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "generated/")]
+pub struct SandboxAiChatResponse {
+    pub assistant_message: String,
+    pub commands: Vec<GraphEditCommand>,
+    pub preview: GraphEditPreview,
+    pub validation: SandboxValidationResponse,
+    pub errors: Vec<GraphEditValidationError>,
 }
 
 // ── Auth (request types for login/signup) ──

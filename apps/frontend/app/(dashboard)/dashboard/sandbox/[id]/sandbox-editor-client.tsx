@@ -314,6 +314,17 @@ function EditorInner({
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
 
+  /* Auto-select node from URL parameter (for testing) */
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const nodeIdParam = params.get("selectNode");
+      if (nodeIdParam && nodes.some((n) => n.id === nodeIdParam)) {
+        setSelectedNodeId(nodeIdParam);
+      }
+    }
+  }, [nodes]);
+
   /* Node counter for unique IDs */
   const nodeCounter = useRef(100);
 
@@ -385,11 +396,8 @@ function EditorInner({
   /* ---- Generative prompt handler ---- */
   const onGenerateNodes = useCallback(
     (newNodes: SandboxNode[], newEdges: SandboxEdge[]) => {
-      setNodes((nds) => [...nds, ...newNodes]);
-      setEdges((eds) => [
-        ...eds,
-        ...newEdges.map((e) => ({ ...e, type: "animated" })),
-      ]);
+      setNodes(newNodes);
+      setEdges(newEdges.map((edge) => ({ ...edge, type: "animated" })));
     },
     [setNodes, setEdges]
   );
@@ -517,7 +525,12 @@ function EditorInner({
         )}
 
         {/* Generative prompt */}
-        <GenerativePrompt onGenerate={onGenerateNodes} />
+        <GenerativePrompt
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selectedNodeId}
+          onApplyPreview={onGenerateNodes}
+        />
       </div>
 
       {/* Main area: palette + canvas + drawer */}

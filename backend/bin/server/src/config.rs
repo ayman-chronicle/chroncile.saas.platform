@@ -159,6 +159,24 @@ impl LaunchConfig {
             self.integrations.resend.templates = serde_json::from_str(&value)
                 .context("failed to parse RESEND_TEMPLATES_JSON as JSON object")?;
         }
+        if let Some(value) = non_empty_env("SANDBOX_AI_API_KEY") {
+            self.integrations.sandbox_ai.api_key = Some(value);
+        }
+        if let Some(value) = non_empty_env("SANDBOX_AI_API_URL") {
+            self.integrations.sandbox_ai.api_url = value;
+        }
+        if let Some(value) = non_empty_env("SANDBOX_AI_MODEL") {
+            self.integrations.sandbox_ai.model = value;
+        }
+        if let Some(value) = parse_env::<u32>("SANDBOX_AI_MAX_TOKENS")? {
+            self.integrations.sandbox_ai.max_tokens = value;
+        }
+        if let Some(value) = parse_env::<f32>("SANDBOX_AI_TEMPERATURE")? {
+            self.integrations.sandbox_ai.temperature = value;
+        }
+        if let Some(value) = parse_env::<u64>("SANDBOX_AI_TIMEOUT_MS")? {
+            self.integrations.sandbox_ai.timeout_ms = value;
+        }
         if let Some(value) = non_empty_env("SENTRY_DSN") {
             self.integrations.sentry.dsn = Some(value);
         }
@@ -346,6 +364,7 @@ pub struct HealthConfig {
 pub struct IntegrationsConfig {
     pub pipedream: PipedreamConfig,
     pub resend: ResendConfig,
+    pub sandbox_ai: SandboxAiConfig,
     pub sentry: SentryConfig,
 }
 
@@ -354,6 +373,7 @@ impl Default for IntegrationsConfig {
         Self {
             pipedream: PipedreamConfig::default(),
             resend: ResendConfig::default(),
+            sandbox_ai: SandboxAiConfig::default(),
             sentry: SentryConfig::default(),
         }
     }
@@ -383,6 +403,29 @@ pub struct ResendConfig {
     pub api_key: Option<String>,
     pub from_address: Option<String>,
     pub templates: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SandboxAiConfig {
+    pub api_key: Option<String>,
+    pub api_url: String,
+    pub model: String,
+    pub max_tokens: u32,
+    pub temperature: f32,
+    pub timeout_ms: u64,
+}
+
+impl Default for SandboxAiConfig {
+    fn default() -> Self {
+        Self {
+            api_key: None,
+            api_url: "https://api.anthropic.com/v1/messages".to_string(),
+            model: "claude-sonnet-4-6".to_string(),
+            max_tokens: 1_024,
+            temperature: 0.0,
+            timeout_ms: 30_000,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -581,6 +624,24 @@ impl FileConfig {
         if !self.integrations.resend.templates.is_empty() {
             config.integrations.resend.templates = self.integrations.resend.templates;
         }
+        if let Some(value) = self.integrations.sandbox_ai.api_key {
+            config.integrations.sandbox_ai.api_key = Some(value);
+        }
+        if let Some(value) = self.integrations.sandbox_ai.api_url {
+            config.integrations.sandbox_ai.api_url = value;
+        }
+        if let Some(value) = self.integrations.sandbox_ai.model {
+            config.integrations.sandbox_ai.model = value;
+        }
+        if let Some(value) = self.integrations.sandbox_ai.max_tokens {
+            config.integrations.sandbox_ai.max_tokens = value;
+        }
+        if let Some(value) = self.integrations.sandbox_ai.temperature {
+            config.integrations.sandbox_ai.temperature = value;
+        }
+        if let Some(value) = self.integrations.sandbox_ai.timeout_ms {
+            config.integrations.sandbox_ai.timeout_ms = value;
+        }
         if let Some(value) = self.integrations.sentry.dsn {
             config.integrations.sentry.dsn = Some(value);
         }
@@ -672,6 +733,7 @@ struct FileHealthConfig {
 struct FileIntegrationsConfig {
     pipedream: FilePipedreamConfig,
     resend: FileResendConfig,
+    sandbox_ai: FileSandboxAiConfig,
     sentry: FileSentryConfig,
 }
 
@@ -690,6 +752,17 @@ struct FileResendConfig {
     api_key: Option<String>,
     from_address: Option<String>,
     templates: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+struct FileSandboxAiConfig {
+    api_key: Option<String>,
+    api_url: Option<String>,
+    model: Option<String>,
+    max_tokens: Option<u32>,
+    temperature: Option<f32>,
+    timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

@@ -4,7 +4,7 @@ use chronicle_auth::jwt::JwtService;
 use chronicle_infra::{StoreBackend, StreamBackend};
 use chronicle_interfaces::{
     AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, EmailService,
-    FeatureFlagRepository, InvitationRepository, PasswordResetRepository,
+    FeatureFlagRepository, InvitationRepository, PasswordResetRepository, SandboxAiConfigService,
     PipedreamTriggerRepository, RunRepository, TenantRepository, UserRepository,
 };
 use chronicle_pipedream_connect::PipedreamClient;
@@ -26,6 +26,7 @@ pub struct SaasAppState {
     pub password_resets: Arc<dyn PasswordResetRepository>,
     pub pipedream: Option<Arc<PipedreamClient>>,
     pub email: Arc<dyn EmailService>,
+    pub sandbox_ai: Option<Arc<dyn SandboxAiConfigService>>,
     pub event_store: Arc<StoreBackend>,
     pub event_stream: Arc<StreamBackend>,
     pub feature_access: Arc<FeatureAccessService>,
@@ -48,6 +49,7 @@ impl SaasAppState {
         password_resets: Arc<dyn PasswordResetRepository>,
         pipedream: Option<Arc<PipedreamClient>>,
         email: Arc<dyn EmailService>,
+        sandbox_ai: Option<Arc<dyn SandboxAiConfigService>>,
         event_store: Arc<StoreBackend>,
         event_stream: Arc<StreamBackend>,
         config: SaasRuntimeConfig,
@@ -65,6 +67,7 @@ impl SaasAppState {
             password_resets,
             pipedream,
             email,
+            sandbox_ai,
             event_store,
             event_stream,
             feature_access: Arc::new(FeatureAccessService::new(

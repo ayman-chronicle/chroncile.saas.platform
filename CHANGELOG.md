@@ -3,6 +3,20 @@
 Rolling record of notable changes in `chronicle.platform`. Entries are kept
 newest-first and grouped by date.
 
+## 2026-03-11
+
+### Fixed
+
+- Removed the React Flow built-in `output` node wrapper styling from sandbox output nodes so they no longer render with an unintended white background.
+
+### Added
+
+- Added a backend sandbox AI graph-editing path with typed Rust DTOs, SaaS route wiring, Anthropic-backed planning integration, and generated shared contracts for `SandboxAiChat` / `GraphEditCommand` responses.
+
+### Changed
+
+- Replaced the sandbox generative prompt's local keyword parser with a backend-backed graph planning request that sends the current node graph, receives a validated preview, and applies graph edits through typed `PlatformApi` calls.
+
 ## 2026-03-08
 
 ### Added
