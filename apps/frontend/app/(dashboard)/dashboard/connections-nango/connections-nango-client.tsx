@@ -45,6 +45,7 @@ export function ConnectionsNangoClient({
 
       const nango = new Nango();
       const connect = nango.openConnectUI({
+        lang: "en",
         onEvent: async (event: ConnectUIEvent) => {
           if (event?.type === "connect") {
             try {
