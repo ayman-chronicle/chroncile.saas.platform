@@ -352,7 +352,11 @@ class PlatformApi {
     );
   }
 
-  triggerNangoSync(body: { provider: string; syncMode?: string }) {
+  triggerNangoSync(body: {
+    provider: string;
+    syncMode?: string;
+    requestedSyncName?: string;
+  }) {
     return this.request<NangoConnectionActionResponse>(
       "POST",
       "/api/platform/integrations/sync",

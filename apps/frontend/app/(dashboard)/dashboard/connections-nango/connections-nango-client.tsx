@@ -55,7 +55,7 @@ export function ConnectionsNangoClient({
                 providerConfigKey: event.payload.providerConfigKey,
               });
               await refreshProviders();
-              setMessage(`${provider.displayName} connected. Initial sync started.`);
+              setMessage(`${provider.displayName} connected.`);
             } catch (syncError) {
               const nextError =
                 syncError instanceof Error
@@ -103,6 +103,31 @@ export function ConnectionsNangoClient({
     } catch (syncError) {
       setError(
         syncError instanceof Error ? syncError.message : "Failed to trigger sync.",
+      );
+    } finally {
+      setBusyProvider(null);
+    }
+  };
+
+  const handleBackfill = async (provider: NangoProviderSummary) => {
+    setBusyProvider(provider.provider);
+    setError(null);
+    setMessage(null);
+    try {
+      const response = await api.triggerNangoSync({
+        provider: provider.provider,
+        syncMode: "full_refresh_and_clear_cache",
+        requestedSyncName: provider.syncName,
+      });
+      await refreshProviders();
+      setMessage(
+        response.message || `${provider.displayName} backfill sync triggered.`,
+      );
+    } catch (syncError) {
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : "Failed to trigger backfill sync.",
       );
     } finally {
       setBusyProvider(null);
@@ -223,6 +248,16 @@ export function ConnectionsNangoClient({
                 >
                   Run Sync
                 </button>
+                {provider.provider === "intercom" && (
+                  <button
+                    type="button"
+                    onClick={() => handleBackfill(provider)}
+                    disabled={!connection || isBusy}
+                    className="inline-flex items-center rounded-sm border border-border-dim px-3 py-2 text-sm text-secondary transition hover:bg-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Run Backfill
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleDisconnect(provider)}

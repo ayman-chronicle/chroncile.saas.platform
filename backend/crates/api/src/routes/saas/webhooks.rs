@@ -13,7 +13,7 @@ use chronicle_infra::conversion::build_native_event;
 use super::error::{ApiError, ApiResult};
 use super::integrations::{
     materialize_nango_connection, nango_provider_by_integration_id, nango_provider_by_name,
-    trigger_provider_sync,
+    persist_connection_metadata,
 };
 use crate::saas_state::SaasAppState;
 
@@ -272,7 +272,10 @@ pub async fn nango_webhook(
     let payload: Value = serde_json::from_str(&body)
         .map_err(|error| ApiError::bad_request(format!("Invalid JSON: {error}")))?;
 
-    let webhook_type = payload.get("type").and_then(Value::as_str).unwrap_or("unknown");
+    let webhook_type = payload
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
 
     match webhook_type {
         "auth" => handle_nango_auth_webhook(&state, &payload).await,
@@ -289,7 +292,10 @@ async fn handle_nango_auth_webhook(
     state: &SaasAppState,
     payload: &Value,
 ) -> ApiResult<Json<Value>> {
-    let success = payload.get("success").and_then(Value::as_bool).unwrap_or(false);
+    let success = payload
+        .get("success")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let operation = payload
         .get("operation")
         .and_then(Value::as_str)
@@ -349,7 +355,9 @@ async fn handle_nango_auth_webhook(
         .get("endUser")
         .and_then(|value| value.get("tags"))
         .and_then(|value| {
-            value.get("organizationId").or_else(|| value.get("tenantId"))
+            value
+                .get("organizationId")
+                .or_else(|| value.get("tenantId"))
         })
         .and_then(Value::as_str)
         .map(ToString::to_string)
@@ -360,10 +368,14 @@ async fn handle_nango_auth_webhook(
                 .and_then(Value::as_str)
                 .map(ToString::to_string)
         })
-        .or_else(|| existing.as_ref().map(|connection| connection.tenant_id.clone()))
+        .or_else(|| {
+            existing
+                .as_ref()
+                .map(|connection| connection.tenant_id.clone())
+        })
         .ok_or_else(|| ApiError::bad_request("Missing tenant mapping for Nango webhook"))?;
 
-    let connection = materialize_nango_connection(
+    let _connection = materialize_nango_connection(
         state,
         &tenant_id,
         provider.provider,
@@ -372,8 +384,6 @@ async fn handle_nango_auth_webhook(
         None,
     )
     .await?;
-
-    trigger_provider_sync(state, &provider, &connection, Some("incremental")).await?;
 
     Ok(Json(serde_json::json!({
         "received": true,
@@ -388,7 +398,10 @@ async fn handle_nango_sync_webhook(
     state: &SaasAppState,
     payload: &Value,
 ) -> ApiResult<Json<Value>> {
-    let success = payload.get("success").and_then(Value::as_bool).unwrap_or(true);
+    let success = payload
+        .get("success")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
     let connection_id = payload
         .get("connectionId")
         .or_else(|| payload.get("connection_id"))
@@ -403,7 +416,7 @@ async fn handle_nango_sync_webhook(
         })));
     }
 
-    let connection = state
+    let mut connection = state
         .connections
         .find_by_pipedream_auth_id(connection_id)
         .await?
@@ -422,45 +435,135 @@ async fn handle_nango_sync_webhook(
                 .and_then(|metadata| metadata.get("provider_config_key"))
                 .and_then(Value::as_str)
         })
-        .unwrap_or(provider.integration_id.as_str());
-    let model = payload
-        .get("model")
-        .or_else(|| payload.get("modelName"))
-        .and_then(Value::as_str)
-        .unwrap_or(provider.model);
+        .unwrap_or(provider.integration_id.as_str())
+        .to_string();
     let modified_after = payload
         .get("modifiedAfter")
         .or_else(|| payload.get("modified_after"))
         .and_then(Value::as_str);
-
-    let records = fetch_nango_records(
-        state,
+    let sync_type = payload
+        .get("syncType")
+        .or_else(|| payload.get("sync_type"))
+        .and_then(Value::as_str);
+    let models = extract_sync_models(payload, provider.model);
+    tracing::info!(
+        provider = provider.provider,
         connection_id,
-        provider_config_key,
-        model,
-        modified_after,
-    )
-    .await?;
+        provider_config_key = %provider_config_key,
+        sync_type,
+        payload_model = payload.get("model").and_then(|value| value.as_str()),
+        resolved_models = ?models,
+        "Processing Nango sync webhook"
+    );
+    let mut total_records = 0usize;
+    let mut total_ingested = 0usize;
 
-    let events = match provider.provider {
-        "intercom" => normalize_intercom_records(&connection.tenant_id, &records),
-        "front" => normalize_front_records(&connection.tenant_id, &records),
-        other => {
-            tracing::warn!(provider = other, "Ignoring Nango sync for unsupported provider");
-            Vec::new()
+    for model in models {
+        let bookmark =
+            read_nango_sync_bookmark(connection.metadata.as_ref(), &provider_config_key, &model);
+        let fetched = fetch_nango_records(
+            state,
+            connection_id,
+            &provider_config_key,
+            &model,
+            bookmark.as_ref(),
+            modified_after,
+            sync_type,
+        )
+        .await?;
+
+        total_records += fetched.records.len();
+
+        let events = match provider.provider {
+            "intercom" => normalize_intercom_records(&connection.tenant_id, &fetched.records),
+            "front" => normalize_front_records(&connection.tenant_id, &fetched.records),
+            other => {
+                tracing::warn!(
+                    provider = other,
+                    model,
+                    "Ignoring Nango sync for unsupported provider"
+                );
+                Vec::new()
+            }
+        };
+        let built_events = events.len();
+
+        total_ingested +=
+            insert_nango_events(state, &connection.tenant_id, provider.provider, events).await?;
+
+        tracing::info!(
+            provider = provider.provider,
+            connection_id,
+            model,
+            fetched_records = fetched.records.len(),
+            built_events,
+            total_ingested,
+            bookmark_before = ?bookmark,
+            bookmark_after = ?fetched.bookmark,
+            "Processed Nango sync model"
+        );
+
+        if let Some(next_bookmark) = fetched.bookmark {
+            let metadata = merge_nango_sync_bookmark(
+                connection.metadata.clone(),
+                &provider_config_key,
+                &model,
+                &next_bookmark,
+            );
+            connection = persist_connection_metadata(state, &connection, metadata).await?;
         }
-    };
-
-    let ingested = insert_nango_events(state, &connection.tenant_id, provider.provider, events).await?;
+    }
 
     Ok(Json(serde_json::json!({
         "received": true,
         "type": "sync",
         "provider": provider.provider,
         "connection_id": connection_id,
-        "records": records.len(),
-        "ingested": ingested,
+        "records": total_records,
+        "ingested": total_ingested,
     })))
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NangoSyncBookmark {
+    cursor: Option<String>,
+    modified_after: Option<String>,
+}
+
+#[derive(Debug)]
+struct FetchedNangoRecords {
+    records: Vec<Value>,
+    bookmark: Option<NangoSyncBookmark>,
+}
+
+fn extract_sync_models(payload: &Value, default_model: &str) -> Vec<String> {
+    if let Some(records) = payload.get("records").and_then(Value::as_object) {
+        let models = records
+            .iter()
+            .filter_map(|(model, stats)| {
+                let added = stats.get("added").and_then(Value::as_u64).unwrap_or(0);
+                let updated = stats.get("updated").and_then(Value::as_u64).unwrap_or(0);
+                let deleted = stats.get("deleted").and_then(Value::as_u64).unwrap_or(0);
+
+                if added > 0 || updated > 0 || deleted > 0 {
+                    Some(model.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if !models.is_empty() {
+            return models;
+        }
+    }
+
+    payload
+        .get("model")
+        .or_else(|| payload.get("modelName"))
+        .and_then(Value::as_str)
+        .map(|model| vec![model.to_string()])
+        .unwrap_or_else(|| vec![default_model.to_string()])
 }
 
 async fn fetch_nango_records(
@@ -468,14 +571,26 @@ async fn fetch_nango_records(
     connection_id: &str,
     provider_config_key: &str,
     model: &str,
+    bookmark: Option<&NangoSyncBookmark>,
     modified_after: Option<&str>,
-) -> ApiResult<Vec<Value>> {
+    sync_type: Option<&str>,
+) -> ApiResult<FetchedNangoRecords> {
     let nango = state
         .nango
         .as_ref()
         .ok_or_else(|| ApiError::bad_request("Nango is not configured"))?;
 
-    let mut cursor: Option<String> = None;
+    let mut cursor = bookmark.and_then(|bookmark| bookmark.cursor.clone());
+    let mut latest_cursor = cursor.clone();
+    let mut latest_modified_after = bookmark.and_then(|bookmark| bookmark.modified_after.clone());
+    let initial_modified_after = if cursor.is_some() || matches!(sync_type, Some("INITIAL")) {
+        None
+    } else {
+        bookmark
+            .and_then(|bookmark| bookmark.modified_after.as_deref())
+            .or(modified_after)
+            .map(ToString::to_string)
+    };
     let mut records = Vec::new();
 
     loop {
@@ -485,7 +600,11 @@ async fn fetch_nango_records(
                 provider_config_key,
                 model,
                 cursor.as_deref(),
-                modified_after,
+                if cursor.is_none() {
+                    initial_modified_after.as_deref()
+                } else {
+                    None
+                },
             )
             .await
             .map_err(|error| {
@@ -493,24 +612,186 @@ async fn fetch_nango_records(
                 ApiError::bad_request(format!("Failed to fetch Nango records: {error}"))
             })?;
 
+        for record in &response.records {
+            if let Some(record_cursor) = extract_nango_record_cursor(record) {
+                latest_cursor = Some(record_cursor);
+            }
+            if let Some(record_modified_after) = extract_nango_record_modified_after(record) {
+                latest_modified_after = Some(record_modified_after);
+            }
+        }
+
         records.extend(response.records);
 
         match response.next_cursor {
-            Some(next_cursor) if !next_cursor.is_empty() => cursor = Some(next_cursor),
+            Some(next_cursor) if !next_cursor.is_empty() => {
+                latest_cursor = Some(next_cursor.clone());
+                cursor = Some(next_cursor);
+            }
             _ => break,
         }
     }
 
-    Ok(records)
+    let bookmark = if records.is_empty() {
+        bookmark.cloned().or_else(|| {
+            latest_modified_after.map(|modified_after| NangoSyncBookmark {
+                cursor: latest_cursor,
+                modified_after: Some(modified_after),
+            })
+        })
+    } else {
+        Some(NangoSyncBookmark {
+            cursor: latest_cursor,
+            modified_after: latest_modified_after,
+        })
+    };
+
+    Ok(FetchedNangoRecords { records, bookmark })
+}
+
+fn read_nango_sync_bookmark(
+    metadata: Option<&Value>,
+    provider_config_key: &str,
+    model: &str,
+) -> Option<NangoSyncBookmark> {
+    let bookmark = metadata?
+        .get("nango_sync_bookmarks")?
+        .get(provider_config_key)?
+        .get(model)?;
+
+    Some(NangoSyncBookmark {
+        cursor: bookmark
+            .get("cursor")
+            .and_then(Value::as_str)
+            .map(ToString::to_string),
+        modified_after: bookmark
+            .get("modified_after")
+            .or_else(|| bookmark.get("modifiedAfter"))
+            .and_then(Value::as_str)
+            .map(ToString::to_string),
+    })
+}
+
+fn merge_nango_sync_bookmark(
+    existing: Option<Value>,
+    provider_config_key: &str,
+    model: &str,
+    bookmark: &NangoSyncBookmark,
+) -> Value {
+    let mut metadata = match existing {
+        Some(Value::Object(map)) => map,
+        _ => serde_json::Map::new(),
+    };
+
+    let bookmarks_value = metadata
+        .entry("nango_sync_bookmarks".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    let bookmarks_map = match bookmarks_value {
+        Value::Object(map) => map,
+        other => {
+            *other = serde_json::json!({});
+            other
+                .as_object_mut()
+                .expect("bookmark root should be object")
+        }
+    };
+
+    let provider_value = bookmarks_map
+        .entry(provider_config_key.to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    let provider_map = match provider_value {
+        Value::Object(map) => map,
+        other => {
+            *other = serde_json::json!({});
+            other
+                .as_object_mut()
+                .expect("provider bookmark should be object")
+        }
+    };
+
+    provider_map.insert(
+        model.to_string(),
+        serde_json::json!({
+            "cursor": bookmark.cursor,
+            "modified_after": bookmark.modified_after,
+        }),
+    );
+
+    Value::Object(metadata)
+}
+
+fn extract_nango_record_cursor(record: &Value) -> Option<String> {
+    record
+        .get("_nango_metadata")
+        .and_then(|metadata| metadata.get("cursor"))
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
+}
+
+fn extract_nango_record_modified_after(record: &Value) -> Option<String> {
+    record
+        .get("_nango_metadata")
+        .and_then(|metadata| metadata.get("last_modified_at"))
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
 }
 
 fn normalize_intercom_records(tenant_id: &str, records: &[Value]) -> Vec<(String, ChronicleEvent)> {
     let mut events = Vec::new();
     for record in records {
-        let conversation_id = record
-            .get("conversation_id")
-            .or_else(|| record.get("id"))
-            .and_then(Value::as_str);
+        let is_message_record =
+            record.get("conversation_id").is_some() && record.get("author").is_some();
+
+        if is_message_record {
+            let conversation_id = record.get("conversation_id").and_then(Value::as_str);
+            let Some(conversation_id) = conversation_id else {
+                continue;
+            };
+
+            let message_id = record
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("message");
+            let occurred_at = value_to_datetime(record.get("created_at")).unwrap_or_else(Utc::now);
+            let author = record.get("author");
+            let (actor_type, actor_id, actor_name) = actor_from_author(author, "intercom");
+            let message_kind = record
+                .get("type")
+                .or_else(|| record.get("part_type"))
+                .and_then(Value::as_str)
+                .unwrap_or("message");
+            let event_type = if message_kind.contains("note") || message_kind.contains("comment") {
+                "support.note.internal"
+            } else if actor_type == "agent" {
+                "support.message.agent"
+            } else {
+                "support.message.customer"
+            };
+
+            events.push(build_nango_native_event(
+                tenant_id,
+                "intercom",
+                event_type,
+                &format!("intercom:{conversation_id}:message:{message_id}"),
+                occurred_at,
+                conversation_id,
+                None,
+                &actor_type,
+                &actor_id,
+                actor_name.as_deref(),
+                serde_json::json!({
+                    "conversation_id": conversation_id,
+                    "message_id": message_id,
+                    "body": record.get("body").cloned(),
+                    "author": author.cloned(),
+                    "raw": record,
+                }),
+            ));
+
+            continue;
+        }
+
+        let conversation_id = record.get("id").and_then(Value::as_str);
         let Some(conversation_id) = conversation_id else {
             continue;
         };
@@ -524,135 +805,33 @@ fn normalize_intercom_records(tenant_id: &str, records: &[Value]) -> Vec<(String
                     .get("contacts")
                     .and_then(Value::as_array)
                     .and_then(|items| items.first())
-                    .and_then(|value| value.get("id"))
+                    .and_then(|value| value.get("contact_id").or_else(|| value.get("id")))
                     .and_then(Value::as_str)
             });
 
         let created_at = value_to_datetime(record.get("created_at")).unwrap_or_else(Utc::now);
-        let updated_at = value_to_datetime(record.get("updated_at")).unwrap_or(created_at);
-
-        let source = record.get("source");
-        let source_author = source.and_then(|value| value.get("author"));
-        let (source_actor_type, source_actor_id, source_actor_name) = actor_from_author(source_author, "intercom");
 
         events.push(build_nango_native_event(
             tenant_id,
             "intercom",
-            "intercom.conversation.created",
-            &format!("intercom:{conversation_id}:created:{}", created_at.timestamp()),
+            "support.conversation.created",
+            &format!("intercom:{conversation_id}:conversation"),
             created_at,
             conversation_id,
             customer_id,
-            &source_actor_type,
-            &source_actor_id,
-            source_actor_name.as_deref(),
+            "system",
+            "intercom",
+            None,
             serde_json::json!({
                 "conversation_id": conversation_id,
                 "state": record.get("state").cloned(),
-                "body": source.and_then(|value| value.get("body")).cloned(),
-                "contact": record.get("contact").cloned(),
-                "assignee": record.get("assignee").cloned(),
+                "open": record.get("open").cloned(),
+                "read": record.get("read").cloned(),
+                "priority": record.get("priority").cloned(),
+                "contacts": record.get("contacts").cloned(),
                 "raw": record,
             }),
         ));
-
-        if let Some(body) = source.and_then(|value| value.get("body")).and_then(Value::as_str) {
-            let message_event_type = if source_actor_type == "agent" {
-                "intercom.message.agent"
-            } else {
-                "intercom.message.customer"
-            };
-            events.push(build_nango_native_event(
-                tenant_id,
-                "intercom",
-                message_event_type,
-                &format!(
-                    "intercom:{conversation_id}:source:{}",
-                    source
-                        .and_then(|value| value.get("id"))
-                        .and_then(Value::as_str)
-                        .unwrap_or("root")
-                ),
-                created_at,
-                conversation_id,
-                customer_id,
-                &source_actor_type,
-                &source_actor_id,
-                source_actor_name.as_deref(),
-                serde_json::json!({
-                    "conversation_id": conversation_id,
-                    "body": body,
-                    "author": source_author.cloned(),
-                    "raw": source.cloned(),
-                }),
-            ));
-        }
-
-        if let Some(parts) = record.get("conversation_parts").and_then(Value::as_array) {
-            for part in parts {
-                let part_id = part.get("id").and_then(Value::as_str).unwrap_or("part");
-                let part_author = part.get("author");
-                let (actor_type, actor_id, actor_name) = actor_from_author(part_author, "intercom");
-                let part_created_at = value_to_datetime(part.get("created_at")).unwrap_or(updated_at);
-                let event_type = if part
-                    .get("part_type")
-                    .or_else(|| part.get("type"))
-                    .and_then(Value::as_str)
-                    .is_some_and(|value| value.contains("note"))
-                {
-                    "intercom.note.internal"
-                } else if actor_type == "agent" {
-                    "intercom.message.agent"
-                } else {
-                    "intercom.message.customer"
-                };
-
-                events.push(build_nango_native_event(
-                    tenant_id,
-                    "intercom",
-                    event_type,
-                    &format!("intercom:{conversation_id}:part:{part_id}"),
-                    part_created_at,
-                    conversation_id,
-                    customer_id,
-                    &actor_type,
-                    &actor_id,
-                    actor_name.as_deref(),
-                    serde_json::json!({
-                        "conversation_id": conversation_id,
-                        "message_id": part_id,
-                        "body": part.get("body").cloned(),
-                        "author": part_author.cloned(),
-                        "raw": part,
-                    }),
-                ));
-            }
-        }
-
-        if let Some(assignee) = record.get("assignee") {
-            let assignee_id = assignee.get("id").and_then(Value::as_str).unwrap_or("assignee");
-            let assignee_name = assignee.get("name").and_then(Value::as_str);
-            events.push(build_nango_native_event(
-                tenant_id,
-                "intercom",
-                "intercom.conversation.assigned",
-                &format!(
-                    "intercom:{conversation_id}:assigned:{assignee_id}:{}",
-                    updated_at.timestamp()
-                ),
-                updated_at,
-                conversation_id,
-                customer_id,
-                "agent",
-                assignee_id,
-                assignee_name,
-                serde_json::json!({
-                    "conversation_id": conversation_id,
-                    "assignee": assignee,
-                    "raw": record,
-                }),
-            ));
-        }
     }
 
     events
@@ -700,8 +879,12 @@ fn normalize_front_records(tenant_id: &str, records: &[Value]) -> Vec<(String, C
 
         if let Some(messages) = record.get("messages").and_then(Value::as_array) {
             for message in messages {
-                let message_id = message.get("id").and_then(Value::as_str).unwrap_or("message");
-                let occurred_at = value_to_datetime(message.get("created_at")).unwrap_or(updated_at);
+                let message_id = message
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("message");
+                let occurred_at =
+                    value_to_datetime(message.get("created_at")).unwrap_or(updated_at);
                 let is_comment = message
                     .get("is_comment")
                     .and_then(Value::as_bool)
@@ -746,7 +929,10 @@ fn normalize_front_records(tenant_id: &str, records: &[Value]) -> Vec<(String, C
         }
 
         if let Some(assignee) = record.get("assignee") {
-            let assignee_id = assignee.get("id").and_then(Value::as_str).unwrap_or("assignee");
+            let assignee_id = assignee
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("assignee");
             events.push(build_nango_native_event(
                 tenant_id,
                 "front",
@@ -898,12 +1084,19 @@ fn actor_from_author(author: Option<&Value>, provider: &str) -> (String, String,
     (actor_type.to_string(), actor_id, actor_name)
 }
 
-fn actor_from_front_author(author: Option<&Value>, inbound: bool) -> (String, String, Option<String>) {
+fn actor_from_front_author(
+    author: Option<&Value>,
+    inbound: bool,
+) -> (String, String, Option<String>) {
     let actor_type = if inbound { "customer" } else { "agent" };
     let actor_id = author
         .and_then(|value| value.get("id"))
         .and_then(Value::as_str)
-        .unwrap_or(if inbound { "front-customer" } else { "front-agent" })
+        .unwrap_or(if inbound {
+            "front-customer"
+        } else {
+            "front-agent"
+        })
         .to_string();
     let actor_name = author
         .and_then(|value| value.get("name"))

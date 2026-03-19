@@ -63,6 +63,7 @@ pub struct SyncConnectionBody {
 pub struct TriggerSyncBody {
     pub provider: String,
     pub sync_mode: Option<String>,
+    pub requested_sync_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -86,8 +87,8 @@ pub(crate) fn nango_provider_catalog(config: &SaasRuntimeConfig) -> Vec<NangoPro
             display_name: "Intercom",
             description: "Sync conversations, replies, contacts, and assignees.",
             integration_id: config.nango.intercom_integration_id.clone(),
-            sync_name: "intercom-conversations",
-            model: "IntercomConversation",
+            sync_name: "conversations",
+            model: "Conversation",
         },
         NangoProviderDescriptor {
             provider: "front",
@@ -125,7 +126,10 @@ fn require_nango(state: &SaasAppState) -> ApiResult<&std::sync::Arc<chronicle_na
         .ok_or_else(|| ApiError::bad_request("Nango is not configured"))
 }
 
-fn merge_metadata(existing: Option<serde_json::Value>, patch: serde_json::Value) -> serde_json::Value {
+fn merge_metadata(
+    existing: Option<serde_json::Value>,
+    patch: serde_json::Value,
+) -> serde_json::Value {
     let mut map = match existing {
         Some(serde_json::Value::Object(map)) => map,
         _ => serde_json::Map::new(),
@@ -140,8 +144,48 @@ fn merge_metadata(existing: Option<serde_json::Value>, patch: serde_json::Value)
     serde_json::Value::Object(map)
 }
 
+pub(crate) fn clear_nango_sync_bookmarks(
+    existing: Option<serde_json::Value>,
+    provider_config_key: &str,
+) -> serde_json::Value {
+    let mut metadata = match existing {
+        Some(serde_json::Value::Object(map)) => map,
+        _ => serde_json::Map::new(),
+    };
+
+    if let Some(serde_json::Value::Object(bookmarks)) = metadata.get_mut("nango_sync_bookmarks") {
+        bookmarks.remove(provider_config_key);
+    }
+
+    serde_json::Value::Object(metadata)
+}
+
+pub(crate) async fn persist_connection_metadata(
+    state: &SaasAppState,
+    connection: &Connection,
+    metadata: serde_json::Value,
+) -> ApiResult<Connection> {
+    state
+        .connections
+        .upsert_by_tenant_provider(
+            CreateConnectionInput {
+                tenant_id: connection.tenant_id.clone(),
+                provider: connection.provider.clone(),
+                access_token: connection.access_token.clone(),
+                refresh_token: connection.refresh_token.clone(),
+                expires_at: connection.expires_at,
+                pipedream_auth_id: connection.pipedream_auth_id.clone(),
+                metadata: Some(metadata),
+            },
+            &connection.status,
+        )
+        .await
+        .map_err(Into::into)
+}
+
 fn parse_timestamp(value: Option<&str>) -> Option<chrono::DateTime<chrono::Utc>> {
-    value.and_then(|raw| chrono::DateTime::parse_from_rfc3339(raw).ok())
+    value
+        .and_then(|raw| chrono::DateTime::parse_from_rfc3339(raw).ok())
         .map(|timestamp| timestamp.with_timezone(&chrono::Utc))
 }
 
@@ -161,7 +205,10 @@ async fn resolve_nango_connection_for_user(
     ];
 
     if let Some(connection_id) = requested_connection_id {
-        match nango.get_connection(connection_id, provider_config_key).await {
+        match nango
+            .get_connection(connection_id, provider_config_key)
+            .await
+        {
             Ok(connection) => {
                 tracing::info!(
                     provider = provider.provider,
@@ -307,7 +354,9 @@ pub(crate) async fn materialize_nango_connection(
         .await?;
 
     let metadata = merge_metadata(
-        existing.as_ref().and_then(|connection| connection.metadata.clone()),
+        existing
+            .as_ref()
+            .and_then(|connection| connection.metadata.clone()),
         serde_json::json!({
             "connected_via": "nango",
             "provider_config_key": provider_config_key,
@@ -327,7 +376,9 @@ pub(crate) async fn materialize_nango_connection(
             CreateConnectionInput {
                 tenant_id: tenant_id.to_string(),
                 provider: provider.to_string(),
-                access_token: existing.as_ref().and_then(|connection| connection.access_token.clone()),
+                access_token: existing
+                    .as_ref()
+                    .and_then(|connection| connection.access_token.clone()),
                 refresh_token: existing
                     .as_ref()
                     .and_then(|connection| connection.refresh_token.clone()),
@@ -348,6 +399,7 @@ pub(crate) async fn trigger_provider_sync(
     provider: &NangoProviderDescriptor,
     connection: &Connection,
     sync_mode: Option<&str>,
+    requested_sync_name: Option<&str>,
 ) -> ApiResult<()> {
     let nango = require_nango(state)?;
     let connection_id = connection
@@ -368,23 +420,38 @@ pub(crate) async fn trigger_provider_sync(
         .map(|script| format!("{}:{}", script.name, script.enabled.unwrap_or(true)))
         .collect::<Vec<_>>();
 
-    let sync_name = scripts_config
-        .syncs
-        .iter()
-        .find(|script| script.enabled.unwrap_or(true) && script.name == "conversations")
-        .or_else(|| {
-            scripts_config
-                .syncs
-                .iter()
-                .find(|script| script.enabled.unwrap_or(true) && script.name == provider.sync_name)
-        })
-        .map(|script| script.name.clone())
-        .unwrap_or_else(|| provider.sync_name.to_string());
+    let sync_name = if let Some(requested) = requested_sync_name {
+        scripts_config
+            .syncs
+            .iter()
+            .find(|script| script.enabled.unwrap_or(true) && script.name == requested)
+            .map(|script| script.name.clone())
+            .ok_or_else(|| {
+                ApiError::bad_request(format!(
+                    "Requested Nango sync `{requested}` is not enabled for integration `{}`. Available syncs: {}",
+                    provider.integration_id,
+                    available_syncs.join(", ")
+                ))
+            })?
+    } else {
+        scripts_config
+            .syncs
+            .iter()
+            .find(|script| script.enabled.unwrap_or(true) && script.name == "conversations")
+            .or_else(|| {
+                scripts_config.syncs.iter().find(|script| {
+                    script.enabled.unwrap_or(true) && script.name == provider.sync_name
+                })
+            })
+            .map(|script| script.name.clone())
+            .unwrap_or_else(|| provider.sync_name.to_string())
+    };
 
     tracing::info!(
         provider = provider.provider,
         integration_id = provider.integration_id,
         connection_id,
+        requested_sync_name,
         requested_sync = provider.sync_name,
         resolved_sync = sync_name,
         available_syncs = ?available_syncs,
@@ -433,7 +500,9 @@ pub(crate) async fn trigger_provider_sync(
         }
         Err(error) => {
             tracing::error!(provider = provider.provider, %error, "Failed to trigger Nango sync");
-            return Err(ApiError::bad_request(format!("Failed to trigger sync: {error}")));
+            return Err(ApiError::bad_request(format!(
+                "Failed to trigger sync: {error}"
+            )));
         }
     }
 
@@ -470,7 +539,8 @@ pub async fn list_nango_connections(
     State(state): State<SaasAppState>,
 ) -> ApiResult<Json<ConnectionListResponse>> {
     let providers = nango_provider_catalog(&state.config);
-    let allowed: std::collections::HashSet<_> = providers.into_iter().map(|item| item.provider).collect();
+    let allowed: std::collections::HashSet<_> =
+        providers.into_iter().map(|item| item.provider).collect();
     let connections = state
         .connections
         .list_by_tenant(&user.tenant_id)
@@ -608,11 +678,9 @@ pub async fn sync_connection(
     )
     .await?;
 
-    trigger_provider_sync(&state, &provider, &connection, Some("incremental")).await?;
-
     Ok(Json(NangoConnectionActionResponse {
         success: true,
-        message: "Connection synced".to_string(),
+        message: "Connection saved".to_string(),
         connection: Some(connection),
     }))
 }
@@ -637,7 +705,7 @@ pub async fn trigger_sync(
         .and_then(serde_json::Value::as_str)
         .unwrap_or(provider.integration_id.as_str());
 
-    let connection = sync_materialized_connection_for_user(
+    let mut connection = sync_materialized_connection_for_user(
         &state,
         &user,
         &provider,
@@ -646,7 +714,22 @@ pub async fn trigger_sync(
     )
     .await?;
 
-    trigger_provider_sync(&state, &provider, &connection, body.sync_mode.as_deref()).await?;
+    if matches!(
+        body.sync_mode.as_deref(),
+        Some("full_refresh_and_clear_cache")
+    ) {
+        let metadata = clear_nango_sync_bookmarks(connection.metadata.clone(), provider_config_key);
+        connection = persist_connection_metadata(&state, &connection, metadata).await?;
+    }
+
+    trigger_provider_sync(
+        &state,
+        &provider,
+        &connection,
+        body.sync_mode.as_deref(),
+        body.requested_sync_name.as_deref(),
+    )
+    .await?;
 
     Ok(Json(NangoConnectionActionResponse {
         success: true,
