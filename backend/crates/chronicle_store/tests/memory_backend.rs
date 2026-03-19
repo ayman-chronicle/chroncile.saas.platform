@@ -22,11 +22,13 @@ async fn memory_passes_entity_ref_suite() {
 // Additional in-memory-specific tests that go beyond the trait suites.
 
 mod event_tests {
+    use chronicle_core::event::EventBuilder;
     use chronicle_core::ids::{EntityId, EntityType, OrgId};
     use chronicle_core::query::{OrderBy, StructuredQuery, TimelineQuery};
     use chronicle_store::memory::InMemoryBackend;
     use chronicle_store::traits::{EntityRefStore, EventStore};
     use chronicle_test_fixtures::factories;
+    use serde_json::json;
 
     #[tokio::test]
     async fn query_by_entity() {
@@ -146,6 +148,44 @@ mod event_tests {
         // After linking: customer timeline includes the anonymous events
         let after = backend.query_timeline(&query).await.unwrap();
         assert_eq!(after.len(), 2, "Customer should now see 2 linked events");
+    }
+
+    #[tokio::test]
+    async fn direct_exists_source_event_id_matches_exact_id() {
+        let backend = InMemoryBackend::new();
+
+        let first = EventBuilder::new("org_1", "intercom", "support", "support.message.customer")
+            .payload(json!({
+                "_legacy": {
+                    "source_event_id": "intercom:conversation-1:message:1"
+                }
+            }))
+            .build();
+        let second = EventBuilder::new("org_1", "intercom", "support", "support.message.customer")
+            .payload(json!({
+                "_legacy": {
+                    "source_event_id": "intercom:conversation-1:message:2"
+                }
+            }))
+            .build();
+
+        backend.insert_events(&[first, second]).await.unwrap();
+
+        assert!(backend.exists_source_event_id(
+            &OrgId::new("org_1"),
+            "intercom",
+            "intercom:conversation-1:message:1"
+        ));
+        assert!(backend.exists_source_event_id(
+            &OrgId::new("org_1"),
+            "intercom",
+            "intercom:conversation-1:message:2"
+        ));
+        assert!(!backend.exists_source_event_id(
+            &OrgId::new("org_1"),
+            "intercom",
+            "intercom:conversation-1:message:3"
+        ));
     }
 }
 

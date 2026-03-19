@@ -1,10 +1,13 @@
 //! `EventStore` implementation for the in-memory backend.
 
 use async_trait::async_trait;
+use serde_json::Value;
 
 use chronicle_core::error::StoreError;
 use chronicle_core::ids::{EventId, OrgId};
-use chronicle_core::query::{EventResult, OrderBy, StructuredQuery, TimelineQuery};
+use chronicle_core::query::{
+    EventResult, FilterOp, OrderBy, PayloadFilter, StructuredQuery, TimelineQuery,
+};
 
 use super::state::InMemoryBackend;
 use crate::traits::EventStore;
@@ -85,6 +88,7 @@ impl EventStore for InMemoryBackend {
                     })
                 })
             })
+            .filter(|e| payload_filters_match(e.payload.as_ref(), &query.payload_filters))
             .map(|e| EventResult {
                 event: e.clone(),
                 entity_refs: vec![],
@@ -147,6 +151,54 @@ impl EventStore for InMemoryBackend {
     async fn count(&self, query: &StructuredQuery) -> Result<u64, StoreError> {
         let results = self.query_structured(query).await?;
         Ok(results.len() as u64)
+    }
+}
+
+fn payload_filters_match(payload: Option<&Value>, filters: &[PayloadFilter]) -> bool {
+    filters.iter().all(|filter| {
+        let value = payload_value_at_path(payload, &filter.path);
+        match &filter.op {
+            FilterOp::Eq(expected) => value == Some(expected),
+            FilterOp::Ne(expected) => value != Some(expected),
+            FilterOp::IsNull => value.is_none(),
+            FilterOp::IsNotNull => value.is_some(),
+            FilterOp::In(expected) => {
+                value.map_or(false, |value| expected.iter().any(|item| item == value))
+            }
+            FilterOp::Gt(expected) => {
+                compare_json_values(value, Some(expected)).is_some_and(|order| order.is_gt())
+            }
+            FilterOp::Gte(expected) => {
+                compare_json_values(value, Some(expected)).is_some_and(|order| !order.is_lt())
+            }
+            FilterOp::Lt(expected) => {
+                compare_json_values(value, Some(expected)).is_some_and(|order| order.is_lt())
+            }
+            FilterOp::Lte(expected) => {
+                compare_json_values(value, Some(expected)).is_some_and(|order| !order.is_gt())
+            }
+        }
+    })
+}
+
+fn payload_value_at_path<'a>(payload: Option<&'a Value>, path: &str) -> Option<&'a Value> {
+    let mut current = payload?;
+    for segment in path.split('.') {
+        current = current.get(segment)?;
+    }
+    Some(current)
+}
+
+fn compare_json_values(left: Option<&Value>, right: Option<&Value>) -> Option<std::cmp::Ordering> {
+    match (left, right) {
+        (Some(Value::String(left)), Some(Value::String(right))) => Some(left.cmp(right)),
+        (Some(Value::Number(left)), Some(Value::Number(right))) => {
+            let left = left.as_f64()?;
+            let right = right.as_f64()?;
+            left.partial_cmp(&right)
+        }
+        (Some(Value::Bool(left)), Some(Value::Bool(right))) => Some(left.cmp(right)),
+        _ => None,
     }
 }
 

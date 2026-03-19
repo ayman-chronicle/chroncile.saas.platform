@@ -17,7 +17,7 @@
 //! let (sql, params) = qb.build();
 //! ```
 
-use chronicle_core::query::OrderBy;
+use chronicle_core::query::{FilterOp, OrderBy, PayloadFilter};
 
 /// All columns for full event queries (get_event, query_timeline).
 pub const EVENT_COLUMNS: &str =
@@ -185,6 +185,40 @@ impl SelectBuilder {
             self.params.push(ParamValue::Timestamp(r.min()));
             self.params.push(ParamValue::Timestamp(r.max()));
         }
+        self
+    }
+
+    /// Filter by JSON payload paths.
+    pub fn where_payload_filters(mut self, filters: &[PayloadFilter]) -> Self {
+        for filter in filters {
+            match &filter.op {
+                FilterOp::Eq(value) => {
+                    let path_param = self.next_param();
+                    let value_param = self.next_param();
+                    self.conditions.push(format!(
+                        "e.payload #> string_to_array(${path_param}, '.') = ${value_param}::jsonb"
+                    ));
+                    self.params.push(ParamValue::Text(filter.path.clone()));
+                    self.params.push(ParamValue::Text(value.to_string()));
+                }
+                FilterOp::IsNull => {
+                    let path_param = self.next_param();
+                    self.conditions.push(format!(
+                        "e.payload #> string_to_array(${path_param}, '.') IS NULL"
+                    ));
+                    self.params.push(ParamValue::Text(filter.path.clone()));
+                }
+                FilterOp::IsNotNull => {
+                    let path_param = self.next_param();
+                    self.conditions.push(format!(
+                        "e.payload #> string_to_array(${path_param}, '.') IS NOT NULL"
+                    ));
+                    self.params.push(ParamValue::Text(filter.path.clone()));
+                }
+                _ => {}
+            }
+        }
+
         self
     }
 

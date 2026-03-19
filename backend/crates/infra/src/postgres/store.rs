@@ -54,6 +54,31 @@ impl PostgresStore {
         }
     }
 
+    pub async fn exists_source_event_id(
+        &self,
+        tenant_id: &TenantId,
+        source: &str,
+        source_event_id: &str,
+    ) -> Result<bool, PostgresError> {
+        sqlx::query_scalar(
+            r#"
+            SELECT EXISTS (
+                SELECT 1
+                FROM events e
+                WHERE e.org_id = $1
+                  AND e.source = $2
+                  AND e.payload #>> '{_legacy,source_event_id}' = $3
+            )
+            "#,
+        )
+        .bind(tenant_id.as_str())
+        .bind(source)
+        .bind(source_event_id)
+        .fetch_one(self.pool())
+        .await
+        .map_err(|err| PostgresError::Query(err.to_string()))
+    }
+
     fn pool(&self) -> &TracedPgPool {
         self.backend.traced_pool()
     }

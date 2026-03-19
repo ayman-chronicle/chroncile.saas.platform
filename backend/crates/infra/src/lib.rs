@@ -24,11 +24,11 @@ use chronicle_core::query::{FilterOp, OrderBy, PayloadFilter, StructuredQuery};
 use chronicle_domain::{
     EventEnvelope, StoreError, StoreResult, StreamResult, TenantId, LEGACY_METADATA_KEY,
 };
-use chronicle_store::SubscriptionService;
 use chronicle_interfaces::StreamReceiver;
 use chronicle_link::LinkService;
 use chronicle_query::QueryService;
 use chronicle_store::StorageEngine;
+use chronicle_store::SubscriptionService;
 
 #[cfg(feature = "memory")]
 pub use memory::{MemoryStore, MemoryStream};
@@ -170,6 +170,28 @@ impl StoreBackend {
         source: &str,
         source_event_id: &str,
     ) -> StoreResult<bool> {
+        #[cfg(feature = "memory")]
+        if let Self::Memory(store) = self {
+            return Ok(store.exists_source_event_id(tenant_id.as_str(), source, source_event_id));
+        }
+
+        #[cfg(feature = "postgres")]
+        if let Self::Postgres(store) = self {
+            return store
+                .exists_source_event_id(tenant_id, source, source_event_id)
+                .await
+                .map_err(|err| StoreError::QueryFailed(err.to_string()));
+        }
+
+        #[cfg(feature = "helix")]
+        if let Self::Helix(store) = self {
+            return store
+                .canonical()
+                .exists_source_event_id(tenant_id, source, source_event_id)
+                .await
+                .map_err(|err| StoreError::QueryFailed(err.to_string()));
+        }
+
         let query = StructuredQuery {
             org_id: OrgId::new(tenant_id.as_str()),
             entity: None,

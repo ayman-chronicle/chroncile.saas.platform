@@ -310,6 +310,7 @@ impl EventStore for PostgresBackend {
             .where_org(query.org_id.as_str())
             .where_source(query.source.as_ref().map(|s| s.as_str()))
             .where_event_type(query.event_type.as_ref().map(|t| t.as_str()))
+            .where_payload_filters(&query.payload_filters)
             .where_time_range(query.time_range.as_ref())
             .order_by(&query.order_by)
             .limit(query.limit);
@@ -387,6 +388,7 @@ impl EventStore for PostgresBackend {
             .where_org(query.org_id.as_str())
             .where_source(query.source.as_ref().map(|s| s.as_str()))
             .where_event_type(query.event_type.as_ref().map(|t| t.as_str()))
+            .where_payload_filters(&query.payload_filters)
             .where_time_range(query.time_range.as_ref());
 
         if let Some((ref etype, ref eid)) = query.entity {

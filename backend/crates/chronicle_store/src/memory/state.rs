@@ -5,10 +5,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use parking_lot::RwLock;
+use serde_json::Value;
 
 use chronicle_core::entity_ref::EntityRef;
 use chronicle_core::event::Event;
-use chronicle_core::ids::{EventId, LinkId, OrgId};
+use chronicle_core::ids::{EventId, LinkId, OrgId, Source};
 use chronicle_core::link::EventLink;
 
 use crate::subscriptions::{matches_filter, EventHandler, SubFilter};
@@ -107,5 +108,26 @@ impl InMemoryBackend {
     /// Number of active subscriptions.
     pub fn subscription_count(&self) -> usize {
         self.subscriptions.read().len()
+    }
+
+    /// Direct deduplication lookup by the legacy source event id stored in payload.
+    pub fn exists_source_event_id(
+        &self,
+        org_id: &OrgId,
+        source: &str,
+        source_event_id: &str,
+    ) -> bool {
+        let source = Source::new(source);
+        self.events.read().values().any(|event| {
+            event.org_id == *org_id
+                && event.source == source
+                && event
+                    .payload
+                    .as_ref()
+                    .and_then(|payload| payload.get("_legacy"))
+                    .and_then(|legacy| legacy.get("source_event_id"))
+                    .and_then(Value::as_str)
+                    == Some(source_event_id)
+        })
     }
 }
