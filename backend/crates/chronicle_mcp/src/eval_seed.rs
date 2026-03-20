@@ -11,9 +11,7 @@ use chronicle_core::{
 use chronicle_domain::{Actor, AuditLog, CreateRunInput, CreateTenantInput, EventEnvelope, Run};
 use chronicle_mock_connector::{MockEventGenerator, MockOAuthConnection, MockService};
 
-use crate::{
-    ChronicleMcpEvalScenario, ChronicleMcpError, McpSessionContext,
-};
+use crate::{ChronicleMcpError, ChronicleMcpEvalScenario, McpSessionContext};
 
 pub struct SeededEvalScenario {
     pub runtime: ChroniclePlatformRuntime,
@@ -88,7 +86,9 @@ pub async fn build_seeded_eval_scenario(
         "replay_or_live_monitoring" => {
             seed_replay_or_live_monitoring(runtime, session, auth_token).await
         }
-        other => Err(format!("No seeded dataset implementation for scenario {other}")),
+        other => Err(format!(
+            "No seeded dataset implementation for scenario {other}"
+        )),
     }
 }
 
@@ -458,11 +458,7 @@ async fn seed_replay_or_live_monitoring(
     runtime
         .events_state
         .store
-        .insert_events(&[
-            ticket_created.clone(),
-            assigned.clone(),
-            escalated.clone(),
-        ])
+        .insert_events(&[ticket_created.clone(), assigned.clone(), escalated.clone()])
         .await
         .map_err(|error| error.to_string())?;
 
@@ -774,13 +770,21 @@ async fn seed_user_interaction_story(
 
     let auth_by_billing_email = vec![
         login_summary.clone(),
-        overlap_email_workspace[USER_STORY_CHAIN_LOGIN_INDEX].1.clone(),
-        overlap_email_support[USER_STORY_CHAIN_LOGIN_INDEX].1.clone(),
+        overlap_email_workspace[USER_STORY_CHAIN_LOGIN_INDEX]
+            .1
+            .clone(),
+        overlap_email_support[USER_STORY_CHAIN_LOGIN_INDEX]
+            .1
+            .clone(),
     ];
     let billing_by_email = vec![
         subscription_summary.clone(),
-        overlap_email_workspace[USER_STORY_CHAIN_SUBSCRIPTION_INDEX].1.clone(),
-        overlap_email_support[USER_STORY_CHAIN_SUBSCRIPTION_INDEX].1.clone(),
+        overlap_email_workspace[USER_STORY_CHAIN_SUBSCRIPTION_INDEX]
+            .1
+            .clone(),
+        overlap_email_support[USER_STORY_CHAIN_SUBSCRIPTION_INDEX]
+            .1
+            .clone(),
     ];
     let onboarding_by_workspace = vec![
         onboarding_summary.clone(),
@@ -794,7 +798,9 @@ async fn seed_user_interaction_story(
     ];
     let support_by_subject = vec![
         support_summary.clone(),
-        overlap_email_support[USER_STORY_CHAIN_SUPPORT_INDEX].1.clone(),
+        overlap_email_support[USER_STORY_CHAIN_SUPPORT_INDEX]
+            .1
+            .clone(),
         overlap_workspace_support[USER_STORY_CHAIN_SUPPORT_INDEX]
             .1
             .clone(),
@@ -851,8 +857,9 @@ async fn seed_high_volume_multi_hop_story(
     auth_token: String,
 ) -> Result<SeededEvalScenario, String> {
     let total_event_count = high_volume_total_event_count();
-    let generic_noise_count =
-        total_event_count - HIGH_VOLUME_TARGET_EVENT_COUNT - HIGH_VOLUME_OVERLAP_DISTRACTOR_EVENT_COUNT;
+    let generic_noise_count = total_event_count
+        - HIGH_VOLUME_TARGET_EVENT_COUNT
+        - HIGH_VOLUME_OVERLAP_DISTRACTOR_EVENT_COUNT;
     let base_time = Utc::now() - Duration::hours(2);
     let user_id = "usr_eval_high_volume_001";
     let account_id = "acct_eval_high_volume_001";
@@ -1072,12 +1079,18 @@ async fn seed_high_volume_multi_hop_story(
         31,
     );
 
-    let overlap_email_workspace_account_id =
-        format!("acct_eval_story_overlap_{}", HIGH_VOLUME_EMAIL_WORKSPACE_CHAIN_KEY);
-    let overlap_email_support_account_id =
-        format!("acct_eval_story_overlap_{}", HIGH_VOLUME_EMAIL_SUPPORT_CHAIN_KEY);
-    let overlap_workspace_support_account_id =
-        format!("acct_eval_story_overlap_{}", HIGH_VOLUME_WORKSPACE_SUPPORT_CHAIN_KEY);
+    let overlap_email_workspace_account_id = format!(
+        "acct_eval_story_overlap_{}",
+        HIGH_VOLUME_EMAIL_WORKSPACE_CHAIN_KEY
+    );
+    let overlap_email_support_account_id = format!(
+        "acct_eval_story_overlap_{}",
+        HIGH_VOLUME_EMAIL_SUPPORT_CHAIN_KEY
+    );
+    let overlap_workspace_support_account_id = format!(
+        "acct_eval_story_overlap_{}",
+        HIGH_VOLUME_WORKSPACE_SUPPORT_CHAIN_KEY
+    );
 
     let email_workspace_role_sync_failed = build_high_volume_role_sync_failed_event(
         session.tenant_id.as_str(),
@@ -1222,8 +1235,12 @@ async fn seed_high_volume_multi_hop_story(
 
     let auth_by_billing_email = vec![
         login_summary.clone(),
-        overlap_email_workspace[USER_STORY_CHAIN_LOGIN_INDEX].1.clone(),
-        overlap_email_support[USER_STORY_CHAIN_LOGIN_INDEX].1.clone(),
+        overlap_email_workspace[USER_STORY_CHAIN_LOGIN_INDEX]
+            .1
+            .clone(),
+        overlap_email_support[USER_STORY_CHAIN_LOGIN_INDEX]
+            .1
+            .clone(),
     ];
     let billing_by_email = vec![
         subscription_summary.clone(),
@@ -1249,17 +1266,15 @@ async fn seed_high_volume_multi_hop_story(
     ];
     let support_by_subject = vec![
         support_summary.clone(),
-        overlap_email_support[USER_STORY_CHAIN_SUPPORT_INDEX].1.clone(),
+        overlap_email_support[USER_STORY_CHAIN_SUPPORT_INDEX]
+            .1
+            .clone(),
         overlap_workspace_support[USER_STORY_CHAIN_SUPPORT_INDEX]
             .1
             .clone(),
     ];
     let run_candidates = vec![
-        compact_high_volume_run_summary(
-            &target_run,
-            HIGH_VOLUME_WORKSPACE,
-            HIGH_VOLUME_ROOT_CAUSE,
-        ),
+        compact_high_volume_run_summary(&target_run, HIGH_VOLUME_WORKSPACE, HIGH_VOLUME_ROOT_CAUSE),
         compact_high_volume_run_summary(
             &email_workspace_run,
             HIGH_VOLUME_WORKSPACE,
@@ -1400,34 +1415,30 @@ fn build_high_volume_noise_event(
             "plan": if index % 2 == 0 { "starter" } else { "team" }
         }))
         .build(),
-        3 => EventBuilder::new(
-            tenant_id,
-            "chronicle",
-            "workflow",
-            "workflow.run.completed",
-        )
-        .entity("account", account_id.as_str())
-        .entity("workflow", format!("wf_noise_{:05}", index % 12_000).as_str())
-        .event_time(occurred_at)
-        .payload(json!({
-            "template": format!("template-{}", index % 64),
-            "status": "completed"
-        }))
-        .build(),
-        4 => EventBuilder::new(
-            tenant_id,
-            "zendesk",
-            "support",
-            "support.ticket.created",
-        )
-        .entity("account", account_id.as_str())
-        .entity("conversation", format!("conv_noise_{:05}", index % 20_000).as_str())
-        .event_time(occurred_at)
-        .payload(json!({
-            "subject": format!("Noise support ticket {}", index % 7_000),
-            "priority": if index % 3 == 0 { "high" } else { "low" }
-        }))
-        .build(),
+        3 => EventBuilder::new(tenant_id, "chronicle", "workflow", "workflow.run.completed")
+            .entity("account", account_id.as_str())
+            .entity(
+                "workflow",
+                format!("wf_noise_{:05}", index % 12_000).as_str(),
+            )
+            .event_time(occurred_at)
+            .payload(json!({
+                "template": format!("template-{}", index % 64),
+                "status": "completed"
+            }))
+            .build(),
+        4 => EventBuilder::new(tenant_id, "zendesk", "support", "support.ticket.created")
+            .entity("account", account_id.as_str())
+            .entity(
+                "conversation",
+                format!("conv_noise_{:05}", index % 20_000).as_str(),
+            )
+            .event_time(occurred_at)
+            .payload(json!({
+                "subject": format!("Noise support ticket {}", index % 7_000),
+                "priority": if index % 3 == 0 { "high" } else { "low" }
+            }))
+            .build(),
         _ => EventBuilder::new(
             tenant_id,
             "chronicle",
@@ -1577,11 +1588,7 @@ fn high_volume_total_event_count() -> usize {
         .max(HIGH_VOLUME_TARGET_EVENT_COUNT + HIGH_VOLUME_OVERLAP_DISTRACTOR_EVENT_COUNT)
 }
 
-fn compact_high_volume_run_summary(
-    run: &Run,
-    workspace: &str,
-    reason: &str,
-) -> serde_json::Value {
+fn compact_high_volume_run_summary(run: &Run, workspace: &str, reason: &str) -> serde_json::Value {
     serde_json::Value::String(format!(
         "run=frag:{}|workflow={}|status={}|workspace={}|reason={}",
         redacted_id_fragment(&run.id),
@@ -1643,8 +1650,12 @@ async fn create_link(
                 source_event_id,
                 target_event_id,
                 link_type: link_type.to_string(),
-                confidence: Confidence::new(0.95)
-                    .map_err(|error| ChronicleMcpError::internal(error.to_string()).to_mcp_error().message.to_string())?,
+                confidence: Confidence::new(0.95).map_err(|error| {
+                    ChronicleMcpError::internal(error.to_string())
+                        .to_mcp_error()
+                        .message
+                        .to_string()
+                })?,
                 reasoning: Some(reasoning.to_string()),
                 created_by: "chronicle-mcp-eval".to_string(),
                 created_at: Utc::now(),
@@ -1735,15 +1746,16 @@ fn build_user_story_overlap_distractor_chain(
         }))
         .build();
 
-    let onboarding_event = EventBuilder::new(tenant_id, "frontend", "product", "onboarding.started")
-        .entity("user", user_id.as_str())
-        .entity("account", account_id.as_str())
-        .event_time(onboarding_time)
-        .payload(json!({
-            "workspace": workspace,
-            "checklist": ["connect_source", "create_workflow"]
-        }))
-        .build();
+    let onboarding_event =
+        EventBuilder::new(tenant_id, "frontend", "product", "onboarding.started")
+            .entity("user", user_id.as_str())
+            .entity("account", account_id.as_str())
+            .event_time(onboarding_time)
+            .payload(json!({
+                "workspace": workspace,
+                "checklist": ["connect_source", "create_workflow"]
+            }))
+            .build();
 
     let subscription_event = EventBuilder::new(
         tenant_id,
@@ -1760,16 +1772,17 @@ fn build_user_story_overlap_distractor_chain(
     }))
     .build();
 
-    let support_event = EventBuilder::new(tenant_id, "zendesk", "support", "support.ticket.created")
-        .entity("account", account_id.as_str())
-        .entity("conversation", conversation_id.as_str())
-        .event_time(support_time)
-        .payload(json!({
-            "subject": support_subject,
-            "priority": "normal",
-            "text": format!("Support follow-up for overlap chain {chain_key}.")
-        }))
-        .build();
+    let support_event =
+        EventBuilder::new(tenant_id, "zendesk", "support", "support.ticket.created")
+            .entity("account", account_id.as_str())
+            .entity("conversation", conversation_id.as_str())
+            .event_time(support_time)
+            .payload(json!({
+                "subject": support_subject,
+                "priority": "normal",
+                "text": format!("Support follow-up for overlap chain {chain_key}.")
+            }))
+            .build();
 
     vec![
         (
@@ -1913,22 +1926,18 @@ fn build_user_story_distractor_event(
         }
         2 => {
             let workflow_id = format!("wf_eval_story_noise_{:03}", index % 90);
-            let event = EventBuilder::new(
-                tenant_id,
-                "chronicle",
-                "workflow",
-                "workflow.run.completed",
-            )
-            .entity("user", user_id.as_str())
-            .entity("account", account_id.as_str())
-            .entity("workflow", workflow_id.as_str())
-            .event_time(occurred_at)
-            .payload(json!({
-                "status": "completed",
-                "template": format!("template-{:02}", index % 18),
-                "mentionedUserId": similar_user_reference
-            }))
-            .build();
+            let event =
+                EventBuilder::new(tenant_id, "chronicle", "workflow", "workflow.run.completed")
+                    .entity("user", user_id.as_str())
+                    .entity("account", account_id.as_str())
+                    .entity("workflow", workflow_id.as_str())
+                    .event_time(occurred_at)
+                    .payload(json!({
+                        "status": "completed",
+                        "template": format!("template-{:02}", index % 18),
+                        "mentionedUserId": similar_user_reference
+                    }))
+                    .build();
 
             (
                 event.clone(),
@@ -1950,21 +1959,17 @@ fn build_user_story_distractor_event(
         }
         3 => {
             let plan = if index % 2 == 0 { "starter" } else { "team" };
-            let event = EventBuilder::new(
-                tenant_id,
-                "stripe",
-                "billing",
-                "billing.checkout.started",
-            )
-            .entity("user", user_id.as_str())
-            .entity("account", account_id.as_str())
-            .event_time(occurred_at)
-            .payload(json!({
-                "plan": plan,
-                "interval": "monthly",
-                "amount": if plan == "starter" { 1900 } else { 9900 }
-            }))
-            .build();
+            let event =
+                EventBuilder::new(tenant_id, "stripe", "billing", "billing.checkout.started")
+                    .entity("user", user_id.as_str())
+                    .entity("account", account_id.as_str())
+                    .event_time(occurred_at)
+                    .payload(json!({
+                        "plan": plan,
+                        "interval": "monthly",
+                        "amount": if plan == "starter" { 1900 } else { 9900 }
+                    }))
+                    .build();
 
             (
                 event.clone(),
@@ -1985,25 +1990,21 @@ fn build_user_story_distractor_event(
         }
         _ => {
             let conversation_id = format!("conv_eval_story_noise_{:03}", index % 160);
-            let event = EventBuilder::new(
-                tenant_id,
-                "zendesk",
-                "support",
-                "support.ticket.created",
-            )
-            .entity("user", user_id.as_str())
-            .entity("account", account_id.as_str())
-            .entity("conversation", conversation_id.as_str())
-            .event_time(occurred_at)
-            .payload(json!({
-                "subject": format!("Noise support ticket {index}"),
-                "priority": if index % 3 == 0 { "high" } else { "low" },
-                "text": format!(
-                    "Ticket references {} while investigating workspace access.",
-                    similar_user_reference.unwrap_or("no related user")
-                )
-            }))
-            .build();
+            let event =
+                EventBuilder::new(tenant_id, "zendesk", "support", "support.ticket.created")
+                    .entity("user", user_id.as_str())
+                    .entity("account", account_id.as_str())
+                    .entity("conversation", conversation_id.as_str())
+                    .event_time(occurred_at)
+                    .payload(json!({
+                        "subject": format!("Noise support ticket {index}"),
+                        "priority": if index % 3 == 0 { "high" } else { "low" },
+                        "text": format!(
+                            "Ticket references {} while investigating workspace access.",
+                            similar_user_reference.unwrap_or("no related user")
+                        )
+                    }))
+                    .build();
 
             (
                 event.clone(),

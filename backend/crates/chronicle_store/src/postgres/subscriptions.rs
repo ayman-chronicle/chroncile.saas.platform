@@ -80,7 +80,10 @@ pub(super) fn notification_payloads(events: &[Event]) -> Result<Vec<String>, Sto
     Ok(payloads)
 }
 
-fn serialize_notification_payload(org_id: &str, event_ids: &[String]) -> Result<String, StoreError> {
+fn serialize_notification_payload(
+    org_id: &str,
+    event_ids: &[String],
+) -> Result<String, StoreError> {
     serde_json::to_string(&NotificationPayload {
         org_id: org_id.to_string(),
         event_ids: event_ids.to_vec(),

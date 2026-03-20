@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use chronicle_mcp::{AnthropicMcpEvalRunner, ChronicleMcpEvalMatrix, McpEvalTransport};
 
 #[tokio::test]

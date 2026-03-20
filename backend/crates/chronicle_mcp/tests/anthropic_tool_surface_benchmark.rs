@@ -1,7 +1,7 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use chronicle_mcp::{
-    AnthropicFragmentedToolEvalRunner, AnthropicMcpEvalRunner, ChronicleMcpEvalMatrix,
-    McpEvalTransport, compare_mcp_to_fragmented_tools,
+    compare_mcp_to_fragmented_tools, AnthropicFragmentedToolEvalRunner, AnthropicMcpEvalRunner,
+    ChronicleMcpEvalMatrix, McpEvalTransport,
 };
 use std::time::Duration;
 

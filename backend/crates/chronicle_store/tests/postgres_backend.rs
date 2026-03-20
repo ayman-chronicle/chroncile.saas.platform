@@ -290,9 +290,13 @@ async fn pg_subscription_cancel_stops_delivery() {
     handle.cancel();
     tokio::time::sleep(Duration::from_millis(250)).await;
 
-    b.insert_events(&[factories::support_ticket("pg_sub_cancel", "cust_1", "after cancel")])
-        .await
-        .unwrap();
+    b.insert_events(&[factories::support_ticket(
+        "pg_sub_cancel",
+        "cust_1",
+        "after cancel",
+    )])
+    .await
+    .unwrap();
 
     tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(received.load(Ordering::SeqCst), 1);

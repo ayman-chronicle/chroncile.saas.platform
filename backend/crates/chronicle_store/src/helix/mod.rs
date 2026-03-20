@@ -222,7 +222,10 @@ impl TraceDocument {
             ));
         };
 
-        if events.iter().any(|event| event.org_id != first_event.org_id) {
+        if events
+            .iter()
+            .any(|event| event.org_id != first_event.org_id)
+        {
             return Err(StoreError::Query(
                 "all events in a trace must belong to the same org".to_string(),
             ));
@@ -420,7 +423,9 @@ impl HelixGraphBackend {
         refs: &[EntityRef],
     ) -> Result<(), StoreError> {
         for entity_ref in refs {
-            let event_node_id = self.ensure_event_node_id(org_id, &entity_ref.event_id).await?;
+            let event_node_id = self
+                .ensure_event_node_id(org_id, &entity_ref.event_id)
+                .await?;
             self.mirror_entity_ref(None, org_id, &event_node_id, entity_ref)
                 .await?;
         }
@@ -549,8 +554,12 @@ impl HelixGraphBackend {
         org_id: &OrgId,
         link: &EventLink,
     ) -> Result<(), StoreError> {
-        let source_node_id = self.ensure_event_node_id(org_id, &link.source_event_id).await?;
-        let target_node_id = self.ensure_event_node_id(org_id, &link.target_event_id).await?;
+        let source_node_id = self
+            .ensure_event_node_id(org_id, &link.source_event_id)
+            .await?;
+        let target_node_id = self
+            .ensure_event_node_id(org_id, &link.target_event_id)
+            .await?;
 
         self.query(
             "CreateCausalLink",
@@ -587,7 +596,9 @@ impl HelixGraphBackend {
             .await?;
 
         let external_ids = self.external_ids_from_records(&response, "events")?;
-        let mut results = self.load_events_by_external_ids(org_id, &external_ids).await?;
+        let mut results = self
+            .load_events_by_external_ids(org_id, &external_ids)
+            .await?;
         results.truncate(limit);
         Ok(results)
     }
@@ -609,7 +620,9 @@ impl HelixGraphBackend {
             )
             .await?;
         let external_ids = self.external_ids_from_records(&response, "events")?;
-        let mut results = self.load_events_by_external_ids(org_id, &external_ids).await?;
+        let mut results = self
+            .load_events_by_external_ids(org_id, &external_ids)
+            .await?;
         results.truncate(limit);
         Ok(results)
     }
@@ -631,7 +644,9 @@ impl HelixGraphBackend {
             )
             .await?;
         let external_ids = self.external_ids_from_records(&response, "events")?;
-        let mut results = self.load_events_by_external_ids(org_id, &external_ids).await?;
+        let mut results = self
+            .load_events_by_external_ids(org_id, &external_ids)
+            .await?;
         results.truncate(limit);
         Ok(results)
     }
@@ -753,12 +768,12 @@ impl HelixGraphBackend {
                     } => event_record
                         .generic_payloads
                         .push(SyncGenericPayloadBatchRecord {
-                        payload_text,
-                        source_event_type,
-                        schema_fingerprint,
-                        first_seen_at: created_at.clone(),
-                        created_at: created_at.clone(),
-                    }),
+                            payload_text,
+                            source_event_type,
+                            schema_fingerprint,
+                            first_seen_at: created_at.clone(),
+                            created_at: created_at.clone(),
+                        }),
                     PayloadProjection::StripePayment {
                         amount,
                         currency,
@@ -768,13 +783,13 @@ impl HelixGraphBackend {
                     } => event_record
                         .stripe_payloads
                         .push(SyncStripePayloadBatchRecord {
-                        amount,
-                        currency,
-                        status,
-                        customer_id,
-                        payment_intent_id,
-                        created_at: created_at.clone(),
-                    }),
+                            amount,
+                            currency,
+                            status,
+                            customer_id,
+                            payment_intent_id,
+                            created_at: created_at.clone(),
+                        }),
                     PayloadProjection::IntercomConversation {
                         conversation_id,
                         message,
@@ -798,13 +813,13 @@ impl HelixGraphBackend {
                     } => event_record
                         .zendesk_payloads
                         .push(SyncZendeskPayloadBatchRecord {
-                        ticket_id,
-                        subject,
-                        priority,
-                        status,
-                        requester_id,
-                        created_at: created_at.clone(),
-                    }),
+                            ticket_id,
+                            subject,
+                            priority,
+                            status,
+                            requester_id,
+                            created_at: created_at.clone(),
+                        }),
                 }
             }
 
@@ -1083,7 +1098,12 @@ impl HelixGraphBackend {
         org_id: &OrgId,
         event_id: &EventId,
     ) -> Result<String, StoreError> {
-        if let Some(node_id) = self.event_node_cache.read().get(&event_id.to_string()).cloned() {
+        if let Some(node_id) = self
+            .event_node_cache
+            .read()
+            .get(&event_id.to_string())
+            .cloned()
+        {
             return Ok(node_id);
         }
 
@@ -1130,8 +1150,12 @@ impl HelixGraphBackend {
         link: &EventLink,
     ) -> Result<LinkId, StoreError> {
         let link_id = self.canonical_links.create_link(org_id, link).await?;
-        let source_node_id = self.ensure_event_node_id(org_id, &link.source_event_id).await?;
-        let target_node_id = self.ensure_event_node_id(org_id, &link.target_event_id).await?;
+        let source_node_id = self
+            .ensure_event_node_id(org_id, &link.source_event_id)
+            .await?;
+        let target_node_id = self
+            .ensure_event_node_id(org_id, &link.target_event_id)
+            .await?;
 
         self.query(
             "CreateCausalLink",
@@ -1226,7 +1250,9 @@ impl HelixGraphBackend {
         let mut external_ids = Vec::new();
         for edge in self.records_from_field(&response, "edges")? {
             let edge_id = self.value_as_string(&edge, "edgeID")?;
-            let detail = self.query("GetLinkDetail", json!({ "edge_id": edge_id })).await?;
+            let detail = self
+                .query("GetLinkDetail", json!({ "edge_id": edge_id }))
+                .await?;
             let edge_record = self.object_from_field(&detail, "edge")?;
             if let Some(filter_types) = link_types {
                 let link_type = self.value_as_string(&edge_record, "link_type")?;
@@ -1277,8 +1303,7 @@ impl HelixGraphBackend {
             }
             Err(error) => {
                 let elapsed_ms = started.elapsed().as_millis();
-                let contextual_error =
-                    self.sync_step_error(event, step, elapsed_ms, error);
+                let contextual_error = self.sync_step_error(event, step, elapsed_ms, error);
                 tracing::warn!(
                     event_id = %event.event_id,
                     org_id = %event.org_id,
@@ -1315,12 +1340,7 @@ impl HelixGraphBackend {
         }
     }
 
-    fn required_field(
-        &self,
-        value: &Value,
-        field: &str,
-        key: &str,
-    ) -> Result<String, StoreError> {
+    fn required_field(&self, value: &Value, field: &str, key: &str) -> Result<String, StoreError> {
         let object = self.object_from_field(value, field)?;
         self.value_as_string(&object, key)
     }
@@ -1378,11 +1398,7 @@ impl HelixGraphBackend {
             .collect()
     }
 
-    fn value_as_string(
-        &self,
-        value: &Map<String, Value>,
-        key: &str,
-    ) -> Result<String, StoreError> {
+    fn value_as_string(&self, value: &Map<String, Value>, key: &str) -> Result<String, StoreError> {
         value
             .get(key)
             .and_then(Value::as_str)
@@ -1405,7 +1421,9 @@ impl EntityRefStore for HelixGraphBackend {
         self.canonical_entity_refs.add_refs(org_id, refs).await?;
 
         for entity_ref in refs {
-            let event_node_id = self.ensure_event_node_id(org_id, &entity_ref.event_id).await?;
+            let event_node_id = self
+                .ensure_event_node_id(org_id, &entity_ref.event_id)
+                .await?;
             self.mirror_entity_ref(None, org_id, &event_node_id, entity_ref)
                 .await?;
         }
@@ -1508,7 +1526,9 @@ impl EventLinkStore for HelixGraphBackend {
         org_id: &OrgId,
         event_id: &EventId,
     ) -> Result<Vec<EventLink>, StoreError> {
-        self.canonical_links.get_links_for_event(org_id, event_id).await
+        self.canonical_links
+            .get_links_for_event(org_id, event_id)
+            .await
     }
 
     async fn traverse(&self, query: &GraphQuery) -> Result<Vec<EventResult>, StoreError> {
@@ -1555,7 +1575,9 @@ impl EventLinkStore for HelixGraphBackend {
 #[async_trait]
 impl EmbeddingStore for HelixGraphBackend {
     async fn store_embeddings(&self, embeddings: &[EventEmbedding]) -> Result<(), StoreError> {
-        self.canonical_embeddings.store_embeddings(embeddings).await?;
+        self.canonical_embeddings
+            .store_embeddings(embeddings)
+            .await?;
         for embedding in embeddings {
             self.sync_event_embedding(embedding).await?;
         }
@@ -1576,7 +1598,9 @@ impl EmbeddingStore for HelixGraphBackend {
     }
 
     async fn has_embedding(&self, org_id: &OrgId, event_id: &EventId) -> Result<bool, StoreError> {
-        self.canonical_embeddings.has_embedding(org_id, event_id).await
+        self.canonical_embeddings
+            .has_embedding(org_id, event_id)
+            .await
     }
 }
 
@@ -1723,10 +1747,7 @@ impl HelixLinkingPipeline {
             .filter(|candidate| candidate.event.event_id != source_event_id)
             .collect::<Vec<_>>();
 
-        let decisions = self
-            .evaluator
-            .evaluate(&source.event, &candidates)
-            .await?;
+        let decisions = self.evaluator.evaluate(&source.event, &candidates).await?;
 
         let mut link_ids = Vec::new();
         for decision in decisions {
@@ -1743,8 +1764,7 @@ impl HelixLinkingPipeline {
                 created_by: created_by.to_string(),
                 created_at: Utc::now(),
             };
-            link_ids
-                .push(self.graph.create_link_record(org_id, &link).await?);
+            link_ids.push(self.graph.create_link_record(org_id, &link).await?);
         }
 
         Ok(link_ids)
@@ -2053,7 +2073,9 @@ mod tests {
                         "embeddingID": "helix_embedding_1"
                     }
                 })),
-                "SearchEventEmbeddings" | "SearchRawPayloadKeywords" | "SearchGenericPayloadKeywords" => Ok(json!({
+                "SearchEventEmbeddings"
+                | "SearchRawPayloadKeywords"
+                | "SearchGenericPayloadKeywords" => Ok(json!({
                     "events": self
                         .event_search_results
                         .read()
@@ -2145,12 +2167,7 @@ mod tests {
     async fn sync_event_mirrors_raw_and_typed_payload_nodes() {
         let client = Arc::new(RecordingClient::default());
         let (graph, _backend) = make_graph_backend(client.clone());
-        let event = EventBuilder::new(
-            "org_test",
-            "stripe",
-            "payments",
-            "payment_intent.succeeded",
-        )
+        let event = EventBuilder::new("org_test", "stripe", "payments", "payment_intent.succeeded")
             .entity("customer", "cust_123")
             .payload(serde_json::json!({
                 "amount": 4999,
@@ -2164,7 +2181,9 @@ mod tests {
 
         assert!(client.call_count.load(Ordering::Relaxed) >= 4);
         let endpoints = client.endpoints();
-        assert!(endpoints.iter().any(|endpoint| endpoint == "UpsertRawPayload"));
+        assert!(endpoints
+            .iter()
+            .any(|endpoint| endpoint == "UpsertRawPayload"));
         assert!(endpoints
             .iter()
             .any(|endpoint| endpoint == "UpsertStripePaymentPayload"));
@@ -2178,20 +2197,16 @@ mod tests {
     async fn sync_events_batched_sends_one_query_with_projected_records() {
         let client = Arc::new(RecordingClient::default());
         let (graph, _backend) = make_graph_backend(client.clone());
-        let stripe_event = EventBuilder::new(
-            "org_test",
-            "stripe",
-            "payments",
-            "payment_intent.succeeded",
-        )
-        .entity("customer", "cust_123")
-        .payload(serde_json::json!({
-            "amount": 4999,
-            "currency": "usd",
-            "status": "succeeded",
-            "payment_intent_id": "pi_123"
-        }))
-        .build();
+        let stripe_event =
+            EventBuilder::new("org_test", "stripe", "payments", "payment_intent.succeeded")
+                .entity("customer", "cust_123")
+                .payload(serde_json::json!({
+                    "amount": 4999,
+                    "currency": "usd",
+                    "status": "succeeded",
+                    "payment_intent_id": "pi_123"
+                }))
+                .build();
         let generic_event = EventBuilder::new("org_test", "custom_webhook", "cases", "case.synced")
             .entity("customer", "cust_456")
             .payload(serde_json::json!({
@@ -2289,7 +2304,10 @@ mod tests {
             .await
             .unwrap();
         assert!(canonical_refs.is_empty());
-        assert!(client.endpoints().iter().any(|endpoint| endpoint == "LinkEventToEntity"));
+        assert!(client
+            .endpoints()
+            .iter()
+            .any(|endpoint| endpoint == "LinkEventToEntity"));
     }
 
     #[tokio::test]
@@ -2316,7 +2334,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(backend.link_count(), 0);
-        assert!(client.endpoints().iter().any(|endpoint| endpoint == "CreateCausalLink"));
+        assert!(client
+            .endpoints()
+            .iter()
+            .any(|endpoint| endpoint == "CreateCausalLink"));
     }
 
     #[tokio::test]
@@ -2330,19 +2351,14 @@ mod tests {
             "event_count": 3,
             "status": "resolved"
         })]);
-        graph.trace_embedding_cache.write().insert(
-            "trace_existing".to_string(),
-            vec![1.0, 0.0, 0.0, 0.0],
-        );
+        graph
+            .trace_embedding_cache
+            .write()
+            .insert("trace_existing".to_string(), vec![1.0, 0.0, 0.0, 0.0]);
 
         let service = HelixTraceOodService::new(graph);
         let assessment = service
-            .assess(
-                &OrgId::new("org_test"),
-                &[0.0, 1.0, 0.0, 0.0],
-                5,
-                0.5,
-            )
+            .assess(&OrgId::new("org_test"), &[0.0, 1.0, 0.0, 0.0], 5, 0.5)
             .await
             .unwrap();
 
@@ -2483,18 +2499,13 @@ mod tests {
     async fn linking_pipeline_can_embed_source_event_text() {
         let client = Arc::new(RecordingClient::default());
         let (graph, backend) = make_graph_backend(client.clone());
-        let source = EventBuilder::new(
-            "org_test",
-            "intercom",
-            "support",
-            "conversation.created",
-        )
-        .entity("customer", "cust_embed")
-        .payload(serde_json::json!({
-            "conversation_id": "conv_1",
-            "message": "Customer asked for a refund"
-        }))
-        .build();
+        let source = EventBuilder::new("org_test", "intercom", "support", "conversation.created")
+            .entity("customer", "cust_embed")
+            .payload(serde_json::json!({
+                "conversation_id": "conv_1",
+                "message": "Customer asked for a refund"
+            }))
+            .build();
         let target = EventBuilder::new("org_test", "stripe", "payments", "charge.refunded")
             .entity("customer", "cust_embed")
             .payload(serde_json::json!({"amount": 4999, "status": "refunded"}))
@@ -2537,14 +2548,9 @@ mod tests {
         let first = EventBuilder::new("org_test", "stripe", "payments", "payment.failed")
             .payload(serde_json::json!({"amount": 4999, "status": "failed"}))
             .build();
-        let second = EventBuilder::new(
-            "org_test",
-            "zendesk",
-            "support",
-            "ticket.created",
-        )
-        .payload(serde_json::json!({"subject": "billing issue"}))
-        .build();
+        let second = EventBuilder::new("org_test", "zendesk", "support", "ticket.created")
+            .payload(serde_json::json!({"subject": "billing issue"}))
+            .build();
         let event_ids = vec![second.event_id, first.event_id];
         let embedder = RecordingEmbedder::new(vec![0.9, 0.1, 0.0, 0.0]);
 
@@ -2573,7 +2579,10 @@ mod tests {
             .seen_texts()
             .iter()
             .any(|text| text.contains("step=0")));
-        assert!(client.endpoints().iter().any(|endpoint| endpoint == "UpsertTrace"));
+        assert!(client
+            .endpoints()
+            .iter()
+            .any(|endpoint| endpoint == "UpsertTrace"));
         assert!(client
             .endpoints()
             .iter()

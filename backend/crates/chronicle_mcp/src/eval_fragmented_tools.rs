@@ -6,15 +6,13 @@ use chronicle_auth::types::AuthUser;
 use chronicle_core::query::EventResult;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use crate::{
-    AnthropicEvalConfig, ChronicleMcpDataAccess, ChronicleMcpEvalMatrix, ChronicleMcpEvalResult,
-    ChronicleMcpEvalScenario, InProcessChronicleMcpDataAccess, ListAuditLogsInput,
-    ListRunsInput, McpSessionContext, SearchInput, TimelineInput,
-    eval_seed::build_seeded_eval_scenario,
-    eval_transport::ToolCallPayload,
-    McpEvalTransport,
+    eval_seed::build_seeded_eval_scenario, eval_transport::ToolCallPayload, AnthropicEvalConfig,
+    ChronicleMcpDataAccess, ChronicleMcpEvalMatrix, ChronicleMcpEvalResult,
+    ChronicleMcpEvalScenario, InProcessChronicleMcpDataAccess, ListAuditLogsInput, ListRunsInput,
+    McpEvalTransport, McpSessionContext, SearchInput, TimelineInput,
 };
 
 const DEFAULT_ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -171,8 +169,7 @@ impl AnthropicFragmentedToolEvalRunner {
                     .unwrap_or_else(|_| DEFAULT_ANTHROPIC_API_URL.to_string()),
                 model: std::env::var("ANTHROPIC_MODEL")
                     .unwrap_or_else(|_| DEFAULT_ANTHROPIC_MODEL.to_string()),
-                max_tokens: parse_env_u32("ANTHROPIC_MAX_TOKENS")
-                    .unwrap_or(DEFAULT_MAX_TOKENS),
+                max_tokens: parse_env_u32("ANTHROPIC_MAX_TOKENS").unwrap_or(DEFAULT_MAX_TOKENS),
                 max_turns: parse_env_usize("CHRONICLE_FRAGMENTED_TOOL_EVAL_MAX_TURNS")
                     .unwrap_or(DEFAULT_MAX_TURNS),
                 temperature: parse_env_f32("ANTHROPIC_TEMPERATURE").unwrap_or(0.0),
@@ -380,7 +377,9 @@ impl AnthropicFragmentedToolEvalRunner {
         let status = response.status();
         let body = response.text().await.map_err(|error| error.to_string())?;
         if !status.is_success() {
-            return Err(format!("Anthropic API request failed with {status}: {body}"));
+            return Err(format!(
+                "Anthropic API request failed with {status}: {body}"
+            ));
         }
 
         serde_json::from_str(&body).map_err(|error| error.to_string())
@@ -445,7 +444,11 @@ impl FragmentedToolSuite {
                     operation_suffix: operation.suffix.to_string(),
                     anthropic_tool: AnthropicTool {
                         name: format!("{provider}_{}", operation.suffix),
-                        description: format!("{} {}", provider_title(provider), operation.description),
+                        description: format!(
+                            "{} {}",
+                            provider_title(provider),
+                            operation.description
+                        ),
                         input_schema: schema_for_kind(operation.schema_kind),
                     },
                     handler: handler_for(provider, operation.suffix),
@@ -723,7 +726,6 @@ impl FragmentedToolSuite {
             is_error: false,
         })
     }
-
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -975,7 +977,10 @@ fn required_string_argument(input: &Value, key: &str) -> Result<String, String> 
 }
 
 fn optional_string_argument(input: &Value, key: &str) -> Option<String> {
-    input.get(key).and_then(Value::as_str).map(ToString::to_string)
+    input
+        .get(key)
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
 }
 
 fn event_result_to_record(result: &EventResult) -> Value {

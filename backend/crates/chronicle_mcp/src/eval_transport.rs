@@ -3,25 +3,28 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use axum::{
-    Router,
     extract::{Request, State},
     http::StatusCode,
     middleware::{self, Next},
     response::Response,
+    Router,
 };
 use chronicle_auth::{jwt::JwtService, types::AuthUser};
 use chronicle_backend::runtime::ChroniclePlatformRuntime;
 use chronicle_domain::EventEnvelope;
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use rmcp::{
-    ClientHandler, ServiceExt, model::{CallToolRequestParams, CallToolResult, JsonObject, ListToolsResult, Tool},
+    model::{CallToolRequestParams, CallToolResult, JsonObject, ListToolsResult, Tool},
     transport::{
+        streamable_http_server::{
+            session::local::LocalSessionManager, tower::StreamableHttpService,
+        },
         StreamableHttpServerConfig,
-        streamable_http_server::{session::local::LocalSessionManager, tower::StreamableHttpService},
     },
+    ClientHandler, ServiceExt,
 };
 use serde::de::DeserializeOwned;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tokio::{net::TcpListener, sync::Mutex, task::JoinHandle};
 
 use crate::{
@@ -105,9 +108,7 @@ impl StdioEvalTransportClient {
         let server = ChronicleMcpServer::new(
             auth,
             data_access,
-            ChronicleMcpServerOptions {
-                enable_replay,
-            },
+            ChronicleMcpServerOptions { enable_replay },
         );
 
         let (server_transport, client_transport) = tokio::io::duplex(64 * 1024);
@@ -140,7 +141,10 @@ impl StdioEvalTransportClient {
 #[async_trait]
 impl EvalTransportClient for StdioEvalTransportClient {
     async fn list_tools(&mut self) -> Result<Vec<Tool>, String> {
-        self.client.list_all_tools().await.map_err(|error| error.to_string())
+        self.client
+            .list_all_tools()
+            .await
+            .map_err(|error| error.to_string())
     }
 
     async fn call_tool(
@@ -149,12 +153,7 @@ impl EvalTransportClient for StdioEvalTransportClient {
         arguments: JsonObject,
     ) -> Result<ToolCallPayload, String> {
         let arguments = constrain_eval_tool_arguments(name, arguments);
-        maybe_spawn_live_events(
-            name,
-            &self.live_events,
-            Arc::clone(&self.stream_backend),
-        )
-        .await;
+        maybe_spawn_live_events(name, &self.live_events, Arc::clone(&self.stream_backend)).await;
 
         let result = self
             .client
@@ -204,9 +203,7 @@ impl HttpEvalTransportClient {
         let server = ChronicleMcpServer::new(
             auth,
             data_access,
-            ChronicleMcpServerOptions {
-                enable_replay,
-            },
+            ChronicleMcpServerOptions { enable_replay },
         );
         let service: StreamableHttpService<ChronicleMcpServer, LocalSessionManager> =
             StreamableHttpService::new(
@@ -226,7 +223,10 @@ impl HttpEvalTransportClient {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .map_err(|error| error.to_string())?;
-        let port = listener.local_addr().map_err(|error| error.to_string())?.port();
+        let port = listener
+            .local_addr()
+            .map_err(|error| error.to_string())?
+            .port();
         let server_handle = tokio::spawn(async move {
             axum::serve(listener, app)
                 .await
@@ -330,12 +330,7 @@ impl EvalTransportClient for HttpEvalTransportClient {
         arguments: JsonObject,
     ) -> Result<ToolCallPayload, String> {
         let arguments = constrain_eval_tool_arguments(name, arguments);
-        maybe_spawn_live_events(
-            name,
-            &self.live_events,
-            Arc::clone(&self.stream_backend),
-        )
-        .await;
+        maybe_spawn_live_events(name, &self.live_events, Arc::clone(&self.stream_backend)).await;
 
         let result: CallToolResult = self
             .send_request(

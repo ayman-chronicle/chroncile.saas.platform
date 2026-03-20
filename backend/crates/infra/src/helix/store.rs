@@ -42,10 +42,7 @@ impl HelixStore {
         Arc::clone(&self.graph)
     }
 
-    pub fn linking_pipeline(
-        &self,
-        evaluator: Arc<dyn LinkDecisionModel>,
-    ) -> HelixLinkingPipeline {
+    pub fn linking_pipeline(&self, evaluator: Arc<dyn LinkDecisionModel>) -> HelixLinkingPipeline {
         HelixLinkingPipeline::new(self.graph.clone(), evaluator)
     }
 

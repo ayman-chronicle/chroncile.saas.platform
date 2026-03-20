@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chronicle_mcp::{
-    ChronicleBaselineEvalResult, ChronicleEvalBaseline, ChronicleMcpEvalMatrix,
-    ChronicleMcpEvalResult, ChronicleMcpEvalRunner, McpEvalTransport, compare_mcp_to_baseline,
+    compare_mcp_to_baseline, ChronicleBaselineEvalResult, ChronicleEvalBaseline,
+    ChronicleMcpEvalMatrix, ChronicleMcpEvalResult, ChronicleMcpEvalRunner, McpEvalTransport,
 };
 
 #[tokio::test]
@@ -19,7 +19,9 @@ async fn default_eval_matrix_covers_expected_scenarios_and_transports() {
 
     for scenario in &matrix.scenarios {
         assert!(scenario.transports.contains(&McpEvalTransport::Stdio));
-        assert!(scenario.transports.contains(&McpEvalTransport::StreamableHttp));
+        assert!(scenario
+            .transports
+            .contains(&McpEvalTransport::StreamableHttp));
         assert!(!scenario.required_tools.is_empty());
         assert!(!scenario.rubric.is_empty());
     }

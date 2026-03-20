@@ -7,10 +7,12 @@ use sqlx::Row;
 use chronicle_core::entity_ref::EntityRef;
 use chronicle_core::error::StoreError;
 use chronicle_core::event::{Event, PendingEntityRef};
-use chronicle_core::ids::{Confidence, EntityId, EntityType, EventId, EventType, LinkId, OrgId, Source, Topic};
+use chronicle_core::ids::{
+    Confidence, EntityId, EntityType, EventId, EventType, LinkId, OrgId, Source, Topic,
+};
 use chronicle_core::link::EventLink;
 use chronicle_core::media::MediaAttachment;
-use chronicle_store::helix::{DEFAULT_HELIX_PROJECT_DIR, HelixConnectionConfig, HelixGraphBackend};
+use chronicle_store::helix::{HelixConnectionConfig, HelixGraphBackend, DEFAULT_HELIX_PROJECT_DIR};
 use chronicle_store::postgres::PostgresBackend;
 use chronicle_store::traits::EventEmbedding;
 
@@ -343,7 +345,9 @@ async fn load_embeddings(
                     .map_err(|error| StoreError::Internal(error.to_string()))?,
                 org_id: org_id.clone(),
                 embedding: row.get::<Vec<f32>, _>("embedding"),
-                embedded_text: row.get::<Option<String>, _>("embedded_text").unwrap_or_default(),
+                embedded_text: row
+                    .get::<Option<String>, _>("embedded_text")
+                    .unwrap_or_default(),
                 model_version: row.get("model_version"),
             })
         })

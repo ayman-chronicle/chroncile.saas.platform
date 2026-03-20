@@ -78,7 +78,10 @@ impl NangoClient {
         Self::parse_response(resp).await
     }
 
-    pub async fn list_connections(&self, query: &ListConnectionsQuery) -> Result<ConnectionsResponse> {
+    pub async fn list_connections(
+        &self,
+        query: &ListConnectionsQuery,
+    ) -> Result<ConnectionsResponse> {
         let mut request = self.request(reqwest::Method::GET, "/connections");
         let mut params: Vec<(String, String)> = Vec::new();
         if let Some(value) = query.end_user_id.as_deref() {

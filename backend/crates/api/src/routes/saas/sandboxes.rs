@@ -1,4 +1,4 @@
-use axum::{Json, extract::State};
+use axum::{extract::State, Json};
 
 use chronicle_auth::types::AuthUser;
 use chronicle_domain::{SandboxAiChatRequest, SandboxAiChatResponse};

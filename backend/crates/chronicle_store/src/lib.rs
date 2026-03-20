@@ -33,10 +33,10 @@
 #[cfg(feature = "arrow-export")]
 pub mod arrow_export;
 pub mod engine;
-#[cfg(feature = "hybrid")]
-pub mod hybrid;
 #[cfg(feature = "helix")]
 pub mod helix;
+#[cfg(feature = "hybrid")]
+pub mod hybrid;
 #[cfg(feature = "kurrent")]
 pub mod kurrent;
 pub mod memory;

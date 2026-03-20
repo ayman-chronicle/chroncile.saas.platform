@@ -2,9 +2,9 @@ use std::collections::HashSet;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use chronicle_core::error::StoreError;
 use chronicle_core::event::Event;
@@ -121,7 +121,9 @@ impl AnthropicLinkDecisionModel {
             serde_json::from_str(&body).map_err(|error| StoreError::Query(error.to_string()))?;
 
         if let Some(tool_output) = parsed.content.iter().find_map(|block| match block {
-            AnthropicContentBlock::ToolUse { name, input, .. } if name == LINK_DECISION_TOOL_NAME => {
+            AnthropicContentBlock::ToolUse { name, input, .. }
+                if name == LINK_DECISION_TOOL_NAME =>
+            {
                 Some(input.clone())
             }
             _ => None,
@@ -164,12 +166,16 @@ impl LinkDecisionModel for AnthropicLinkDecisionModel {
                     && allowed_target_ids.contains(&decision.target_event_id)
             })
             .map(|decision| {
-                let target_event_id = decision.target_event_id.parse::<EventId>().map_err(|error| {
-                    StoreError::Query(format!(
-                        "anthropic returned invalid targetEventId '{}': {error}",
-                        decision.target_event_id
-                    ))
-                })?;
+                let target_event_id =
+                    decision
+                        .target_event_id
+                        .parse::<EventId>()
+                        .map_err(|error| {
+                            StoreError::Query(format!(
+                                "anthropic returned invalid targetEventId '{}': {error}",
+                                decision.target_event_id
+                            ))
+                        })?;
 
                 if !(0.0..=1.0).contains(&decision.confidence) {
                     return Err(StoreError::Query(format!(
@@ -229,8 +235,14 @@ struct AnthropicResponseMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnthropicContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -283,7 +295,8 @@ Linking context:\n```json\n{}\n```",
 fn link_decision_tool() -> AnthropicTool {
     AnthropicTool {
         name: LINK_DECISION_TOOL_NAME.to_string(),
-        description: "Return the assistant explanation plus a list of event link decisions.".to_string(),
+        description: "Return the assistant explanation plus a list of event link decisions."
+            .to_string(),
         input_schema: json!({
             "type": "object",
             "additionalProperties": false,

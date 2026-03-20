@@ -33,7 +33,8 @@ pub enum PayloadProjection {
 }
 
 pub fn raw_payload_text(event: &Event) -> Option<String> {
-    event.payload
+    event
+        .payload
         .as_ref()
         .and_then(|payload| serde_json::to_string(payload).ok())
 }
@@ -80,8 +81,8 @@ fn project_stripe_payload(event: &Event, payload: &Value) -> Option<PayloadProje
     let customer_id = string_field(payload, &["customer_id", "customerId"])
         .or_else(|| customer_entity_id(event))
         .unwrap_or_default();
-    let payment_intent_id = string_field(payload, &["payment_intent_id", "paymentIntentId", "id"])
-        .unwrap_or_default();
+    let payment_intent_id =
+        string_field(payload, &["payment_intent_id", "paymentIntentId", "id"]).unwrap_or_default();
 
     Some(PayloadProjection::StripePayment {
         amount,
@@ -123,7 +124,8 @@ fn project_zendesk_payload(payload: &Value) -> Option<PayloadProjection> {
 }
 
 fn customer_entity_id(event: &Event) -> Option<String> {
-    event.entity_refs
+    event
+        .entity_refs
         .iter()
         .find(|reference| reference.entity_type == "customer")
         .map(|reference| reference.entity_id.to_string())
@@ -192,20 +194,15 @@ mod tests {
 
     #[test]
     fn projects_stripe_payloads() {
-        let event = EventBuilder::new(
-            "org_test",
-            "stripe",
-            "payments",
-            "payment_intent.succeeded",
-        )
-        .entity("customer", "cust_123")
-        .payload(serde_json::json!({
-            "amount": 4999,
-            "currency": "usd",
-            "status": "succeeded",
-            "payment_intent_id": "pi_123"
-        }))
-        .build();
+        let event = EventBuilder::new("org_test", "stripe", "payments", "payment_intent.succeeded")
+            .entity("customer", "cust_123")
+            .payload(serde_json::json!({
+                "amount": 4999,
+                "currency": "usd",
+                "status": "succeeded",
+                "payment_intent_id": "pi_123"
+            }))
+            .build();
 
         let projection = project_payload(&event).expect("projection should exist");
 

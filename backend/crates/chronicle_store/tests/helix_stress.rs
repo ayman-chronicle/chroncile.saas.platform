@@ -30,12 +30,13 @@ use chronicle_core::ids::{Confidence, EntityId, EntityType, EventId, LinkId, Org
 use chronicle_core::link::{EventLink, LinkDirection};
 use chronicle_core::query::{GraphQuery, OrderBy, StructuredQuery};
 use chronicle_store::helix::{
-    DEFAULT_HELIX_ENDPOINT, DEFAULT_HELIX_PORT, DEFAULT_HELIX_PROJECT_DIR,
     DeterministicTextEmbedder, HelixConnectionConfig, HelixGraphBackend, HelixTraceOodService,
-    TextEmbedder,
+    TextEmbedder, DEFAULT_HELIX_ENDPOINT, DEFAULT_HELIX_PORT, DEFAULT_HELIX_PROJECT_DIR,
 };
 use chronicle_store::postgres::PostgresBackend;
-use chronicle_store::traits::{EmbeddingStore, EntityRefStore, EventEmbedding, EventLinkStore, EventStore};
+use chronicle_store::traits::{
+    EmbeddingStore, EntityRefStore, EventEmbedding, EventLinkStore, EventStore,
+};
 
 const DEFAULT_TEST_DB_URL: &str = "postgres://chronicle:chronicle@localhost:5433/chronicle";
 const DEFAULT_TOTAL_EVENTS: usize = 10_000;
@@ -88,7 +89,10 @@ struct StressConfig {
 impl StressConfig {
     fn from_env() -> Self {
         Self {
-            total_events: rounded_total_events(env_usize("HELIX_STRESS_EVENTS", DEFAULT_TOTAL_EVENTS)),
+            total_events: rounded_total_events(env_usize(
+                "HELIX_STRESS_EVENTS",
+                DEFAULT_TOTAL_EVENTS,
+            )),
             batch_size: env_usize("HELIX_STRESS_BATCH_SIZE", DEFAULT_BATCH_SIZE).max(1),
             sync_chunk_size: env_usize("HELIX_STRESS_SYNC_CHUNK_SIZE", DEFAULT_SYNC_CHUNK_SIZE)
                 .max(1),
@@ -162,7 +166,8 @@ impl StressDataset {
                 sample_customer_id = customer_id.clone();
             }
 
-            let workflow_start = base_time + Duration::minutes((workflow_index * WORKFLOW_EVENT_COUNT) as i64);
+            let workflow_start =
+                base_time + Duration::minutes((workflow_index * WORKFLOW_EVENT_COUNT) as i64);
 
             let payment_failed = EventBuilder::new(
                 org_id.as_str(),
@@ -205,23 +210,19 @@ impl StressDataset {
             .event_time(workflow_start + Duration::minutes(1))
             .build();
 
-            let zendesk_ticket = EventBuilder::new(
-                org_id.as_str(),
-                "zendesk",
-                "tickets",
-                "ticket.created",
-            )
-            .entity("customer", customer_id.as_str())
-            .entity("ticket", ticket_id.as_str())
-            .payload(serde_json::json!({
-                "ticket_id": ticket_id,
-                "subject": format!("Refund follow up for {customer_id}"),
-                "priority": if workflow_index % 5 == 0 { "urgent" } else { "normal" },
-                "status": "open",
-                "requester_id": customer_id
-            }))
-            .event_time(workflow_start + Duration::minutes(2))
-            .build();
+            let zendesk_ticket =
+                EventBuilder::new(org_id.as_str(), "zendesk", "tickets", "ticket.created")
+                    .entity("customer", customer_id.as_str())
+                    .entity("ticket", ticket_id.as_str())
+                    .payload(serde_json::json!({
+                        "ticket_id": ticket_id,
+                        "subject": format!("Refund follow up for {customer_id}"),
+                        "priority": if workflow_index % 5 == 0 { "urgent" } else { "normal" },
+                        "status": "open",
+                        "requester_id": customer_id
+                    }))
+                    .event_time(workflow_start + Duration::minutes(2))
+                    .build();
 
             let stripe_resolution = EventBuilder::new(
                 org_id.as_str(),
@@ -247,25 +248,21 @@ impl StressDataset {
             let generic_keyword_message = format!(
                 "generic escalation marker payload for customer {customer_id} {run_marker}"
             );
-            let generic_webhook = EventBuilder::new(
-                org_id.as_str(),
-                "custom_webhook",
-                "cases",
-                "case.synced",
-            )
-            .entity("customer", customer_id.as_str())
-            .payload(serde_json::json!({
-                "category": "custom-escalation",
-                "message": generic_keyword_message,
-                "customerId": customer_id,
-                "details": {
-                    "nested": {
-                        "severity": if workflow_index % 2 == 0 { "high" } else { "medium" }
-                    }
-                }
-            }))
-            .event_time(workflow_start + Duration::minutes(4))
-            .build();
+            let generic_webhook =
+                EventBuilder::new(org_id.as_str(), "custom_webhook", "cases", "case.synced")
+                    .entity("customer", customer_id.as_str())
+                    .payload(serde_json::json!({
+                        "category": "custom-escalation",
+                        "message": generic_keyword_message,
+                        "customerId": customer_id,
+                        "details": {
+                            "nested": {
+                                "severity": if workflow_index % 2 == 0 { "high" } else { "medium" }
+                            }
+                        }
+                    }))
+                    .event_time(workflow_start + Duration::minutes(4))
+                    .build();
 
             let page_view = EventBuilder::new(org_id.as_str(), "product", "usage", "page.viewed")
                 .entity("customer", customer_id.as_str())
@@ -277,33 +274,25 @@ impl StressDataset {
                 .event_time(workflow_start + Duration::minutes(5))
                 .build();
 
-            let feature_used = EventBuilder::new(
-                org_id.as_str(),
-                "product",
-                "usage",
-                "feature.used",
-            )
-            .entity("customer", customer_id.as_str())
-            .payload(serde_json::json!({
-                "feature": "refund-center",
-                "success": workflow_index % 6 != 0
-            }))
-            .event_time(workflow_start + Duration::minutes(6))
-            .build();
+            let feature_used =
+                EventBuilder::new(org_id.as_str(), "product", "usage", "feature.used")
+                    .entity("customer", customer_id.as_str())
+                    .payload(serde_json::json!({
+                        "feature": "refund-center",
+                        "success": workflow_index % 6 != 0
+                    }))
+                    .event_time(workflow_start + Duration::minutes(6))
+                    .build();
 
-            let slack_message = EventBuilder::new(
-                org_id.as_str(),
-                "slack",
-                "messages",
-                "message.posted",
-            )
-            .entity("customer", customer_id.as_str())
-            .payload(serde_json::json!({
-                "channel": "support-escalations",
-                "text": format!("refund sync noted for {customer_id}")
-            }))
-            .event_time(workflow_start + Duration::minutes(7))
-            .build();
+            let slack_message =
+                EventBuilder::new(org_id.as_str(), "slack", "messages", "message.posted")
+                    .entity("customer", customer_id.as_str())
+                    .payload(serde_json::json!({
+                        "channel": "support-escalations",
+                        "text": format!("refund sync noted for {customer_id}")
+                    }))
+                    .event_time(workflow_start + Duration::minutes(7))
+                    .build();
 
             let case_note = EventBuilder::new(
                 org_id.as_str(),
@@ -578,49 +567,37 @@ async fn helix_stress_large_mixed_workload() {
         .await
         .expect("build semantic vector");
 
-    let raw_query_metric = measure_query(
-        "raw payload BM25",
-        config.query_iterations,
-        || async {
-            Ok(graph
-                .search_raw_payload_keywords(&org, &dataset.raw_keyword, BM25_LIMIT)
-                .await?
-                .len())
-        },
-    )
+    let raw_query_metric = measure_query("raw payload BM25", config.query_iterations, || async {
+        Ok(graph
+            .search_raw_payload_keywords(&org, &dataset.raw_keyword, BM25_LIMIT)
+            .await?
+            .len())
+    })
     .await;
     raw_query_metric.print();
 
-    let generic_query_metric = measure_query(
-        "generic payload BM25",
-        config.query_iterations,
-        || async {
+    let generic_query_metric =
+        measure_query("generic payload BM25", config.query_iterations, || async {
             Ok(graph
                 .search_generic_payload_keywords(&org, &dataset.generic_keyword, BM25_LIMIT)
                 .await?
                 .len())
-        },
-    )
-    .await;
+        })
+        .await;
     generic_query_metric.print();
 
-    let vector_query_metric = measure_query(
-        "event vector search",
-        config.query_iterations,
-        || async {
+    let vector_query_metric =
+        measure_query("event vector search", config.query_iterations, || async {
             Ok(graph
                 .search_event_candidates(&org, &semantic_vector, VECTOR_LIMIT)
                 .await?
                 .len())
-        },
-    )
-    .await;
+        })
+        .await;
     vector_query_metric.print();
 
-    let entity_query_metric = measure_query(
-        "entity traversal",
-        config.query_iterations,
-        || async {
+    let entity_query_metric =
+        measure_query("entity traversal", config.query_iterations, || async {
             Ok(graph
                 .get_events_for_entity(
                     &org,
@@ -629,15 +606,12 @@ async fn helix_stress_large_mixed_workload() {
                 )
                 .await?
                 .len())
-        },
-    )
-    .await;
+        })
+        .await;
     entity_query_metric.print();
 
-    let traversal_query_metric = measure_query(
-        "link traversal",
-        config.query_iterations,
-        || async {
+    let traversal_query_metric =
+        measure_query("link traversal", config.query_iterations, || async {
             Ok(graph
                 .traverse(&GraphQuery {
                     org_id: org.clone(),
@@ -649,22 +623,18 @@ async fn helix_stress_large_mixed_workload() {
                 })
                 .await?
                 .len())
-        },
-    )
-    .await;
+        })
+        .await;
     traversal_query_metric.print();
 
-    let trace_search_metric = measure_query(
-        "refund trace search",
-        config.query_iterations,
-        || async {
+    let trace_search_metric =
+        measure_query("refund trace search", config.query_iterations, || async {
             Ok(graph
                 .search_stripe_refund_traces(&org, config.refund_min_amount)
                 .await?
                 .len())
-        },
-    )
-    .await;
+        })
+        .await;
     trace_search_metric.print();
 
     let sample_trace = trace_service
@@ -780,7 +750,11 @@ fn live_helix_config() -> HelixConnectionConfig {
         port: env::var("HELIX_TEST_PORT")
             .ok()
             .and_then(|value| value.parse::<u16>().ok())
-            .or_else(|| env::var("HELIX_PORT").ok().and_then(|value| value.parse::<u16>().ok()))
+            .or_else(|| {
+                env::var("HELIX_PORT")
+                    .ok()
+                    .and_then(|value| value.parse::<u16>().ok())
+            })
             .unwrap_or(DEFAULT_HELIX_PORT),
         api_key: env::var("HELIX_TEST_API_KEY")
             .ok()
@@ -865,7 +839,10 @@ fn env_f64(name: &str, default: f64) -> f64 {
 }
 
 fn unique_org_id(prefix: &str) -> String {
-    format!("{prefix}_{}", Utc::now().timestamp_nanos_opt().unwrap_or_default())
+    format!(
+        "{prefix}_{}",
+        Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    )
 }
 
 fn deterministic_embedding(text: &str, dimensions: usize) -> Vec<f32> {

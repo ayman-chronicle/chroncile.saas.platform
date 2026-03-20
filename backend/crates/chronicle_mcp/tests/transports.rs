@@ -9,12 +9,14 @@ use chronicle_mcp::{
     InProcessChronicleMcpDataAccess,
 };
 use rmcp::{
-    ClientHandler, ServiceExt,
     model::{CallToolRequestParams, ReadResourceRequestParams},
     transport::{
+        streamable_http_server::{
+            session::local::LocalSessionManager, tower::StreamableHttpService,
+        },
         StreamableHttpServerConfig,
-        streamable_http_server::{session::local::LocalSessionManager, tower::StreamableHttpService},
     },
+    ClientHandler, ServiceExt,
 };
 use serde_json::json;
 
@@ -37,9 +39,7 @@ fn test_user() -> AuthUser {
     }
 }
 
-async fn build_server(
-    http_mode: bool,
-) -> anyhow::Result<(ChronicleMcpServer, String)> {
+async fn build_server(http_mode: bool) -> anyhow::Result<(ChronicleMcpServer, String)> {
     let runtime = runtime::build_platform_runtime(&config::LaunchConfig::default()).await?;
     let user = test_user();
     runtime
@@ -125,7 +125,10 @@ async fn streamable_http_transport_accepts_bearer_token() -> anyhow::Result<()> 
     let initialize = client
         .post(format!("http://127.0.0.1:{port}/mcp"))
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
-        .header(reqwest::header::ACCEPT, "application/json, text/event-stream")
+        .header(
+            reqwest::header::ACCEPT,
+            "application/json, text/event-stream",
+        )
         .json(&json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -152,7 +155,10 @@ async fn streamable_http_transport_accepts_bearer_token() -> anyhow::Result<()> 
     let tool_call = client
         .post(format!("http://127.0.0.1:{port}/mcp"))
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
-        .header(reqwest::header::ACCEPT, "application/json, text/event-stream")
+        .header(
+            reqwest::header::ACCEPT,
+            "application/json, text/event-stream",
+        )
         .header("mcp-protocol-version", &protocol_version)
         .json(&json!({
             "jsonrpc": "2.0",

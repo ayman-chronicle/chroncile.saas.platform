@@ -26,8 +26,8 @@ use chronicle_core::query::{
     EventResult, GraphQuery, OrderBy, SemanticQuery, StructuredQuery, TimelineQuery,
 };
 use chronicle_core::time_range::TimeRange;
-use chronicle_store::{EventHandler, SubFilter, SubscriptionPosition};
 use chronicle_store::traits::{EntityInfo, EntityTypeInfo, SourceInfo, SourceSchema};
+use chronicle_store::{EventHandler, SubFilter, SubscriptionPosition};
 
 use crate::{ApiError, AppState};
 
@@ -132,15 +132,18 @@ async fn stream_events(
     State(state): State<AppState>,
     Query(params): Query<StreamQueryParams>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>> + Send>, ApiError> {
-    let subscriptions = state
-        .store
-        .subscription_service()
-        .ok_or_else(|| ApiError::Store("store backend does not support subscriptions".to_string()))?;
+    let subscriptions = state.store.subscription_service().ok_or_else(|| {
+        ApiError::Store("store backend does not support subscriptions".to_string())
+    })?;
 
     let filter = build_stream_filter(&params)?;
     let (sender, mut receiver) = mpsc::unbounded_channel::<EventResult>();
     let handle = subscriptions
-        .subscribe(filter, SubscriptionPosition::End, Arc::new(SseEventHandler { sender }))
+        .subscribe(
+            filter,
+            SubscriptionPosition::End,
+            Arc::new(SseEventHandler { sender }),
+        )
         .await
         .map_err(|error| ApiError::Store(error.to_string()))?;
 

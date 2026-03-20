@@ -4,8 +4,9 @@ use chronicle_auth::jwt::JwtService;
 use chronicle_infra::{StoreBackend, StreamBackend};
 use chronicle_interfaces::{
     AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, EmailService,
-    FeatureFlagRepository, InvitationRepository, PasswordResetRepository, SandboxAiConfigService,
-    PipedreamTriggerRepository, RunRepository, TenantRepository, UserRepository,
+    FeatureFlagRepository, InvitationRepository, PasswordResetRepository,
+    PipedreamTriggerRepository, RunRepository, SandboxAiConfigService, TenantRepository,
+    UserRepository,
 };
 use chronicle_nango::NangoClient;
 use chronicle_pipedream_connect::PipedreamClient;

@@ -4,8 +4,8 @@ use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ChronicleBaselineEvalResult, ChronicleEvalBaseline, ChronicleMcpEvalMatrix,
-    ChronicleMcpEvalScenario, eval_seed::build_seeded_eval_scenario,
+    eval_seed::build_seeded_eval_scenario, ChronicleBaselineEvalResult, ChronicleEvalBaseline,
+    ChronicleMcpEvalMatrix, ChronicleMcpEvalScenario,
 };
 
 const DEFAULT_ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -50,8 +50,7 @@ impl AnthropicContextDumpEvalRunner {
                     .unwrap_or_else(|_| DEFAULT_ANTHROPIC_API_URL.to_string()),
                 model: std::env::var("ANTHROPIC_MODEL")
                     .unwrap_or_else(|_| DEFAULT_ANTHROPIC_MODEL.to_string()),
-                max_tokens: parse_env_u32("ANTHROPIC_MAX_TOKENS")
-                    .unwrap_or(DEFAULT_MAX_TOKENS),
+                max_tokens: parse_env_u32("ANTHROPIC_MAX_TOKENS").unwrap_or(DEFAULT_MAX_TOKENS),
                 max_turns: 1,
                 temperature: parse_env_f32("ANTHROPIC_TEMPERATURE").unwrap_or(0.0),
             },
@@ -164,7 +163,9 @@ impl AnthropicContextDumpEvalRunner {
         let status = response.status();
         let body = response.text().await.map_err(|error| error.to_string())?;
         if !status.is_success() {
-            return Err(format!("Anthropic API request failed with {status}: {body}"));
+            return Err(format!(
+                "Anthropic API request failed with {status}: {body}"
+            ));
         }
 
         serde_json::from_str(&body).map_err(|error| error.to_string())

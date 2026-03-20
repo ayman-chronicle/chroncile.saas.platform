@@ -14,15 +14,16 @@ use chrono::Utc;
 
 use chronicle_core::event::EventBuilder;
 use chronicle_core::ids::{EntityId, EntityType, EventId, OrgId};
-use chronicle_core::query::{GraphQuery, SemanticQuery};
 use chronicle_core::link::LinkDirection;
+use chronicle_core::query::{GraphQuery, SemanticQuery};
 use chronicle_store::helix::{
-    DEFAULT_HELIX_ENDPOINT, DEFAULT_HELIX_PORT, DEFAULT_HELIX_PROJECT_DIR,
     DeterministicTextEmbedder, HelixConnectionConfig, HelixEventStore, HelixGraphBackend,
-    HelixTraceOodService,
+    HelixTraceOodService, DEFAULT_HELIX_ENDPOINT, DEFAULT_HELIX_PORT, DEFAULT_HELIX_PROJECT_DIR,
 };
 use chronicle_store::postgres::PostgresBackend;
-use chronicle_store::traits::{EmbeddingStore, EntityRefStore, EventEmbedding, EventLinkStore, EventStore};
+use chronicle_store::traits::{
+    EmbeddingStore, EntityRefStore, EventEmbedding, EventLinkStore, EventStore,
+};
 use chronicle_test_fixtures::{factories, trait_tests};
 
 const DEFAULT_TEST_DB_URL: &str = "postgres://chronicle:chronicle@localhost:5433/chronicle";
@@ -53,7 +54,11 @@ async fn helix_live_query_matrix_covers_graph_search_and_ood() {
 
     let failed_payment = factories::stripe_payment_failed(org.as_str(), customer_id, 8_999);
     let failed_payment_id = failed_payment.event_id;
-    let support_ticket = factories::support_ticket(org.as_str(), customer_id, "Billing issue after payment failed");
+    let support_ticket = factories::support_ticket(
+        org.as_str(),
+        customer_id,
+        "Billing issue after payment failed",
+    );
     let support_ticket_id = support_ticket.event_id;
     let anonymous_page = factories::anonymous_page_view(org.as_str(), session_id, "/refund-policy");
     let anonymous_page_id = anonymous_page.event_id;
@@ -126,7 +131,10 @@ async fn helix_live_query_matrix_covers_graph_search_and_ood() {
     let semantic_results = graph
         .search_event_candidates(
             &org,
-            &event_embedding.iter().map(|value| f64::from(*value)).collect::<Vec<_>>(),
+            &event_embedding
+                .iter()
+                .map(|value| f64::from(*value))
+                .collect::<Vec<_>>(),
             5,
         )
         .await
@@ -194,7 +202,10 @@ async fn helix_live_query_matrix_covers_graph_search_and_ood() {
         .await
         .unwrap();
 
-    let refund_traces = graph.search_stripe_refund_traces(&org, 5_000.0).await.unwrap();
+    let refund_traces = graph
+        .search_stripe_refund_traces(&org, 5_000.0)
+        .await
+        .unwrap();
     assert!(refund_traces
         .iter()
         .any(|candidate| candidate.trace_key == "trace_refund_resolution"));
@@ -260,7 +271,11 @@ fn live_helix_config() -> HelixConnectionConfig {
         port: env::var("HELIX_TEST_PORT")
             .ok()
             .and_then(|value| value.parse::<u16>().ok())
-            .or_else(|| env::var("HELIX_PORT").ok().and_then(|value| value.parse::<u16>().ok()))
+            .or_else(|| {
+                env::var("HELIX_PORT")
+                    .ok()
+                    .and_then(|value| value.parse::<u16>().ok())
+            })
             .unwrap_or(DEFAULT_HELIX_PORT),
         api_key: env::var("HELIX_TEST_API_KEY")
             .ok()
@@ -270,7 +285,10 @@ fn live_helix_config() -> HelixConnectionConfig {
 }
 
 fn unique_org_id(prefix: &str) -> String {
-    format!("{prefix}_{}", Utc::now().timestamp_nanos_opt().unwrap_or_default())
+    format!(
+        "{prefix}_{}",
+        Utc::now().timestamp_nanos_opt().unwrap_or_default()
+    )
 }
 
 fn deterministic_embedding(text: &str, dimensions: usize) -> Vec<f32> {

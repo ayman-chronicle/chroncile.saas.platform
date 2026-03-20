@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    ChronicleMcpEvalMatrix, ChronicleMcpEvalResult, ChronicleMcpEvalRunner,
-    ChronicleMcpEvalScenario, McpEvalTransport,
     eval::{self},
     eval_seed::build_seeded_eval_scenario,
-    eval_transport::{ToolCallPayload, connect_eval_transport},
+    eval_transport::{connect_eval_transport, ToolCallPayload},
+    ChronicleMcpEvalMatrix, ChronicleMcpEvalResult, ChronicleMcpEvalRunner,
+    ChronicleMcpEvalScenario, McpEvalTransport,
 };
 
 const DEFAULT_ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
@@ -78,8 +78,7 @@ impl AnthropicMcpEvalRunner {
                     .unwrap_or_else(|_| DEFAULT_ANTHROPIC_API_URL.to_string()),
                 model: std::env::var("ANTHROPIC_MODEL")
                     .unwrap_or_else(|_| DEFAULT_ANTHROPIC_MODEL.to_string()),
-                max_tokens: parse_env_u32("ANTHROPIC_MAX_TOKENS")
-                    .unwrap_or(DEFAULT_MAX_TOKENS),
+                max_tokens: parse_env_u32("ANTHROPIC_MAX_TOKENS").unwrap_or(DEFAULT_MAX_TOKENS),
                 max_turns: parse_env_usize("CHRONICLE_MCP_EVAL_MAX_TURNS")
                     .unwrap_or(DEFAULT_MAX_TURNS),
                 temperature: parse_env_f32("ANTHROPIC_TEMPERATURE").unwrap_or(0.0),
@@ -143,12 +142,7 @@ impl AnthropicMcpEvalRunner {
 
         for _ in 0..self.config.max_turns {
             let response = self
-                .create_message(
-                    scenario,
-                    &messages,
-                    &anthropic_tools,
-                    &expected_citations,
-                )
+                .create_message(scenario, &messages, &anthropic_tools, &expected_citations)
                 .await?;
 
             if let Some(usage) = response.usage.as_ref() {
@@ -167,11 +161,9 @@ impl AnthropicMcpEvalRunner {
                 .content
                 .iter()
                 .filter_map(|block| match block {
-                    AnthropicContentBlock::ToolUse { id, name, input } => Some((
-                        id.clone(),
-                        name.clone(),
-                        input.clone(),
-                    )),
+                    AnthropicContentBlock::ToolUse { id, name, input } => {
+                        Some((id.clone(), name.clone(), input.clone()))
+                    }
                     _ => None,
                 })
                 .collect::<Vec<_>>();
@@ -244,7 +236,9 @@ impl AnthropicMcpEvalRunner {
             && grounded;
 
         if !grounded {
-            notes.push("Final response did not cite any expected identifier or evidence token".to_string());
+            notes.push(
+                "Final response did not cite any expected identifier or evidence token".to_string(),
+            );
         }
         if !missing_required_tools.is_empty() {
             notes.push(format!(
@@ -296,7 +290,9 @@ impl AnthropicMcpEvalRunner {
         let status = response.status();
         let body = response.text().await.map_err(|error| error.to_string())?;
         if !status.is_success() {
-            return Err(format!("Anthropic API request failed with {status}: {body}"));
+            return Err(format!(
+                "Anthropic API request failed with {status}: {body}"
+            ));
         }
 
         serde_json::from_str(&body).map_err(|error| error.to_string())

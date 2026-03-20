@@ -121,15 +121,9 @@ pub enum SandboxNodeData {
         config: EventSourceConfig,
     },
     #[serde(rename = "filter")]
-    Filter {
-        label: String,
-        config: FilterConfig,
-    },
+    Filter { label: String, config: FilterConfig },
     #[serde(rename = "output")]
-    Output {
-        label: String,
-        config: OutputConfig,
-    },
+    Output { label: String, config: OutputConfig },
     #[serde(rename = "generator")]
     Generator {
         label: String,
@@ -271,7 +265,10 @@ pub fn apply_graph_edit_commands(
                 next_nodes.push(node.clone());
             }
             GraphEditCommand::UpdateNode { node } => {
-                let Some(index) = next_nodes.iter().position(|candidate| candidate.id == node.id) else {
+                let Some(index) = next_nodes
+                    .iter()
+                    .position(|candidate| candidate.id == node.id)
+                else {
                     push_command_error(
                         &mut errors,
                         command_index,
@@ -284,7 +281,10 @@ pub fn apply_graph_edit_commands(
                 next_nodes[index] = node.clone();
             }
             GraphEditCommand::RemoveNode { node_id } => {
-                let Some(index) = next_nodes.iter().position(|candidate| candidate.id == *node_id) else {
+                let Some(index) = next_nodes
+                    .iter()
+                    .position(|candidate| candidate.id == *node_id)
+                else {
                     push_command_error(
                         &mut errors,
                         command_index,
@@ -336,7 +336,10 @@ pub fn apply_graph_edit_commands(
                 next_edges.push(edge.clone());
             }
             GraphEditCommand::RemoveEdge { edge_id } => {
-                let Some(index) = next_edges.iter().position(|candidate| candidate.id == *edge_id) else {
+                let Some(index) = next_edges
+                    .iter()
+                    .position(|candidate| candidate.id == *edge_id)
+                else {
                     push_command_error(
                         &mut errors,
                         command_index,
@@ -460,10 +463,7 @@ fn push_command_error(
     });
 }
 
-fn validation_issue(
-    path: impl Into<String>,
-    message: impl Into<String>,
-) -> SandboxValidationIssue {
+fn validation_issue(path: impl Into<String>, message: impl Into<String>) -> SandboxValidationIssue {
     SandboxValidationIssue {
         path: path.into(),
         message: message.into(),

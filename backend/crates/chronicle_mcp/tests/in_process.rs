@@ -58,9 +58,14 @@ async fn build_memory_data_access() -> (
 #[tokio::test]
 async fn query_events_is_tenant_scoped() {
     let (data_access, runtime, session) = build_memory_data_access().await;
-    let own_event = EventBuilder::new(session.tenant_id.as_str(), "stripe", "payments", "charge.created")
-        .entity("customer", "cust_1")
-        .build();
+    let own_event = EventBuilder::new(
+        session.tenant_id.as_str(),
+        "stripe",
+        "payments",
+        "charge.created",
+    )
+    .entity("customer", "cust_1")
+    .build();
     let other_event = EventBuilder::new("tenant_other", "stripe", "payments", "charge.created")
         .entity("customer", "cust_1")
         .build();
@@ -196,14 +201,24 @@ async fn watch_events_collects_matching_live_events() {
 async fn replay_timeline_orders_events_chronologically() {
     let (data_access, runtime, session) = build_memory_data_access().await;
     let now = chrono::Utc::now();
-    let later = EventBuilder::new(session.tenant_id.as_str(), "stripe", "payments", "charge.succeeded")
-        .entity("customer", "cust_replay")
-        .event_time(now)
-        .build();
-    let earlier = EventBuilder::new(session.tenant_id.as_str(), "stripe", "payments", "charge.created")
-        .entity("customer", "cust_replay")
-        .event_time(now - chrono::Duration::minutes(5))
-        .build();
+    let later = EventBuilder::new(
+        session.tenant_id.as_str(),
+        "stripe",
+        "payments",
+        "charge.succeeded",
+    )
+    .entity("customer", "cust_replay")
+    .event_time(now)
+    .build();
+    let earlier = EventBuilder::new(
+        session.tenant_id.as_str(),
+        "stripe",
+        "payments",
+        "charge.created",
+    )
+    .entity("customer", "cust_replay")
+    .event_time(now - chrono::Duration::minutes(5))
+    .build();
     runtime
         .events_state
         .store

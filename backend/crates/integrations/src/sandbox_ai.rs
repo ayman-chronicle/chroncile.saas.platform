@@ -3,11 +3,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use chronicle_domain::{
-    GraphEditCommand, GraphEditPreview, SandboxAiChatRequest, SandboxAiChatResponse,
-    apply_graph_edit_commands, validate_sandbox_graph,
+    apply_graph_edit_commands, validate_sandbox_graph, GraphEditCommand, GraphEditPreview,
+    SandboxAiChatRequest, SandboxAiChatResponse,
 };
 use chronicle_interfaces::{SandboxAiConfigError, SandboxAiConfigService};
 
@@ -217,8 +217,14 @@ struct AnthropicResponseMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnthropicContentBlock {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -275,7 +281,9 @@ Graph context:\n```json\n{}\n```",
 fn graph_edit_tool() -> AnthropicTool {
     AnthropicTool {
         name: GRAPH_EDIT_TOOL_NAME.to_string(),
-        description: "Return the assistant reply plus a minimal command list that updates the sandbox graph.".to_string(),
+        description:
+            "Return the assistant reply plus a minimal command list that updates the sandbox graph."
+                .to_string(),
         input_schema: json!({
             "type": "object",
             "additionalProperties": false,
@@ -492,9 +500,9 @@ fn assistant_text_from_content(content: &[AnthropicContentBlock]) -> String {
 }
 
 fn parse_text_fallback(text: &str) -> Option<SandboxAiModelOutput> {
-    serde_json::from_str(text.trim())
-        .ok()
-        .or_else(|| extract_json_object(text).and_then(|json_text| serde_json::from_str(json_text).ok()))
+    serde_json::from_str(text.trim()).ok().or_else(|| {
+        extract_json_object(text).and_then(|json_text| serde_json::from_str(json_text).ok())
+    })
 }
 
 fn extract_json_object(text: &str) -> Option<&str> {
