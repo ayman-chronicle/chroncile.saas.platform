@@ -7,8 +7,9 @@ use chrono::{DateTime, TimeZone, Utc};
 use serde_json::Value;
 
 use chronicle_core::event::Event as ChronicleEvent;
-use chronicle_domain::{CreateRunInput, TenantId};
+use chronicle_domain::{Connection, CreateRunInput, TenantId};
 use chronicle_infra::conversion::build_native_event;
+use chronicle_sources_core::webhook::{DefaultSignatureVerifier, SignatureVerifier};
 
 use super::error::{ApiError, ApiResult};
 use super::integrations::{
@@ -266,9 +267,15 @@ fn normalize_event_type(provider: &str, event_type: Option<&str>) -> String {
 
 pub async fn nango_webhook(
     State(state): State<SaasAppState>,
-    _headers: HeaderMap,
+    headers: HeaderMap,
     body: String,
 ) -> ApiResult<Json<Value>> {
+    verify_nango_webhook_signature(
+        &headers,
+        &body,
+        state.config.nango.webhook_secret.as_deref(),
+    )?;
+
     let payload: Value = serde_json::from_str(&body)
         .map_err(|error| ApiError::bad_request(format!("Invalid JSON: {error}")))?;
 
@@ -279,13 +286,215 @@ pub async fn nango_webhook(
 
     match webhook_type {
         "auth" => handle_nango_auth_webhook(&state, &payload).await,
-        "sync" => handle_nango_sync_webhook(&state, &payload).await,
+        "sync" | "sync_error" => handle_nango_sync_webhook(&state, &payload).await,
         _ => Ok(Json(serde_json::json!({
             "received": true,
             "ignored": true,
             "type": webhook_type,
         }))),
     }
+}
+
+fn verify_nango_webhook_signature(
+    headers: &HeaderMap,
+    body: &str,
+    webhook_secret: Option<&str>,
+) -> ApiResult<()> {
+    let Some(webhook_secret) = webhook_secret else {
+        tracing::debug!("Skipping Nango webhook signature verification (secret not configured)");
+        return Ok(());
+    };
+
+    let signature = headers
+        .get("x-nango-hmac-sha256")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| {
+            tracing::warn!("Missing X-Nango-Hmac-Sha256 header on Nango webhook");
+            ApiError::unauthorized()
+        })?;
+
+    DefaultSignatureVerifier::verify_hmac_sha256(webhook_secret, body.as_bytes(), signature)
+        .map_err(|error| {
+            tracing::warn!(%error, "Invalid Nango webhook signature");
+            ApiError::unauthorized()
+        })
+}
+
+fn extract_nango_connection_id<'a>(payload: &'a Value) -> ApiResult<&'a str> {
+    payload
+        .get("connectionId")
+        .or_else(|| payload.get("connection_id"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| ApiError::bad_request("Missing connectionId"))
+}
+
+fn extract_nango_provider_config_key<'a>(payload: &'a Value) -> ApiResult<&'a str> {
+    payload
+        .get("providerConfigKey")
+        .or_else(|| payload.get("provider_config_key"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| ApiError::bad_request("Missing providerConfigKey"))
+}
+
+fn resolve_nango_auth_tenant_id(payload: &Value, existing: Option<&Connection>) -> Option<String> {
+    payload
+        .get("endUser")
+        .and_then(|value| value.get("tags"))
+        .and_then(|value| {
+            value
+                .get("organizationId")
+                .or_else(|| value.get("tenantId"))
+        })
+        .and_then(Value::as_str)
+        .map(ToString::to_string)
+        .or_else(|| {
+            payload
+                .get("organization")
+                .and_then(|value| value.get("id"))
+                .and_then(Value::as_str)
+                .map(ToString::to_string)
+        })
+        .or_else(|| existing.map(|connection| connection.tenant_id.clone()))
+}
+
+fn nango_sync_failed(webhook_type: &str, payload: &Value) -> bool {
+    webhook_type == "sync_error"
+        || payload
+            .get("success")
+            .and_then(Value::as_bool)
+            .is_some_and(|success| !success)
+        || payload.get("error").is_some()
+}
+
+fn resolve_nango_sync_name<'a>(payload: &'a Value, default_sync_name: &'a str) -> &'a str {
+    payload
+        .get("syncName")
+        .or_else(|| payload.get("sync_name"))
+        .and_then(Value::as_str)
+        .unwrap_or(default_sync_name)
+}
+
+fn nango_sync_bookmark_to_value(bookmark: Option<&NangoSyncBookmark>) -> Value {
+    match bookmark {
+        Some(bookmark) => serde_json::json!({
+            "cursor": bookmark.cursor,
+            "modified_after": bookmark.modified_after,
+        }),
+        None => Value::Null,
+    }
+}
+
+async fn record_nango_audit_log(
+    state: &SaasAppState,
+    tenant_id: Option<&str>,
+    action: &str,
+    run_id: Option<&str>,
+    event_id: Option<&str>,
+    invocation_id: Option<&str>,
+    payload: Value,
+) {
+    let Some(tenant_id) = tenant_id else {
+        return;
+    };
+
+    if let Err(error) = state
+        .audit_logs
+        .create(
+            tenant_id,
+            action,
+            Some("nango"),
+            run_id,
+            event_id,
+            invocation_id,
+            Some(payload),
+        )
+        .await
+    {
+        tracing::warn!(tenant_id, action, %error, "Failed to store Nango audit log");
+    }
+}
+
+async fn record_nango_sync_batch_observability(
+    state: &SaasAppState,
+    tenant_id: &str,
+    provider: &str,
+    connection_id: &str,
+    provider_config_key: &str,
+    sync_name: &str,
+    model: &str,
+    fetched_records: usize,
+    built_events: usize,
+    inserted_event_ids: &[String],
+    bookmark_before: Option<&NangoSyncBookmark>,
+    bookmark_after: Option<&NangoSyncBookmark>,
+) {
+    let Some(first_event_id) = inserted_event_ids.first() else {
+        return;
+    };
+
+    let invocation_id = format!("nango_sync_{provider}_{model}_{first_event_id}");
+    let snapshot = serde_json::json!({
+        "provider": provider,
+        "connection_id": connection_id,
+        "provider_config_key": provider_config_key,
+        "sync_name": sync_name,
+        "model": model,
+        "fetched_records": fetched_records,
+        "built_events": built_events,
+        "inserted_count": inserted_event_ids.len(),
+        "bookmark_before": nango_sync_bookmark_to_value(bookmark_before),
+        "bookmark_after": nango_sync_bookmark_to_value(bookmark_after),
+        "inserted_event_ids": inserted_event_ids,
+    });
+
+    let run = match state
+        .runs
+        .create(CreateRunInput {
+            tenant_id: tenant_id.to_string(),
+            workflow_id: None,
+            event_id: first_event_id.clone(),
+            invocation_id: invocation_id.clone(),
+            mode: "shadow".to_string(),
+            event_snapshot: Some(snapshot.clone()),
+            context_pointers: None,
+        })
+        .await
+    {
+        Ok(run) => run,
+        Err(error) => {
+            tracing::warn!(
+                tenant_id,
+                provider,
+                connection_id,
+                model,
+                %error,
+                "Failed to create Nango shadow run"
+            );
+            return;
+        }
+    };
+
+    if let Err(error) = state.runs.update_status(&run.id, "completed").await {
+        tracing::warn!(
+            tenant_id,
+            provider,
+            connection_id,
+            model,
+            %error,
+            "Failed to mark Nango shadow run completed"
+        );
+    }
+
+    record_nango_audit_log(
+        state,
+        Some(tenant_id),
+        "nango_sync_batch_ingested",
+        Some(&run.id),
+        Some(first_event_id),
+        Some(&invocation_id),
+        snapshot,
+    )
+    .await;
 }
 
 async fn handle_nango_auth_webhook(
@@ -300,16 +509,8 @@ async fn handle_nango_auth_webhook(
         .get("operation")
         .and_then(Value::as_str)
         .unwrap_or("unknown");
-    let connection_id = payload
-        .get("connectionId")
-        .or_else(|| payload.get("connection_id"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| ApiError::bad_request("Missing connectionId"))?;
-    let provider_config_key = payload
-        .get("providerConfigKey")
-        .or_else(|| payload.get("provider_config_key"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| ApiError::bad_request("Missing providerConfigKey"))?;
+    let connection_id = extract_nango_connection_id(payload)?;
+    let provider_config_key = extract_nango_provider_config_key(payload)?;
 
     if operation == "deletion" {
         if let Some(connection) = state
@@ -328,7 +529,57 @@ async fn handle_nango_auth_webhook(
         })));
     }
 
+    let existing = state
+        .connections
+        .find_by_pipedream_auth_id(connection_id)
+        .await?;
+
     if !success {
+        let tenant_id = resolve_nango_auth_tenant_id(payload, existing.as_ref());
+        let provider_name = existing
+            .as_ref()
+            .map(|connection| connection.provider.clone())
+            .or_else(|| {
+                nango_provider_by_integration_id(&state.config, provider_config_key)
+                    .map(|provider| provider.provider.to_string())
+            })
+            .or_else(|| {
+                payload
+                    .get("provider")
+                    .and_then(Value::as_str)
+                    .map(ToString::to_string)
+            });
+        let action = if operation == "refresh" {
+            "nango_auth_refresh_failed"
+        } else {
+            "nango_auth_failed"
+        };
+        tracing::warn!(
+            provider = provider_name.as_deref().unwrap_or("unknown"),
+            connection_id,
+            provider_config_key,
+            operation,
+            error = ?payload.get("error"),
+            "Nango auth webhook reported failure"
+        );
+        record_nango_audit_log(
+            state,
+            tenant_id.as_deref(),
+            action,
+            None,
+            None,
+            None,
+            serde_json::json!({
+                "provider": provider_name,
+                "connection_id": connection_id,
+                "provider_config_key": provider_config_key,
+                "operation": operation,
+                "error": payload.get("error").cloned(),
+                "payload": payload,
+            }),
+        )
+        .await;
+
         return Ok(Json(serde_json::json!({
             "received": true,
             "type": "auth",
@@ -346,33 +597,7 @@ async fn handle_nango_auth_webhook(
         })
         .ok_or_else(|| ApiError::bad_request("Unsupported Nango provider"))?;
 
-    let existing = state
-        .connections
-        .find_by_pipedream_auth_id(connection_id)
-        .await?;
-
-    let tenant_id = payload
-        .get("endUser")
-        .and_then(|value| value.get("tags"))
-        .and_then(|value| {
-            value
-                .get("organizationId")
-                .or_else(|| value.get("tenantId"))
-        })
-        .and_then(Value::as_str)
-        .map(ToString::to_string)
-        .or_else(|| {
-            payload
-                .get("organization")
-                .and_then(|value| value.get("id"))
-                .and_then(Value::as_str)
-                .map(ToString::to_string)
-        })
-        .or_else(|| {
-            existing
-                .as_ref()
-                .map(|connection| connection.tenant_id.clone())
-        })
+    let tenant_id = resolve_nango_auth_tenant_id(payload, existing.as_ref())
         .ok_or_else(|| ApiError::bad_request("Missing tenant mapping for Nango webhook"))?;
 
     let _connection = materialize_nango_connection(
@@ -398,29 +623,86 @@ async fn handle_nango_sync_webhook(
     state: &SaasAppState,
     payload: &Value,
 ) -> ApiResult<Json<Value>> {
-    let success = payload
-        .get("success")
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
-    let connection_id = payload
-        .get("connectionId")
-        .or_else(|| payload.get("connection_id"))
+    let webhook_type = payload
+        .get("type")
         .and_then(Value::as_str)
-        .ok_or_else(|| ApiError::bad_request("Missing connectionId"))?;
+        .unwrap_or("sync");
+    let connection_id = extract_nango_connection_id(payload)?;
+    let connection = state
+        .connections
+        .find_by_pipedream_auth_id(connection_id)
+        .await?;
 
-    if !success {
+    if nango_sync_failed(webhook_type, payload) {
+        let provider = connection
+            .as_ref()
+            .map(|connection| connection.provider.clone());
+        let provider_descriptor = provider
+            .as_deref()
+            .and_then(|provider| nango_provider_by_name(&state.config, provider));
+        let default_model = provider_descriptor
+            .as_ref()
+            .map(|provider| provider.model)
+            .or_else(|| payload.get("model").and_then(Value::as_str))
+            .unwrap_or("unknown");
+        let models = extract_sync_models(payload, default_model);
+        let sync_name = resolve_nango_sync_name(
+            payload,
+            provider_descriptor
+                .as_ref()
+                .map(|provider| provider.sync_name)
+                .unwrap_or("unknown"),
+        );
+        let provider_config_key = payload
+            .get("providerConfigKey")
+            .or_else(|| payload.get("provider_config_key"))
+            .and_then(Value::as_str)
+            .unwrap_or_else(|| {
+                provider_descriptor
+                    .as_ref()
+                    .map(|provider| provider.integration_id.as_str())
+                    .unwrap_or("unknown")
+            });
+
+        tracing::warn!(
+            provider = provider.as_deref().unwrap_or("unknown"),
+            connection_id,
+            provider_config_key,
+            sync_name,
+            models = ?models,
+            error = ?payload.get("error"),
+            "Nango sync webhook reported failure"
+        );
+
+        record_nango_audit_log(
+            state,
+            connection
+                .as_ref()
+                .map(|connection| connection.tenant_id.as_str()),
+            "nango_sync_failed",
+            None,
+            None,
+            None,
+            serde_json::json!({
+                "provider": provider,
+                "connection_id": connection_id,
+                "provider_config_key": provider_config_key,
+                "sync_name": sync_name,
+                "models": models,
+                "error": payload.get("error").cloned(),
+                "payload": payload,
+            }),
+        )
+        .await;
+
         return Ok(Json(serde_json::json!({
             "received": true,
-            "type": "sync",
+            "type": webhook_type,
             "success": false,
         })));
     }
 
-    let mut connection = state
-        .connections
-        .find_by_pipedream_auth_id(connection_id)
-        .await?
-        .ok_or_else(|| ApiError::not_found("Connection"))?;
+    let mut connection = connection.ok_or_else(|| ApiError::not_found("Connection"))?;
 
     let provider = nango_provider_by_name(&state.config, &connection.provider)
         .ok_or_else(|| ApiError::bad_request("Unsupported Nango provider"))?;
@@ -445,11 +727,13 @@ async fn handle_nango_sync_webhook(
         .get("syncType")
         .or_else(|| payload.get("sync_type"))
         .and_then(Value::as_str);
+    let sync_name = resolve_nango_sync_name(payload, provider.sync_name);
     let models = extract_sync_models(payload, provider.model);
     tracing::info!(
         provider = provider.provider,
         connection_id,
         provider_config_key = %provider_config_key,
+        sync_name,
         sync_type,
         payload_model = payload.get("model").and_then(|value| value.as_str()),
         resolved_models = ?models,
@@ -489,8 +773,10 @@ async fn handle_nango_sync_webhook(
         };
         let built_events = events.len();
 
-        total_ingested +=
+        let bookmark_after = fetched.bookmark.clone();
+        let inserted =
             insert_nango_events(state, &connection.tenant_id, provider.provider, events).await?;
+        total_ingested += inserted.ingested;
 
         tracing::info!(
             provider = provider.provider,
@@ -498,21 +784,38 @@ async fn handle_nango_sync_webhook(
             model,
             fetched_records = fetched.records.len(),
             built_events,
+            ingested = inserted.ingested,
             total_ingested,
             bookmark_before = ?bookmark,
-            bookmark_after = ?fetched.bookmark,
+            bookmark_after = ?bookmark_after,
             "Processed Nango sync model"
         );
 
-        if let Some(next_bookmark) = fetched.bookmark {
+        if let Some(ref next_bookmark) = bookmark_after {
             let metadata = merge_nango_sync_bookmark(
                 connection.metadata.clone(),
                 &provider_config_key,
                 &model,
-                &next_bookmark,
+                next_bookmark,
             );
             connection = persist_connection_metadata(state, &connection, metadata).await?;
         }
+
+        record_nango_sync_batch_observability(
+            state,
+            &connection.tenant_id,
+            provider.provider,
+            connection_id,
+            &provider_config_key,
+            sync_name,
+            &model,
+            fetched.records.len(),
+            built_events,
+            &inserted.inserted_event_ids,
+            bookmark.as_ref(),
+            bookmark_after.as_ref(),
+        )
+        .await;
     }
 
     Ok(Json(serde_json::json!({
@@ -535,6 +838,12 @@ struct NangoSyncBookmark {
 struct FetchedNangoRecords {
     records: Vec<Value>,
     bookmark: Option<NangoSyncBookmark>,
+}
+
+#[derive(Debug, Default)]
+struct InsertedNangoEvents {
+    ingested: usize,
+    inserted_event_ids: Vec<String>,
 }
 
 fn extract_sync_models(payload: &Value, default_model: &str) -> Vec<String> {
@@ -1170,8 +1479,9 @@ async fn insert_nango_events(
     tenant_id: &str,
     provider: &str,
     events: Vec<(String, ChronicleEvent)>,
-) -> ApiResult<usize> {
+) -> ApiResult<InsertedNangoEvents> {
     let mut ingested = 0usize;
+    let mut inserted_event_ids = Vec::new();
     let tenant_id = TenantId::new(tenant_id);
 
     for (source_event_id, event) in events {
@@ -1188,18 +1498,26 @@ async fn insert_nango_events(
             continue;
         }
 
-        state
+        let event_id = state
             .event_store
             .insert_events(&[event])
             .await
             .map_err(|error| {
                 tracing::error!(provider, %source_event_id, %error, "Failed to store Chronicle event from Nango");
                 ApiError::internal()
-            })?;
+            })?
+            .into_iter()
+            .next()
+            .map(|event_id| event_id.to_string())
+            .ok_or_else(ApiError::internal)?;
         ingested += 1;
+        inserted_event_ids.push(event_id);
     }
 
-    Ok(ingested)
+    Ok(InsertedNangoEvents {
+        ingested,
+        inserted_event_ids,
+    })
 }
 
 fn value_to_datetime(value: Option<&Value>) -> Option<DateTime<Utc>> {
@@ -1445,8 +1763,139 @@ async fn store_stripe_event(
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_slack_records;
+    use super::{
+        fetch_nango_records, handle_nango_auth_webhook, handle_nango_sync_webhook,
+        normalize_slack_records, verify_nango_webhook_signature, NangoSyncBookmark,
+    };
+    use std::sync::Arc;
+
+    use async_trait::async_trait;
+    use axum::{
+        http::{HeaderMap, HeaderValue},
+        response::IntoResponse,
+        Json,
+    };
+    use chronicle_domain::{CreateConnectionInput, Run};
+    use chronicle_infra::{
+        memory::{
+            InMemoryAgentEndpointConfigRepo, InMemoryAuditLogRepo, InMemoryConnectionRepo,
+            InMemoryFeatureFlagRepo, InMemoryInvitationRepo, InMemoryPasswordResetRepo,
+            InMemoryPipedreamTriggerRepo, InMemoryRunRepo, InMemoryTenantRepo, InMemoryUserRepo,
+            MemoryStore, MemoryStream,
+        },
+        StoreBackend, StreamBackend,
+    };
+    use chronicle_interfaces::email::{EmailError, EmailService, TemplateEmailParams};
+    use chronicle_interfaces::{AuditLogRepository, ConnectionRepository, RunRepository};
+    use hmac::{Hmac, Mac};
     use serde_json::json;
+    use sha2::Sha256;
+    use wiremock::{
+        matchers::{header, method, path, query_param},
+        Mock, MockServer, ResponseTemplate,
+    };
+
+    use crate::{runtime_config::SaasRuntimeConfig, saas_state::SaasAppState};
+
+    #[derive(Default)]
+    struct TestEmailService;
+
+    #[async_trait]
+    impl EmailService for TestEmailService {
+        async fn send_template_email(
+            &self,
+            _params: TemplateEmailParams,
+        ) -> Result<String, EmailError> {
+            Ok("test-email".to_string())
+        }
+    }
+
+    struct TestState {
+        state: SaasAppState,
+        connections: Arc<InMemoryConnectionRepo>,
+        runs: Arc<InMemoryRunRepo>,
+        audit_logs: Arc<InMemoryAuditLogRepo>,
+    }
+
+    fn build_test_state(
+        nango: Option<chronicle_nango::NangoClient>,
+        webhook_secret: Option<&str>,
+    ) -> TestState {
+        let tenants = Arc::new(InMemoryTenantRepo::default());
+        let users = Arc::new(InMemoryUserRepo::default());
+        let runs = Arc::new(InMemoryRunRepo::default());
+        let connections = Arc::new(InMemoryConnectionRepo::default());
+        let audit_logs = Arc::new(InMemoryAuditLogRepo::default());
+        let agent_configs = Arc::new(InMemoryAgentEndpointConfigRepo::default());
+        let feature_flags = Arc::new(InMemoryFeatureFlagRepo::default());
+        let invitations = Arc::new(InMemoryInvitationRepo::default());
+        let password_resets = Arc::new(InMemoryPasswordResetRepo::default());
+        let pipedream_triggers = Arc::new(InMemoryPipedreamTriggerRepo::default());
+        let event_store = Arc::new(StoreBackend::Memory(MemoryStore::new()));
+        let event_stream = Arc::new(StreamBackend::Memory(MemoryStream::new(16, 16)));
+        let mut config = SaasRuntimeConfig::default();
+        config.nango.webhook_secret = webhook_secret.map(ToString::to_string);
+
+        let state = SaasAppState::new(
+            "test-secret-change-me",
+            tenants,
+            users,
+            runs.clone(),
+            connections.clone(),
+            audit_logs.clone(),
+            agent_configs,
+            pipedream_triggers,
+            feature_flags,
+            invitations,
+            password_resets,
+            None,
+            nango.map(Arc::new),
+            Arc::new(TestEmailService),
+            None,
+            event_store,
+            event_stream,
+            config,
+        );
+
+        TestState {
+            state,
+            connections,
+            runs,
+            audit_logs,
+        }
+    }
+
+    async fn create_test_connection(
+        test_state: &TestState,
+        tenant_id: &str,
+        provider: &str,
+        connection_id: &str,
+        metadata: Option<serde_json::Value>,
+    ) {
+        test_state
+            .connections
+            .create(CreateConnectionInput {
+                tenant_id: tenant_id.to_string(),
+                provider: provider.to_string(),
+                access_token: None,
+                refresh_token: None,
+                expires_at: None,
+                pipedream_auth_id: Some(connection_id.to_string()),
+                metadata,
+            })
+            .await
+            .unwrap();
+    }
+
+    fn sign_nango_body(secret: &str, body: &str) -> String {
+        let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(body.as_bytes());
+        format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
+    }
+
+    fn run_ids(runs: &[Run]) -> Vec<&str> {
+        runs.iter().map(|run| run.id.as_str()).collect()
+    }
 
     #[test]
     fn normalizes_slack_messages_replies_and_reactions() {
@@ -1495,5 +1944,305 @@ mod tests {
         assert!(source_ids.contains(&"slack:C123:1710000000.000100"));
         assert!(source_ids.contains(&"slack:C123:1710000000.000100:1710000005.000200"));
         assert!(source_ids.contains(&"slack:C123:reaction:1710000000.000100:thumbsup:U456"));
+    }
+
+    #[test]
+    fn verifies_valid_nango_signature() {
+        let body = r#"{"type":"sync","connectionId":"conn_123"}"#;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-nango-hmac-sha256",
+            HeaderValue::from_str(&sign_nango_body("webhook-secret", body)).unwrap(),
+        );
+
+        assert!(verify_nango_webhook_signature(&headers, body, Some("webhook-secret")).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_nango_signature() {
+        let body = r#"{"type":"sync","connectionId":"conn_123"}"#;
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-nango-hmac-sha256",
+            HeaderValue::from_static("sha256=deadbeef"),
+        );
+
+        let response = verify_nango_webhook_signature(&headers, body, Some("webhook-secret"))
+            .unwrap_err()
+            .into_response();
+        assert_eq!(response.status(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn skips_signature_verification_without_secret() {
+        let body = r#"{"type":"sync","connectionId":"conn_123"}"#;
+        let headers = HeaderMap::new();
+
+        assert!(verify_nango_webhook_signature(&headers, body, None).is_ok());
+    }
+
+    #[tokio::test]
+    async fn fetch_nango_records_prefers_bookmark_cursor() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/records"))
+            .and(query_param("model", "SlackMessage"))
+            .and(query_param("cursor", "cursor_123"))
+            .and(header("connection-id", "conn_123"))
+            .and(header("provider-config-key", "slack"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "records": [{
+                    "id": "C123:1710000000.000100",
+                    "_nango_metadata": {
+                        "cursor": "cursor_456",
+                        "last_modified_at": "2026-03-20T10:00:00Z"
+                    }
+                }],
+                "next_cursor": null
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let test_state = build_test_state(
+            Some(chronicle_nango::NangoClient::new("nango-secret").with_base_url(server.uri())),
+            None,
+        );
+
+        let fetched = match fetch_nango_records(
+            &test_state.state,
+            "conn_123",
+            "slack",
+            "SlackMessage",
+            Some(&NangoSyncBookmark {
+                cursor: Some("cursor_123".to_string()),
+                modified_after: Some("2026-03-19T10:00:00Z".to_string()),
+            }),
+            Some("2026-03-18T10:00:00Z"),
+            Some("INCREMENTAL"),
+        )
+        .await
+        {
+            Ok(fetched) => fetched,
+            Err(_) => panic!("cursor-first fetch should succeed"),
+        };
+
+        assert_eq!(fetched.records.len(), 1);
+        assert_eq!(
+            fetched.bookmark.unwrap(),
+            NangoSyncBookmark {
+                cursor: Some("cursor_456".to_string()),
+                modified_after: Some("2026-03-20T10:00:00Z".to_string()),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn successful_sync_creates_shadow_run_and_audit_log() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/records"))
+            .and(query_param("model", "SlackMessage"))
+            .and(header("connection-id", "conn_123"))
+            .and(header("provider-config-key", "slack"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "records": [{
+                    "id": "C123:1710000000.000100",
+                    "channel_id": "C123",
+                    "channel_name": "eng",
+                    "user_id": "U123",
+                    "user_name": "Alice",
+                    "text": "hello",
+                    "ts": "1710000000.000100",
+                    "thread_ts": "1710000000.000100",
+                    "event_type": "message",
+                    "raw": {
+                        "ts": "1710000000.000100",
+                        "user": "U123"
+                    },
+                    "_nango_metadata": {
+                        "cursor": "cursor_123",
+                        "last_modified_at": "2026-03-20T11:00:00Z"
+                    }
+                }],
+                "next_cursor": null
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let test_state = build_test_state(
+            Some(chronicle_nango::NangoClient::new("nango-secret").with_base_url(server.uri())),
+            None,
+        );
+        create_test_connection(
+            &test_state,
+            "tenant_1",
+            "slack",
+            "conn_123",
+            Some(json!({ "provider_config_key": "slack" })),
+        )
+        .await;
+
+        let Json(response) = match handle_nango_sync_webhook(
+            &test_state.state,
+            &json!({
+                "type": "sync",
+                "success": true,
+                "connectionId": "conn_123",
+                "providerConfigKey": "slack",
+                "model": "SlackMessage"
+            }),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err(_) => panic!("successful sync webhook should succeed"),
+        };
+
+        assert_eq!(
+            response.get("ingested").and_then(|value| value.as_u64()),
+            Some(1)
+        );
+
+        let runs = test_state
+            .runs
+            .list_by_tenant("tenant_1", None, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(runs.len(), 1, "run ids: {:?}", run_ids(&runs));
+        assert_eq!(runs[0].mode, "shadow");
+        assert_eq!(runs[0].status, "completed");
+
+        let audit_logs = test_state
+            .audit_logs
+            .list_by_tenant("tenant_1", 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(audit_logs.len(), 1);
+        assert_eq!(audit_logs[0].action, "nango_sync_batch_ingested");
+
+        let connection = test_state
+            .connections
+            .find_by_tenant_provider("tenant_1", "slack")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            connection.metadata,
+            Some(json!({
+                "provider_config_key": "slack",
+                "nango_sync_bookmarks": {
+                    "slack": {
+                        "SlackMessage": {
+                            "cursor": "cursor_123",
+                            "modified_after": "2026-03-20T11:00:00Z"
+                        }
+                    }
+                }
+            }))
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_sync_records_audit_log_without_fetching_records() {
+        let test_state = build_test_state(None, None);
+        create_test_connection(
+            &test_state,
+            "tenant_1",
+            "intercom",
+            "conn_123",
+            Some(json!({ "provider_config_key": "intercom" })),
+        )
+        .await;
+
+        let Json(response) = match handle_nango_sync_webhook(
+            &test_state.state,
+            &json!({
+                "type": "sync",
+                "success": false,
+                "connectionId": "conn_123",
+                "providerConfigKey": "intercom",
+                "model": "Conversation",
+                "error": {
+                    "message": "sync failed"
+                }
+            }),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err(_) => panic!("failed sync webhook should still return 200"),
+        };
+
+        assert_eq!(
+            response.get("success").and_then(|value| value.as_bool()),
+            Some(false)
+        );
+        let runs = test_state
+            .runs
+            .list_by_tenant("tenant_1", None, 10, 0)
+            .await
+            .unwrap();
+        assert!(runs.is_empty());
+
+        let audit_logs = test_state
+            .audit_logs
+            .list_by_tenant("tenant_1", 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(audit_logs.len(), 1);
+        assert_eq!(audit_logs[0].action, "nango_sync_failed");
+    }
+
+    #[tokio::test]
+    async fn auth_refresh_failure_preserves_connection_and_records_audit_log() {
+        let test_state = build_test_state(None, None);
+        create_test_connection(
+            &test_state,
+            "tenant_1",
+            "slack",
+            "conn_123",
+            Some(json!({ "provider_config_key": "slack" })),
+        )
+        .await;
+
+        let Json(response) = match handle_nango_auth_webhook(
+            &test_state.state,
+            &json!({
+                "type": "auth",
+                "success": false,
+                "operation": "refresh",
+                "connectionId": "conn_123",
+                "providerConfigKey": "slack",
+                "error": {
+                    "message": "refresh failed"
+                }
+            }),
+        )
+        .await
+        {
+            Ok(response) => response,
+            Err(_) => panic!("failed auth refresh should still return 200"),
+        };
+
+        assert_eq!(
+            response.get("operation").and_then(|value| value.as_str()),
+            Some("refresh")
+        );
+        assert!(test_state
+            .connections
+            .find_by_tenant_provider("tenant_1", "slack")
+            .await
+            .unwrap()
+            .is_some());
+
+        let audit_logs = test_state
+            .audit_logs
+            .list_by_tenant("tenant_1", 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(audit_logs.len(), 1);
+        assert_eq!(audit_logs[0].action, "nango_auth_refresh_failed");
     }
 }

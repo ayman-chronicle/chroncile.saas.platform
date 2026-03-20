@@ -43,3 +43,9 @@ dashmap = { workspace = true }
 
 # Cryptography (for webhook signature verification)
 cuid2 = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }

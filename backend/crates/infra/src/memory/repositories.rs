@@ -477,18 +477,19 @@ impl ConnectionRepository for InMemoryConnectionRepo {
         input: CreateConnectionInput,
         status: &str,
     ) -> RepoResult<Connection> {
-        if let Some(existing) = self
+        let existing_id = self
             .store
             .iter()
             .find(|e| {
                 e.value().tenant_id == input.tenant_id && e.value().provider == input.provider
             })
-            .map(|e| e.value().clone())
-        {
+            .map(|e| e.key().clone());
+
+        if let Some(existing_id) = existing_id {
             let mut conn = self
                 .store
-                .get_mut(&existing.id)
-                .ok_or_else(|| RepoError::NotFound(format!("connection: {}", existing.id)))?;
+                .get_mut(&existing_id)
+                .ok_or_else(|| RepoError::NotFound(format!("connection: {existing_id}")))?;
             conn.access_token = input.access_token;
             conn.refresh_token = input.refresh_token;
             conn.expires_at = input.expires_at;
