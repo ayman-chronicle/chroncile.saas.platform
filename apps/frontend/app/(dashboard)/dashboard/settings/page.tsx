@@ -160,9 +160,9 @@ export default async function SettingsPage({
               </label>
               <div className="flex items-center gap-2">
                 <code className="flex-1 px-3 py-2 bg-base border border-border-dim font-mono text-xs text-secondary break-all">
-                  /api/webhooks/pipedream
+                  /api/webhooks/nango
                 </code>
-                <CopyButton text="/api/webhooks/pipedream" />
+                <CopyButton text="/api/webhooks/nango" />
               </div>
             </div>
 
@@ -216,7 +216,7 @@ export default async function SettingsPage({
           <div className="flex items-center justify-between px-4 py-3 hover:bg-hover transition-colors">
             <div className="flex items-center gap-3">
               <div className="status-dot status-dot--nominal" />
-              <span className="text-sm text-primary">Pipedream</span>
+              <span className="text-sm text-primary">Nango</span>
             </div>
             <span className="font-mono text-xs text-nominal">Configured</span>
           </div>

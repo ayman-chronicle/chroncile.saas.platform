@@ -1,65 +1,49 @@
 import { auth } from "@/server/auth/auth";
 import { fetchFromBackend } from "@/server/backend/fetch-from-backend";
 import { redirect } from "next/navigation";
+import type { NangoProviderSummary } from "platform-api";
+import type { ConnectionListResponse } from "shared/generated";
 import { ConnectionsClient } from "./connections-client";
 
-interface ConnectionData {
-  id: string;
-  provider: string;
-  status: string;
-  pipedreamAuthId?: string | null;
-  metadata: {
-    account_id?: string;
-    workspace_id?: string;
-    workspace_name?: string;
-    account_name?: string;
-    admin_email?: string;
-    region?: string;
-    connected_at?: string;
-    connected_via?: string;
-  } | null;
-  createdAt: Date;
-}
-
-export default async function ConnectionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    success?: string;
-    error?: string;
-    error_description?: string;
-    pipedream_success?: string;
-    pipedream_error?: string;
-    app?: string;
-  }>;
-}) {
+export default async function ConnectionsPage() {
   const session = await auth();
 
   if (!session?.user?.tenantId) {
     redirect("/login");
   }
 
-  const params = await searchParams;
+  let providers: NangoProviderSummary[] = [];
+  let connections: ConnectionListResponse["connections"] = [];
+  let initialLoadError: string | null = null;
 
-  let connectionsData: ConnectionData[] = [];
-  try {
-    const data = await fetchFromBackend<{ connections: ConnectionData[] }>(
-      "/api/platform/connections",
+  const [providersResult, connectionsResult] = await Promise.allSettled([
+    fetchFromBackend<{ providers: NangoProviderSummary[] }>(
+      "/api/platform/integrations/providers",
+    ),
+    fetchFromBackend<ConnectionListResponse>(
+      "/api/platform/integrations/connections",
+    ),
+  ]);
+
+  if (providersResult.status === "fulfilled") {
+    providers = providersResult.value.providers;
+  } else {
+    initialLoadError = "Failed to load integrations.";
+  }
+
+  if (connectionsResult.status === "fulfilled") {
+    connections = connectionsResult.value.connections;
+  } else if (providers.length > 0) {
+    connections = providers.flatMap((provider) =>
+      provider.connection ? [provider.connection] : [],
     );
-    connectionsData = data.connections;
-  } catch {
-    // Backend unavailable -- render empty state
   }
 
   return (
     <ConnectionsClient
-      connections={connectionsData}
-      successMessage={params.success}
-      errorMessage={params.error}
-      pipedreamSuccess={params.pipedream_success === "true"}
-      pipedreamError={params.pipedream_error === "true"}
-      pipedreamErrorDetail={params.error_description || params.error}
-      pipedreamApp={params.app}
+      initialProviders={providers}
+      initialConnections={connections}
+      initialLoadError={initialLoadError}
     />
   );
 }
