@@ -52,6 +52,20 @@ export interface NangoConnectionActionResponse {
   connection?: ConnectionListResponse["connections"][number] | null;
 }
 
+export interface TrellusIntegrationResponse {
+  provider: string;
+  displayName: string;
+  description: string;
+  transport: "webhook";
+  connection: ConnectionListResponse["connections"][number] | null;
+  webhookUrl?: string | null;
+  headerName: string;
+  headerValue?: string | null;
+  setupStatus: string;
+  lastReceivedAt?: string | null;
+  eventCount?: number | null;
+}
+
 export const DEFAULT_BACKEND_URL = "http://localhost:8080";
 
 export function getBackendUrl(): string {
@@ -279,6 +293,35 @@ class PlatformApi {
       "POST",
       "/api/platform/integrations/disconnect",
       { body },
+    );
+  }
+
+  getTrellusIntegration() {
+    return this.request<TrellusIntegrationResponse>(
+      "GET",
+      "/api/platform/integrations/trellus",
+    );
+  }
+
+  setupTrellusIntegration(body?: { rotateSecret?: boolean }) {
+    return this.request<TrellusIntegrationResponse>(
+      "POST",
+      "/api/platform/integrations/trellus/setup",
+      { body: body ?? {} },
+    );
+  }
+
+  rotateTrellusSecret() {
+    return this.request<TrellusIntegrationResponse>(
+      "POST",
+      "/api/platform/integrations/trellus/rotate-secret",
+    );
+  }
+
+  disconnectTrellus() {
+    return this.request<TrellusIntegrationResponse>(
+      "POST",
+      "/api/platform/integrations/trellus/disconnect",
     );
   }
 

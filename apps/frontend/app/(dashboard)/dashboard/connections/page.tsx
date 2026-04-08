@@ -1,7 +1,7 @@
 import { auth } from "@/server/auth/auth";
 import { fetchFromBackend } from "@/server/backend/fetch-from-backend";
 import { redirect } from "next/navigation";
-import type { NangoProviderSummary } from "platform-api";
+import type { NangoProviderSummary, TrellusIntegrationResponse } from "platform-api";
 import type { ConnectionListResponse } from "shared/generated";
 import { ConnectionsClient } from "./connections-client";
 
@@ -14,14 +14,18 @@ export default async function ConnectionsPage() {
 
   let providers: NangoProviderSummary[] = [];
   let connections: ConnectionListResponse["connections"] = [];
+  let trellus: TrellusIntegrationResponse | null = null;
   let initialLoadError: string | null = null;
 
-  const [providersResult, connectionsResult] = await Promise.allSettled([
+  const [providersResult, connectionsResult, trellusResult] = await Promise.allSettled([
     fetchFromBackend<{ providers: NangoProviderSummary[] }>(
       "/api/platform/integrations/providers",
     ),
     fetchFromBackend<ConnectionListResponse>(
       "/api/platform/integrations/connections",
+    ),
+    fetchFromBackend<TrellusIntegrationResponse>(
+      "/api/platform/integrations/trellus",
     ),
   ]);
 
@@ -39,10 +43,29 @@ export default async function ConnectionsPage() {
     );
   }
 
+  if (trellusResult.status === "fulfilled") {
+    trellus = trellusResult.value;
+  } else {
+    trellus = {
+      provider: "trellus",
+      displayName: "Trellus.ai",
+      description: "Receive Trellus call events via direct webhook.",
+      transport: "webhook",
+      connection: null,
+      webhookUrl: null,
+      headerName: "x-chronicle-webhook-secret",
+      headerValue: null,
+      setupStatus: "not_configured",
+      lastReceivedAt: null,
+      eventCount: 0,
+    };
+  }
+
   return (
     <ConnectionsClient
       initialProviders={providers}
       initialConnections={connections}
+      initialTrellus={trellus}
       initialLoadError={initialLoadError}
     />
   );

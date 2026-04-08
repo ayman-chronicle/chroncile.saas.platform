@@ -3,9 +3,9 @@
 import Nango, { type ConnectUIEvent } from "@nangohq/frontend";
 import { startTransition, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { NangoProviderSummary } from "platform-api";
+import type { NangoProviderSummary, TrellusIntegrationResponse } from "platform-api";
 import type { ConnectionListResponse } from "shared/generated";
-import { ConfirmModal } from "ui";
+import { ConfirmModal, CopyButton, Modal } from "ui";
 import { usePlatformApi } from "@/shared/hooks/use-platform-api";
 
 type ConnectionData = ConnectionListResponse["connections"][number];
@@ -16,15 +16,43 @@ type ConnectionMetadata = {
   region?: string;
   connected_at?: string;
   connection_id?: string;
+  last_received_at?: string;
+  event_count?: number;
 };
 
 interface ConnectionsClientProps {
   initialProviders: NangoProviderSummary[];
   initialConnections: ConnectionData[];
+  initialTrellus: TrellusIntegrationResponse | null;
   initialLoadError?: string | null;
 }
 
 const BACKFILL_PROVIDERS = new Set(["intercom", "slack", "front"]);
+const TRELLUS_FIELDS = [
+  "session_id",
+  "timestamp",
+  "duration",
+  "direction",
+  "is_inbound",
+  "call_status",
+  "rep_id",
+  "rep_name",
+  "rep_number",
+  "contact_id",
+  "contact_name",
+  "target_number",
+  "custom_id",
+  "disposition",
+  "sentiment",
+  "purpose",
+  "summary",
+  "audio_url",
+  "transcript",
+  "transcript_link",
+  "contact_title",
+  "company_name",
+  "platform_url",
+];
 
 function formatConnectedAt(connectedAt?: string | null) {
   if (!connectedAt) return null;
@@ -49,6 +77,21 @@ function getConnectionLabel(connection: ConnectionData | null | undefined) {
     metadata?.workspace_name ||
     "Connected workspace"
   );
+}
+
+function getTrellusStatus(trellus: TrellusIntegrationResponse | null) {
+  if (!trellus?.connection) return { label: "Not configured", badge: "badge--neutral" };
+  if (trellus.setupStatus === "active" || trellus.connection.status === "active") {
+    return { label: "Active", badge: "badge--nominal" };
+  }
+  if (trellus.setupStatus === "error" || trellus.connection.status === "error") {
+    return { label: "Error", badge: "badge--critical" };
+  }
+  return { label: "Awaiting test event", badge: "badge--caution" };
+}
+
+function getTrellusLastReceived(trellus: TrellusIntegrationResponse | null) {
+  return formatConnectedAt(trellus?.lastReceivedAt) || "No events received yet";
 }
 
 function formatProviderName(provider: string) {
@@ -77,6 +120,7 @@ function closeProviderMenu(event: MouseEvent<HTMLButtonElement>) {
 export function ConnectionsClient({
   initialProviders,
   initialConnections,
+  initialTrellus,
   initialLoadError,
 }: ConnectionsClientProps) {
   const api = usePlatformApi();
@@ -84,6 +128,13 @@ export function ConnectionsClient({
 
   const [providers, setProviders] = useState(initialProviders);
   const [connections, setConnections] = useState(initialConnections);
+  const [trellus, setTrellus] = useState<TrellusIntegrationResponse | null>(initialTrellus);
+  const [trellusSecret, setTrellusSecret] = useState<string | null>(
+    initialTrellus?.headerValue ?? null,
+  );
+  const [isTrellusModalOpen, setIsTrellusModalOpen] = useState(false);
+  const [isTrellusDisconnectOpen, setIsTrellusDisconnectOpen] = useState(false);
+  const [isTrellusBusy, setIsTrellusBusy] = useState(false);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialLoadError ?? null);
@@ -100,13 +151,63 @@ export function ConnectionsClient({
   }, [initialConnections]);
 
   useEffect(() => {
+    setTrellus(initialTrellus);
+    setTrellusSecret(initialTrellus?.headerValue ?? null);
+  }, [initialTrellus]);
+
+  useEffect(() => {
     setError(initialLoadError ?? null);
   }, [initialLoadError]);
 
+  const isTrellusAwaitingTestEvent =
+    !!trellus?.connection &&
+    trellus.setupStatus === "awaiting_test_event" &&
+    trellus.connection.status !== "active";
+
+  useEffect(() => {
+    if (!isTrellusAwaitingTestEvent) return;
+
+    let isCancelled = false;
+    let isRefreshing = false;
+
+    const refreshTrellusStatus = async () => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+
+      try {
+        const response = await api.getTrellusIntegration();
+        if (!isCancelled) {
+          setTrellus(response);
+        }
+      } catch {
+        // Ignore transient polling failures while waiting for the first event.
+      } finally {
+        isRefreshing = false;
+      }
+    };
+
+    void refreshTrellusStatus();
+    const intervalId = window.setInterval(() => {
+      void refreshTrellusStatus();
+    }, 5000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [
+    api,
+    isTrellusAwaitingTestEvent,
+    trellus?.connection?.id,
+    trellus?.connection?.status,
+    trellus?.setupStatus,
+  ]);
+
   const refreshData = async () => {
-    const [providersResult, connectionsResult] = await Promise.allSettled([
+    const [providersResult, connectionsResult, trellusResult] = await Promise.allSettled([
       api.listNangoProviders(),
       api.listNangoConnections(),
+      api.getTrellusIntegration(),
     ]);
 
     if (providersResult.status === "fulfilled") {
@@ -120,6 +221,10 @@ export function ConnectionsClient({
       const fallbackConnections = providersResult.value.providers
         .flatMap((provider) => (provider.connection ? [provider.connection] : []));
       setConnections(fallbackConnections);
+    }
+
+    if (trellusResult.status === "fulfilled") {
+      setTrellus(trellusResult.value);
     }
 
     if (providersResult.status === "rejected") {
@@ -162,7 +267,12 @@ export function ConnectionsClient({
     [connections, providerOrder],
   );
 
-  const activeConnectionsCount = activeConnections.length;
+  const activeTrellusConnection =
+    trellus?.connection && trellus.connection.status === "active"
+      ? trellus.connection
+      : null;
+  const activeConnectionsCount =
+    activeConnections.length + (activeTrellusConnection ? 1 : 0);
 
   const resetFeedback = () => {
     setMessage(null);
@@ -297,6 +407,77 @@ export function ConnectionsClient({
     }
   };
 
+  const handleConfigureTrellus = async () => {
+    resetFeedback();
+
+    if (trellus?.connection) {
+      setTrellusSecret(null);
+      setIsTrellusModalOpen(true);
+      return;
+    }
+
+    setIsTrellusBusy(true);
+    try {
+      const response = await api.setupTrellusIntegration();
+      setTrellus(response);
+      setTrellusSecret(response.headerValue ?? null);
+      setIsTrellusModalOpen(true);
+    } catch (setupError) {
+      setError(
+        setupError instanceof Error
+          ? setupError.message
+          : "Failed to configure Trellus.",
+      );
+    } finally {
+      setIsTrellusBusy(false);
+    }
+  };
+
+  const handleRotateTrellusSecret = async () => {
+    setIsTrellusBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.rotateTrellusSecret();
+      setTrellus(response);
+      setTrellusSecret(response.headerValue ?? null);
+      setIsTrellusModalOpen(true);
+      setMessage("Trellus webhook secret rotated. Update the header in Trellus.");
+    } catch (rotateError) {
+      setError(
+        rotateError instanceof Error
+          ? rotateError.message
+          : "Failed to rotate Trellus secret.",
+      );
+    } finally {
+      setIsTrellusBusy(false);
+    }
+  };
+
+  const handleDisconnectTrellus = async () => {
+    setIsTrellusBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.disconnectTrellus();
+      setTrellus(response);
+      setTrellusSecret(null);
+      setIsTrellusDisconnectOpen(false);
+      setIsTrellusModalOpen(false);
+      setMessage("Trellus disconnected.");
+    } catch (disconnectError) {
+      setError(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : "Failed to disconnect Trellus.",
+      );
+    } finally {
+      setIsTrellusBusy(false);
+    }
+  };
+
+  const trellusStatus = getTrellusStatus(trellus);
+
   return (
     <div className="space-y-6">
       {(message || error) && (
@@ -329,6 +510,115 @@ export function ConnectionsClient({
         variant="danger"
         isLoading={isDisconnecting}
       />
+
+      <ConfirmModal
+        isOpen={isTrellusDisconnectOpen}
+        onClose={() => {
+          if (isTrellusBusy) return;
+          setIsTrellusDisconnectOpen(false);
+        }}
+        onConfirm={handleDisconnectTrellus}
+        title="Disconnect Trellus"
+        message="Are you sure you want to disconnect Trellus? Chronicle will stop accepting future webhook events for the current endpoint, but existing events will remain."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isTrellusBusy}
+      />
+
+      <Modal
+        isOpen={isTrellusModalOpen}
+        onClose={() => setIsTrellusModalOpen(false)}
+        title="Configure Trellus Webhook"
+        variant="dark"
+        actions={
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleRotateTrellusSecret}
+              disabled={isTrellusBusy || !trellus?.connection}
+              className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Rotate Secret
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsTrellusModalOpen(false)}
+              className="btn btn--primary"
+            >
+              Close
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="rounded-sm border border-data-dim bg-data-bg p-3 text-sm text-data">
+            Configure this in Trellus under Webhooks. Chronicle will mark the
+            connection active after the first valid test event arrives.
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <div className="label mb-1">Webhook URL</div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 break-all border border-border-dim bg-base px-3 py-2 font-mono text-xs text-primary">
+                  {trellus?.webhookUrl || "Create the connection to generate a URL"}
+                </code>
+                <CopyButton text={trellus?.webhookUrl || ""} />
+              </div>
+            </div>
+
+            <div>
+              <div className="label mb-1">Header Name</div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 break-all border border-border-dim bg-base px-3 py-2 font-mono text-xs text-primary">
+                  {trellus?.headerName || "x-chronicle-webhook-secret"}
+                </code>
+                <CopyButton text={trellus?.headerName || "x-chronicle-webhook-secret"} />
+              </div>
+            </div>
+
+            <div>
+              <div className="label mb-1">Header Value</div>
+              {trellusSecret ? (
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 break-all border border-border-dim bg-base px-3 py-2 font-mono text-xs text-primary">
+                    {trellusSecret}
+                  </code>
+                  <CopyButton text={trellusSecret} />
+                </div>
+              ) : (
+                <div className="rounded-sm border border-border-dim bg-elevated p-3 text-xs text-tertiary">
+                  Secret values are only shown when created or rotated. Rotate
+                  the secret if you need to copy it again.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-sm border border-border-dim bg-elevated p-3">
+            <div className="mb-2 text-sm font-medium text-primary">Trellus setup</div>
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-secondary">
+              <li>Create or open a Trellus webhook named Chronicle.</li>
+              <li>Set HTTP Method to POST and paste the webhook URL.</li>
+              <li>Leave When to Fire as Always fire (no filter).</li>
+              <li>Add the custom header name and value above.</li>
+              <li>Keep the default payload mapping, save, then use Test Webhook.</li>
+            </ol>
+          </div>
+
+          <div>
+            <div className="mb-2 text-sm font-medium text-primary">Expected fields</div>
+            <div className="flex max-h-28 flex-wrap gap-2 overflow-auto rounded-sm border border-border-dim bg-base p-3">
+              {TRELLUS_FIELDS.map((field) => (
+                <span key={field} className="badge badge--neutral font-mono">
+                  {field}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <div className="flex items-center justify-between">
         <div>
@@ -384,10 +674,10 @@ export function ConnectionsClient({
       <div className="panel">
         <div className="panel__header">
           <span className="panel__title">Available Integrations</span>
-          <span className="badge badge--neutral">Nango</span>
+          <span className="badge badge--neutral">Nango + Webhook</span>
         </div>
 
-        {providersWithConnections.length === 0 ? (
+        {providersWithConnections.length === 0 && !trellus ? (
           <div className="p-4">
             <div className="rounded-sm border border-border-dim bg-elevated p-4 text-sm text-secondary">
               {error
@@ -539,6 +829,107 @@ export function ConnectionsClient({
                 </section>
               );
             })}
+            {trellus && (
+              <section className="flex h-full flex-col rounded-md border border-border-dim bg-surface p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg font-medium text-primary">
+                        {trellus.displayName}
+                      </h2>
+                      <span className="rounded-sm border border-border-dim px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-tertiary">
+                        Webhook
+                      </span>
+                    </div>
+                    <p className="text-sm text-secondary">{trellus.description}</p>
+                  </div>
+                  <span className={`badge ${trellusStatus.badge}`}>
+                    {trellusStatus.label}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex-1">
+                  {trellus.connection ? (
+                    <div className="space-y-3">
+                      <div className="rounded-sm border border-border-dim bg-elevated p-3">
+                        <div className="label">Webhook Status</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {trellusStatus.label}
+                        </div>
+                        <div className="mt-1 text-xs text-tertiary">
+                          Last received: {getTrellusLastReceived(trellus)}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                          <div className="label">Events</div>
+                          <div className="mt-1 font-mono text-sm text-primary">
+                            {trellus.eventCount ?? 0}
+                          </div>
+                        </div>
+                        <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                          <div className="label">Connection ID</div>
+                          <div className="mt-1 truncate font-mono text-xs text-primary">
+                            {trellus.connection.id}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-sm border border-border-dim bg-elevated p-3 text-sm text-secondary">
+                      Configure a direct Trellus webhook to receive call events.
+                      Trellus does not support API backfills, so events begin
+                      flowing after setup.
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConfigureTrellus}
+                      disabled={isTrellusBusy}
+                      className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {trellus.connection ? "View Setup" : "Configure Webhook"}
+                    </button>
+                    {trellus.connection && (
+                      <button
+                        type="button"
+                        onClick={handleRotateTrellusSecret}
+                        disabled={isTrellusBusy}
+                        className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Rotate Secret
+                      </button>
+                    )}
+                  </div>
+
+                  {trellus.connection && (
+                    <details className="relative">
+                      <summary className="btn btn--ghost btn--sm cursor-pointer list-none disabled:cursor-not-allowed [&::-webkit-details-marker]:hidden">
+                        Manage
+                      </summary>
+                      <div className="absolute right-0 top-full z-10 mt-2 min-w-[148px] rounded-sm border border-border-default bg-elevated p-1 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            closeProviderMenu(event);
+                            setIsTrellusDisconnectOpen(true);
+                          }}
+                          disabled={isTrellusBusy}
+                          className="flex w-full items-center rounded-sm px-3 py-2 text-left text-sm text-[var(--critical)] transition hover:bg-[var(--critical-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </details>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
@@ -599,6 +990,33 @@ export function ConnectionsClient({
                 </div>
               );
             })}
+            {activeTrellusConnection && (
+              <div className="flex items-center justify-between px-4 py-4 transition-colors hover:bg-hover">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center border border-nominal bg-nominal-bg">
+                    <span className="text-sm font-bold text-nominal">TR</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-primary">
+                        Trellus.ai
+                      </span>
+                      <span className="badge badge--nominal">Active</span>
+                      <span className="badge badge--neutral">Webhook</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-tertiary">
+                      {getTrellusLastReceived(trellus)}
+                      <span className="ml-2">
+                        · <span className="font-mono">{activeTrellusConnection.id}</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <span className="badge badge--neutral">
+                  {trellus?.eventCount ?? 0} events
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

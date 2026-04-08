@@ -11,6 +11,7 @@ pub mod sandboxes;
 pub mod settings;
 pub mod team;
 pub mod tenant;
+pub mod trellus;
 pub mod webhooks;
 
 use axum::{
@@ -68,6 +69,10 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route("/api/platform/admin/orgs", post(admin::create_org))
         .route("/api/webhooks/stripe", post(webhooks::stripe_webhook))
         .route("/api/webhooks/nango", post(webhooks::nango_webhook))
+        .route(
+            "/api/webhooks/trellus/:connection_id",
+            post(trellus::webhook),
+        )
         .route(
             "/api/platform/auth/accept-invite/:token",
             post(team::accept_invite),
@@ -143,6 +148,22 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route(
             "/api/platform/integrations/disconnect",
             post(integrations::disconnect),
+        )
+        .route(
+            "/api/platform/integrations/trellus",
+            get(trellus::get_integration),
+        )
+        .route(
+            "/api/platform/integrations/trellus/setup",
+            post(trellus::setup),
+        )
+        .route(
+            "/api/platform/integrations/trellus/rotate-secret",
+            post(trellus::rotate_secret),
+        )
+        .route(
+            "/api/platform/integrations/trellus/disconnect",
+            post(trellus::disconnect),
         )
         .route("/api/platform/team/members", get(team::list_members))
         .route("/api/platform/team/invite", post(team::invite_member))

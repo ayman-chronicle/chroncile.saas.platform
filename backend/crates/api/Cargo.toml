@@ -39,6 +39,8 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 parking_lot = { workspace = true }
 dashmap = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
 
 # Cryptography (for webhook signature verification)
 cuid2 = { workspace = true }
@@ -46,5 +48,3 @@ cuid2 = { workspace = true }
 [dev-dependencies]
 wiremock = { workspace = true }
 hmac = { workspace = true }
-sha2 = { workspace = true }
-hex = { workspace = true }

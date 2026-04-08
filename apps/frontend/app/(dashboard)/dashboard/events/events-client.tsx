@@ -156,6 +156,7 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
   const [viewTab, setViewTab] = useState<"list" | "timeline">("list");
 
   const [events, setEvents] = useState<EventEnvelope[]>([]);
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventEnvelope | null>(null);
@@ -180,9 +181,11 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
   const [messengerError, setMessengerError] = useState("");
   const messengerScriptRef = useRef<HTMLScriptElement | null>(null);
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (options?: { silent?: boolean }) => {
     try {
-      setLoading(true);
+      if (!options?.silent) {
+        setLoading(true);
+      }
       setError(null);
       
       const params = new URLSearchParams();
@@ -200,17 +203,50 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
       
       const data = (await response.json()) as EventEnvelope[];
       setEvents(data || []);
+      setAvailableSources(
+        Array.from(new Set((data || []).map((event) => event.event.source))).sort(),
+      );
     } catch (err) {
       console.error("Error fetching events:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch events");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [eventsManagerUrl, filter, tenantId]);
 
   useEffect(() => {
-    fetchEvents();
+    void fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    if (viewTab !== "list") return;
+
+    const intervalId = window.setInterval(() => {
+      void fetchEvents({ silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [fetchEvents, viewTab]);
+
+  useEffect(() => {
+    if (filter !== "all" && !availableSources.includes(filter)) {
+      setFilter("all");
+    }
+  }, [availableSources, filter]);
+
+  useEffect(() => {
+    if (timelineFilter !== "all" && !availableSources.includes(timelineFilter)) {
+      setTimelineFilter("all");
+    }
+  }, [availableSources, timelineFilter]);
+
+  const handleManualRefresh = () => {
+    void fetchEvents();
+  };
 
   useEffect(() => {
     timelinePlaybackRef.current = timelinePlayback;
@@ -638,7 +674,7 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
               <div className="font-mono text-xs text-disabled mb-6">
                 Endpoint: {eventsManagerUrl}
               </div>
-              <button onClick={fetchEvents} className="btn btn--primary">
+              <button onClick={handleManualRefresh} className="btn btn--primary">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                 </svg>
@@ -664,7 +700,7 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
             <div className="text-xs text-tertiary tracking-wide uppercase mb-1">Event Stream</div>
             <h1 className="text-2xl font-semibold text-primary">Events</h1>
           </div>
-          <button onClick={fetchEvents} className="btn btn--secondary">
+          <button onClick={handleManualRefresh} className="btn btn--secondary">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
@@ -758,7 +794,11 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
               className="px-3 py-1.5 bg-base border border-border-default text-sm"
             >
               <option value="all">All Sources</option>
-              <option value="intercom">Intercom</option>
+              {availableSources.map((source) => (
+                <option key={source} value={source}>
+                  {source.charAt(0).toUpperCase() + source.slice(1)}
+                </option>
+              ))}
             </select>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -807,10 +847,14 @@ export function EventsClient({ tenantId, eventsManagerUrl, hasActiveIntercom }: 
             className="px-3 py-1.5 bg-base border border-border-default text-sm focus:outline-none focus:border-data"
           >
             <option value="all">All Sources</option>
-            <option value="intercom">Intercom</option>
+            {availableSources.map((source) => (
+              <option key={source} value={source}>
+                {source.charAt(0).toUpperCase() + source.slice(1)}
+              </option>
+            ))}
           </select>
           
-          <button onClick={fetchEvents} disabled={loading} className="btn btn--secondary">
+          <button onClick={handleManualRefresh} disabled={loading} className="btn btn--secondary">
             <svg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
