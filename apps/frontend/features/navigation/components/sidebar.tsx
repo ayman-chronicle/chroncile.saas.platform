@@ -7,6 +7,9 @@ import type { EntitlementKey, FeatureFlagKey } from "shared/generated";
 import { isEntitled, isFeatureFlagEnabled } from "shared";
 import { Logo } from "ui";
 import { useFeatureAccess } from "@/shared/feature-access/feature-access-provider";
+import {
+  useSidebarNavigationLoader,
+} from "@/features/navigation/components/sidebar-navigation-loader";
 
 type NavItem = {
   name: string;
@@ -196,6 +199,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const access = useFeatureAccess();
   const [currentTime, setCurrentTime] = useState("");
+  const { startNavigation } = useSidebarNavigationLoader();
   const sandboxEnabled = access
     ? isFeatureFlagEnabled(access, "sandbox") && isEntitled(access, "sandbox")
     : false;
@@ -268,6 +272,7 @@ export function Sidebar() {
                   <Link
                     key={item.name}
                     href={item.href}
+                    onClick={startNavigation}
                     className={`
                     relative flex items-center gap-3 px-3 py-2.5 text-sm font-medium
                     transition-colors duration-fast
