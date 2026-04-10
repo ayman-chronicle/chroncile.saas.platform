@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    http::HeaderMap,
-    Json,
-};
+use axum::{extract::State, http::HeaderMap, Json};
 use chrono::{DateTime, TimeZone, Utc};
 use serde_json::Value;
 
@@ -1534,8 +1530,8 @@ mod tests {
     use chronicle_infra::{
         memory::{
             InMemoryAgentEndpointConfigRepo, InMemoryAuditLogRepo, InMemoryConnectionRepo,
-            InMemoryFeatureFlagRepo, InMemoryInvitationRepo, InMemoryPasswordResetRepo,
-            InMemoryIntegrationSyncRepo, InMemoryRunRepo, InMemoryTenantRepo, InMemoryUserRepo,
+            InMemoryFeatureFlagRepo, InMemoryIntegrationSyncRepo, InMemoryInvitationRepo,
+            InMemoryPasswordResetRepo, InMemoryRunRepo, InMemoryTenantRepo, InMemoryUserRepo,
             MemoryStore, MemoryStream,
         },
         StoreBackend, StreamBackend,

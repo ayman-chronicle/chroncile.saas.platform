@@ -5,13 +5,13 @@ use std::sync::Arc;
 
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
-    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput, Invitation,
-    IntegrationSync, PasswordResetToken, Run, Tenant, User,
+    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput,
+    IntegrationSync, Invitation, PasswordResetToken, Run, Tenant, User,
 };
 use chronicle_interfaces::{
-    AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, InvitationRepository,
-    IntegrationSyncRepository, PasswordResetRepository, RepoError, RepoResult, RunRepository,
-    TenantRepository, UserRepository,
+    AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository,
+    IntegrationSyncRepository, InvitationRepository, PasswordResetRepository, RepoError,
+    RepoResult, RunRepository, TenantRepository, UserRepository,
 };
 
 fn new_id() -> String {
@@ -676,7 +676,9 @@ impl IntegrationSyncRepository for InMemoryIntegrationSyncRepo {
             .iter()
             .any(|e| e.value().nango_sync_id == nango_sync_id)
         {
-            return Err(RepoError::AlreadyExists(format!("nango_sync_id: {nango_sync_id}")));
+            return Err(RepoError::AlreadyExists(format!(
+                "nango_sync_id: {nango_sync_id}"
+            )));
         }
         let now = Utc::now();
         let trigger = IntegrationSync {

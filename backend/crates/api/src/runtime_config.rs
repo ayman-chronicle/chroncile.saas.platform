@@ -52,6 +52,8 @@ pub struct SaasRuntimeConfig {
     pub stripe_webhook_secret: Option<String>,
     pub feature_access: FeatureAccessRuntimeConfig,
     pub nango: NangoRuntimeConfig,
+    pub intercom_client_id: Option<String>,
+    pub intercom_client_secret: Option<String>,
 }
 
 impl Default for SaasRuntimeConfig {
@@ -62,6 +64,8 @@ impl Default for SaasRuntimeConfig {
             stripe_webhook_secret: None,
             feature_access: FeatureAccessRuntimeConfig::default(),
             nango: NangoRuntimeConfig::default(),
+            intercom_client_id: None,
+            intercom_client_secret: None,
         }
     }
 }

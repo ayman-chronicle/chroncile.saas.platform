@@ -1,33 +1,48 @@
 import { auth } from "@/server/auth/auth";
 import { fetchFromBackend } from "@/server/backend/fetch-from-backend";
 import { redirect } from "next/navigation";
-import type { NangoProviderSummary, TrellusIntegrationResponse } from "platform-api";
+import type {
+  IntercomIntegrationResponse,
+  NangoProviderSummary,
+  TrellusIntegrationResponse,
+} from "platform-api";
 import type { ConnectionListResponse } from "shared/generated";
 import { ConnectionsClient } from "./connections-client";
 
-export default async function ConnectionsPage() {
+export default async function ConnectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ success?: string; error?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user?.tenantId) {
     redirect("/login");
   }
 
+  const params = await searchParams;
+
   let providers: NangoProviderSummary[] = [];
   let connections: ConnectionListResponse["connections"] = [];
+  let intercom: IntercomIntegrationResponse | null = null;
   let trellus: TrellusIntegrationResponse | null = null;
   let initialLoadError: string | null = null;
 
-  const [providersResult, connectionsResult, trellusResult] = await Promise.allSettled([
-    fetchFromBackend<{ providers: NangoProviderSummary[] }>(
-      "/api/platform/integrations/providers",
-    ),
-    fetchFromBackend<ConnectionListResponse>(
-      "/api/platform/integrations/connections",
-    ),
-    fetchFromBackend<TrellusIntegrationResponse>(
-      "/api/platform/integrations/trellus",
-    ),
-  ]);
+  const [providersResult, connectionsResult, intercomResult, trellusResult] =
+    await Promise.allSettled([
+      fetchFromBackend<{ providers: NangoProviderSummary[] }>(
+        "/api/platform/integrations/providers",
+      ),
+      fetchFromBackend<ConnectionListResponse>(
+        "/api/platform/integrations/connections",
+      ),
+      fetchFromBackend<IntercomIntegrationResponse>(
+        "/api/platform/integrations/intercom",
+      ),
+      fetchFromBackend<TrellusIntegrationResponse>(
+        "/api/platform/integrations/trellus",
+      ),
+    ]);
 
   if (providersResult.status === "fulfilled") {
     providers = providersResult.value.providers;
@@ -41,6 +56,28 @@ export default async function ConnectionsPage() {
     connections = providers.flatMap((provider) =>
       provider.connection ? [provider.connection] : [],
     );
+  }
+
+  if (intercomResult.status === "fulfilled") {
+    intercom = intercomResult.value;
+  } else {
+    intercom = {
+      provider: "intercom",
+      displayName: "Intercom",
+      description:
+        "Connect Intercom directly via OAuth with Chronicle-managed webhooks.",
+      transport: "direct",
+      isAvailable: false,
+      connection: null,
+      setupStatus: "unavailable",
+      workspaceId: null,
+      workspaceName: null,
+      workspaceRegion: null,
+      connectedAt: null,
+      lastReceivedAt: null,
+      eventCount: 0,
+      webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/webhooks/intercom`,
+    };
   }
 
   if (trellusResult.status === "fulfilled") {
@@ -65,8 +102,11 @@ export default async function ConnectionsPage() {
     <ConnectionsClient
       initialProviders={providers}
       initialConnections={connections}
+      initialIntercom={intercom}
       initialTrellus={trellus}
       initialLoadError={initialLoadError}
+      initialSuccessMessage={params.success ?? null}
+      initialErrorMessage={params.error ?? null}
     />
   );
 }

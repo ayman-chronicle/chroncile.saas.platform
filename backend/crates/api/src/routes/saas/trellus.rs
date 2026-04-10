@@ -416,8 +416,7 @@ fn trellus_event_count(metadata: Option<&Value>) -> u64 {
 
 fn trellus_should_bypass_dedup(connection: &Connection) -> bool {
     connection.status == "awaiting_test_event"
-        || trellus_metadata_string(connection.metadata.as_ref(), "setup_status")
-            .as_deref()
+        || trellus_metadata_string(connection.metadata.as_ref(), "setup_status").as_deref()
             == Some("awaiting_test_event")
 }
 

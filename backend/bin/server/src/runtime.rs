@@ -105,6 +105,8 @@ pub async fn build_platform_runtime(
                 .clone(),
             webhook_secret: launch_config.integrations.nango.webhook_secret.clone(),
         },
+        intercom_client_id: launch_config.integrations.intercom.client_id.clone(),
+        intercom_client_secret: launch_config.integrations.intercom.client_secret.clone(),
     };
 
     let saas_state = match launch_config.storage.saas.backend {

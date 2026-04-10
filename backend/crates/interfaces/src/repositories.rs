@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
     CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput,
-    FeatureFlagDefinition, FeatureFlagKey, FeatureFlagOverride, FeatureFlagScope, Invitation,
-    IntegrationSync, PasswordResetToken, Run, Tenant, UpsertFeatureFlagDefinitionInput,
+    FeatureFlagDefinition, FeatureFlagKey, FeatureFlagOverride, FeatureFlagScope, IntegrationSync,
+    Invitation, PasswordResetToken, Run, Tenant, UpsertFeatureFlagDefinitionInput,
     UpsertFeatureFlagOverrideInput, User,
 };
 

@@ -52,6 +52,27 @@ export interface NangoConnectionActionResponse {
   connection?: ConnectionListResponse["connections"][number] | null;
 }
 
+export interface IntercomIntegrationResponse {
+  provider: string;
+  displayName: string;
+  description: string;
+  transport: "direct";
+  isAvailable: boolean;
+  connection: ConnectionListResponse["connections"][number] | null;
+  setupStatus: string;
+  workspaceId?: string | null;
+  workspaceName?: string | null;
+  workspaceRegion?: string | null;
+  connectedAt?: string | null;
+  lastReceivedAt?: string | null;
+  eventCount?: number | null;
+  webhookUrl: string;
+}
+
+export interface IntercomAuthorizeResponse {
+  authorizeUrl: string;
+}
+
 export interface TrellusIntegrationResponse {
   provider: string;
   displayName: string;
@@ -293,6 +314,27 @@ class PlatformApi {
       "POST",
       "/api/platform/integrations/disconnect",
       { body },
+    );
+  }
+
+  getIntercomIntegration() {
+    return this.request<IntercomIntegrationResponse>(
+      "GET",
+      "/api/platform/integrations/intercom",
+    );
+  }
+
+  authorizeIntercom() {
+    return this.request<IntercomAuthorizeResponse>(
+      "POST",
+      "/api/platform/integrations/intercom/authorize",
+    );
+  }
+
+  disconnectIntercom() {
+    return this.request<IntercomIntegrationResponse>(
+      "POST",
+      "/api/platform/integrations/intercom/disconnect",
     );
   }
 

@@ -3,7 +3,11 @@
 import Nango, { type ConnectUIEvent } from "@nangohq/frontend";
 import { startTransition, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import type { NangoProviderSummary, TrellusIntegrationResponse } from "platform-api";
+import type {
+  IntercomIntegrationResponse,
+  NangoProviderSummary,
+  TrellusIntegrationResponse,
+} from "platform-api";
 import type { ConnectionListResponse } from "shared/generated";
 import { ConfirmModal, CopyButton, Modal } from "ui";
 import { usePlatformApi } from "@/shared/hooks/use-platform-api";
@@ -23,11 +27,14 @@ type ConnectionMetadata = {
 interface ConnectionsClientProps {
   initialProviders: NangoProviderSummary[];
   initialConnections: ConnectionData[];
+  initialIntercom: IntercomIntegrationResponse | null;
   initialTrellus: TrellusIntegrationResponse | null;
   initialLoadError?: string | null;
+  initialSuccessMessage?: string | null;
+  initialErrorMessage?: string | null;
 }
 
-const BACKFILL_PROVIDERS = new Set(["intercom", "slack", "front"]);
+const BACKFILL_PROVIDERS = new Set(["slack", "front"]);
 const TRELLUS_FIELDS = [
   "session_id",
   "timestamp",
@@ -90,6 +97,16 @@ function getTrellusStatus(trellus: TrellusIntegrationResponse | null) {
   return { label: "Awaiting test event", badge: "badge--caution" };
 }
 
+function getIntercomStatus(intercom: IntercomIntegrationResponse | null) {
+  if (!intercom?.isAvailable) {
+    return { label: "Unavailable", badge: "badge--critical" };
+  }
+  if (!intercom.connection) {
+    return { label: "Not configured", badge: "badge--neutral" };
+  }
+  return { label: "Active", badge: "badge--nominal" };
+}
+
 function getTrellusLastReceived(trellus: TrellusIntegrationResponse | null) {
   return formatConnectedAt(trellus?.lastReceivedAt) || "No events received yet";
 }
@@ -120,24 +137,32 @@ function closeProviderMenu(event: MouseEvent<HTMLButtonElement>) {
 export function ConnectionsClient({
   initialProviders,
   initialConnections,
+  initialIntercom,
   initialTrellus,
   initialLoadError,
+  initialSuccessMessage,
+  initialErrorMessage,
 }: ConnectionsClientProps) {
   const api = usePlatformApi();
   const router = useRouter();
 
   const [providers, setProviders] = useState(initialProviders);
   const [connections, setConnections] = useState(initialConnections);
+  const [intercom, setIntercom] = useState<IntercomIntegrationResponse | null>(initialIntercom);
   const [trellus, setTrellus] = useState<TrellusIntegrationResponse | null>(initialTrellus);
   const [trellusSecret, setTrellusSecret] = useState<string | null>(
     initialTrellus?.headerValue ?? null,
   );
+  const [isIntercomDisconnectOpen, setIsIntercomDisconnectOpen] = useState(false);
+  const [isIntercomBusy, setIsIntercomBusy] = useState(false);
   const [isTrellusModalOpen, setIsTrellusModalOpen] = useState(false);
   const [isTrellusDisconnectOpen, setIsTrellusDisconnectOpen] = useState(false);
   const [isTrellusBusy, setIsTrellusBusy] = useState(false);
   const [busyProvider, setBusyProvider] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(initialLoadError ?? null);
+  const [message, setMessage] = useState<string | null>(initialSuccessMessage ?? null);
+  const [error, setError] = useState<string | null>(
+    initialErrorMessage ?? initialLoadError ?? null,
+  );
   const [providerToDisconnect, setProviderToDisconnect] =
     useState<NangoProviderSummary | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -151,13 +176,21 @@ export function ConnectionsClient({
   }, [initialConnections]);
 
   useEffect(() => {
+    setIntercom(initialIntercom);
+  }, [initialIntercom]);
+
+  useEffect(() => {
     setTrellus(initialTrellus);
     setTrellusSecret(initialTrellus?.headerValue ?? null);
   }, [initialTrellus]);
 
   useEffect(() => {
-    setError(initialLoadError ?? null);
-  }, [initialLoadError]);
+    setMessage(initialSuccessMessage ?? null);
+  }, [initialSuccessMessage]);
+
+  useEffect(() => {
+    setError(initialErrorMessage ?? initialLoadError ?? null);
+  }, [initialErrorMessage, initialLoadError]);
 
   const isTrellusAwaitingTestEvent =
     !!trellus?.connection &&
@@ -204,11 +237,13 @@ export function ConnectionsClient({
   ]);
 
   const refreshData = async () => {
-    const [providersResult, connectionsResult, trellusResult] = await Promise.allSettled([
-      api.listNangoProviders(),
-      api.listNangoConnections(),
-      api.getTrellusIntegration(),
-    ]);
+    const [providersResult, connectionsResult, intercomResult, trellusResult] =
+      await Promise.allSettled([
+        api.listNangoProviders(),
+        api.listNangoConnections(),
+        api.getIntercomIntegration(),
+        api.getTrellusIntegration(),
+      ]);
 
     if (providersResult.status === "fulfilled") {
       setProviders(providersResult.value.providers);
@@ -221,6 +256,10 @@ export function ConnectionsClient({
       const fallbackConnections = providersResult.value.providers
         .flatMap((provider) => (provider.connection ? [provider.connection] : []));
       setConnections(fallbackConnections);
+    }
+
+    if (intercomResult.status === "fulfilled") {
+      setIntercom(intercomResult.value);
     }
 
     if (trellusResult.status === "fulfilled") {
@@ -271,8 +310,14 @@ export function ConnectionsClient({
     trellus?.connection && trellus.connection.status === "active"
       ? trellus.connection
       : null;
+  const activeIntercomConnection =
+    intercom?.connection && intercom.connection.status === "active"
+      ? intercom.connection
+      : null;
   const activeConnectionsCount =
-    activeConnections.length + (activeTrellusConnection ? 1 : 0);
+    activeConnections.length +
+    (activeIntercomConnection ? 1 : 0) +
+    (activeTrellusConnection ? 1 : 0);
 
   const resetFeedback = () => {
     setMessage(null);
@@ -331,6 +376,48 @@ export function ConnectionsClient({
           ? sessionError.message
           : "Failed to start connect flow.",
       );
+    }
+  };
+
+  const handleAuthorizeIntercom = async () => {
+    if (!intercom?.isAvailable) {
+      setError("Intercom direct integration is not configured in this environment.");
+      return;
+    }
+
+    setIsIntercomBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.authorizeIntercom();
+      window.location.assign(response.authorizeUrl);
+    } catch (authorizeError) {
+      setError(
+        authorizeError instanceof Error
+          ? authorizeError.message
+          : "Failed to start the Intercom connect flow.",
+      );
+      setIsIntercomBusy(false);
+    }
+  };
+
+  const handleDisconnectIntercom = async () => {
+    setIsIntercomBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.disconnectIntercom();
+      setIntercom(response);
+      setIsIntercomDisconnectOpen(false);
+      setMessage("Intercom disconnected.");
+    } catch (disconnectError) {
+      setError(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : "Failed to disconnect Intercom.",
+      );
+    } finally {
+      setIsIntercomBusy(false);
     }
   };
 
@@ -476,6 +563,7 @@ export function ConnectionsClient({
     }
   };
 
+  const intercomStatus = getIntercomStatus(intercom);
   const trellusStatus = getTrellusStatus(trellus);
 
   return (
@@ -509,6 +597,21 @@ export function ConnectionsClient({
         cancelText="Cancel"
         variant="danger"
         isLoading={isDisconnecting}
+      />
+
+      <ConfirmModal
+        isOpen={isIntercomDisconnectOpen}
+        onClose={() => {
+          if (isIntercomBusy) return;
+          setIsIntercomDisconnectOpen(false);
+        }}
+        onConfirm={handleDisconnectIntercom}
+        title="Disconnect Intercom"
+        message="Are you sure you want to disconnect Intercom? Chronicle will stop ingesting new Intercom webhook events for this workspace, but your existing events will remain."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isIntercomBusy}
       />
 
       <ConfirmModal
@@ -673,16 +776,210 @@ export function ConnectionsClient({
 
       <div className="panel">
         <div className="panel__header">
-          <span className="panel__title">Available Integrations</span>
-          <span className="badge badge--neutral">Nango + Webhook</span>
+          <span className="panel__title">Direct Integrations</span>
+          <span className="badge badge--neutral">OAuth + Webhook</span>
+        </div>
+        <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
+          {intercom && (
+            <section className="flex h-full flex-col rounded-md border border-border-dim bg-surface p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-medium text-primary">
+                      {intercom.displayName}
+                    </h2>
+                    <span className="rounded-sm border border-border-dim px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-tertiary">
+                      Direct
+                    </span>
+                  </div>
+                  <p className="text-sm text-secondary">{intercom.description}</p>
+                </div>
+                <span className={`badge ${intercomStatus.badge}`}>
+                  {intercomStatus.label}
+                </span>
+              </div>
+
+              <div className="mt-4 flex-1">
+                {intercom.connection ? (
+                  <div className="space-y-3">
+                    <div className="rounded-sm border border-border-dim bg-elevated p-3">
+                      <div className="label">Workspace</div>
+                      <div className="mt-1 text-sm text-primary">
+                        {intercom.workspaceName || getConnectionLabel(intercom.connection)}
+                      </div>
+                      <div className="mt-1 text-xs text-tertiary">
+                        Chronicle manages the webhook delivery for this Intercom workspace.
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Connected At</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {formatConnectedAt(intercom.connectedAt) || "Unknown"}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Last Webhook</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {formatConnectedAt(intercom.lastReceivedAt) || "No events received yet"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-sm border border-border-dim bg-elevated p-3 text-sm text-secondary">
+                    {intercom.isAvailable
+                      ? "Connect Intercom via OAuth. Chronicle will manage the app-level webhook automatically, so the workspace owner does not need to paste any endpoint manually."
+                      : "Intercom direct is not configured in this environment yet. Add the Intercom OAuth credentials to enable this connection."}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAuthorizeIntercom}
+                    disabled={isIntercomBusy || !intercom.isAvailable}
+                    className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {intercom.connection ? "Reconnect" : "Connect Intercom"}
+                  </button>
+                  {intercom.connection && (
+                    <button
+                      type="button"
+                      onClick={() => setIsIntercomDisconnectOpen(true)}
+                      disabled={isIntercomBusy}
+                      className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+                {intercom.connection && intercom.workspaceRegion && (
+                  <span className="badge badge--neutral">{intercom.workspaceRegion}</span>
+                )}
+              </div>
+            </section>
+          )}
+
+          {trellus && (
+            <section className="flex h-full flex-col rounded-md border border-border-dim bg-surface p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-medium text-primary">
+                      {trellus.displayName}
+                    </h2>
+                    <span className="rounded-sm border border-border-dim px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-tertiary">
+                      Direct
+                    </span>
+                  </div>
+                  <p className="text-sm text-secondary">{trellus.description}</p>
+                </div>
+                <span className={`badge ${trellusStatus.badge}`}>
+                  {trellusStatus.label}
+                </span>
+              </div>
+
+              <div className="mt-4 flex-1">
+                {trellus.connection ? (
+                  <div className="space-y-3">
+                    <div className="rounded-sm border border-border-dim bg-elevated p-3">
+                      <div className="label">Webhook Status</div>
+                      <div className="mt-1 text-sm text-primary">
+                        {trellusStatus.label}
+                      </div>
+                      <div className="mt-1 text-xs text-tertiary">
+                        Last received: {getTrellusLastReceived(trellus)}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Events</div>
+                        <div className="mt-1 font-mono text-sm text-primary">
+                          {trellus.eventCount ?? 0}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Connection ID</div>
+                        <div className="mt-1 truncate font-mono text-xs text-primary">
+                          {trellus.connection.id}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-sm border border-border-dim bg-elevated p-3 text-sm text-secondary">
+                    Configure a direct Trellus webhook to receive call events.
+                    Trellus does not support API backfills, so events begin
+                    flowing after setup.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleConfigureTrellus}
+                    disabled={isTrellusBusy}
+                    className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {trellus.connection ? "View Setup" : "Configure Webhook"}
+                  </button>
+                  {trellus.connection && (
+                    <button
+                      type="button"
+                      onClick={handleRotateTrellusSecret}
+                      disabled={isTrellusBusy}
+                      className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Rotate Secret
+                    </button>
+                  )}
+                </div>
+
+                {trellus.connection && (
+                  <details className="relative">
+                    <summary className="btn btn--ghost btn--sm cursor-pointer list-none disabled:cursor-not-allowed [&::-webkit-details-marker]:hidden">
+                      Manage
+                    </summary>
+                    <div className="absolute right-0 top-full z-10 mt-2 min-w-[148px] rounded-sm border border-border-default bg-elevated p-1 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          closeProviderMenu(event);
+                          setIsTrellusDisconnectOpen(true);
+                        }}
+                        disabled={isTrellusBusy}
+                        className="flex w-full items-center rounded-sm px-3 py-2 text-left text-sm text-[var(--critical)] transition hover:bg-[var(--critical-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </details>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel__header">
+          <span className="panel__title">Nango Integrations</span>
+          <span className="badge badge--neutral">Sync + Backfill</span>
         </div>
 
-        {providersWithConnections.length === 0 && !trellus ? (
+        {providersWithConnections.length === 0 ? (
           <div className="p-4">
             <div className="rounded-sm border border-border-dim bg-elevated p-4 text-sm text-secondary">
               {error
-                ? "Unable to load integrations from Nango in this environment."
-                : "No integrations are available in this environment yet."}
+                ? "Unable to load Nango integrations in this environment."
+                : "No Nango integrations are available in this environment yet."}
             </div>
           </div>
         ) : (
@@ -711,9 +1008,7 @@ export function ConnectionsClient({
                           Nango
                         </span>
                       </div>
-                      <p className="text-sm text-secondary">
-                      {provider.description}
-                    </p>
+                      <p className="text-sm text-secondary">{provider.description}</p>
                     </div>
                     <span
                       className={`badge ${connection ? "badge--nominal" : "badge--neutral"}`}
@@ -829,107 +1124,6 @@ export function ConnectionsClient({
                 </section>
               );
             })}
-            {trellus && (
-              <section className="flex h-full flex-col rounded-md border border-border-dim bg-surface p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-medium text-primary">
-                        {trellus.displayName}
-                      </h2>
-                      <span className="rounded-sm border border-border-dim px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-tertiary">
-                        Webhook
-                      </span>
-                    </div>
-                    <p className="text-sm text-secondary">{trellus.description}</p>
-                  </div>
-                  <span className={`badge ${trellusStatus.badge}`}>
-                    {trellusStatus.label}
-                  </span>
-                </div>
-
-                <div className="mt-4 flex-1">
-                  {trellus.connection ? (
-                    <div className="space-y-3">
-                      <div className="rounded-sm border border-border-dim bg-elevated p-3">
-                        <div className="label">Webhook Status</div>
-                        <div className="mt-1 text-sm text-primary">
-                          {trellusStatus.label}
-                        </div>
-                        <div className="mt-1 text-xs text-tertiary">
-                          Last received: {getTrellusLastReceived(trellus)}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="rounded-sm border border-border-dim bg-background/60 p-3">
-                          <div className="label">Events</div>
-                          <div className="mt-1 font-mono text-sm text-primary">
-                            {trellus.eventCount ?? 0}
-                          </div>
-                        </div>
-                        <div className="rounded-sm border border-border-dim bg-background/60 p-3">
-                          <div className="label">Connection ID</div>
-                          <div className="mt-1 truncate font-mono text-xs text-primary">
-                            {trellus.connection.id}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="rounded-sm border border-border-dim bg-elevated p-3 text-sm text-secondary">
-                      Configure a direct Trellus webhook to receive call events.
-                      Trellus does not support API backfills, so events begin
-                      flowing after setup.
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-5 flex items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={handleConfigureTrellus}
-                      disabled={isTrellusBusy}
-                      className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {trellus.connection ? "View Setup" : "Configure Webhook"}
-                    </button>
-                    {trellus.connection && (
-                      <button
-                        type="button"
-                        onClick={handleRotateTrellusSecret}
-                        disabled={isTrellusBusy}
-                        className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Rotate Secret
-                      </button>
-                    )}
-                  </div>
-
-                  {trellus.connection && (
-                    <details className="relative">
-                      <summary className="btn btn--ghost btn--sm cursor-pointer list-none disabled:cursor-not-allowed [&::-webkit-details-marker]:hidden">
-                        Manage
-                      </summary>
-                      <div className="absolute right-0 top-full z-10 mt-2 min-w-[148px] rounded-sm border border-border-default bg-elevated p-1 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            closeProviderMenu(event);
-                            setIsTrellusDisconnectOpen(true);
-                          }}
-                          disabled={isTrellusBusy}
-                          className="flex w-full items-center rounded-sm px-3 py-2 text-left text-sm text-[var(--critical)] transition hover:bg-[var(--critical-bg)] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Disconnect
-                        </button>
-                      </div>
-                    </details>
-                  )}
-                </div>
-              </section>
-            )}
           </div>
         )}
       </div>
@@ -990,6 +1184,39 @@ export function ConnectionsClient({
                 </div>
               );
             })}
+            {activeIntercomConnection && (
+              <div className="flex items-center justify-between px-4 py-4 transition-colors hover:bg-hover">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center border border-nominal bg-nominal-bg">
+                    <span className="text-sm font-bold text-nominal">IC</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-primary">
+                        Intercom
+                      </span>
+                      <span className="badge badge--nominal">Active</span>
+                      <span className="badge badge--neutral">Direct</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-tertiary">
+                      {intercom?.workspaceName || getConnectionLabel(activeIntercomConnection)}
+                      <span className="ml-2">
+                        ·{" "}
+                        {formatConnectedAt(intercom?.lastReceivedAt) || "Awaiting first webhook"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {intercom?.workspaceRegion && (
+                    <span className="badge badge--neutral">{intercom.workspaceRegion}</span>
+                  )}
+                  <span className="badge badge--neutral">
+                    {intercom?.eventCount ?? 0} events
+                  </span>
+                </div>
+              </div>
+            )}
             {activeTrellusConnection && (
               <div className="flex items-center justify-between px-4 py-4 transition-colors hover:bg-hover">
                 <div className="flex items-center gap-4">

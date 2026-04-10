@@ -83,14 +83,6 @@ pub struct NangoConnectionActionResponse {
 pub(crate) fn nango_provider_catalog(config: &SaasRuntimeConfig) -> Vec<NangoProviderDescriptor> {
     vec![
         NangoProviderDescriptor {
-            provider: "intercom",
-            display_name: "Intercom",
-            description: "Sync conversations, replies, contacts, and assignees.",
-            integration_id: config.nango.intercom_integration_id.clone(),
-            sync_name: "conversations",
-            model: "Conversation",
-        },
-        NangoProviderDescriptor {
             provider: "slack",
             display_name: "Slack",
             description: "Sync channel messages, thread replies, and reactions.",

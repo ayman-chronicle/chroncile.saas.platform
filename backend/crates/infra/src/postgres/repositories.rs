@@ -11,13 +11,13 @@ fn naive_to_utc(naive: NaiveDateTime) -> chrono::DateTime<Utc> {
 
 use chronicle_domain::{
     AgentEndpointConfig, AuditLog, Connection, CreateConnectionInput, CreateInvitationInput,
-    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput, Invitation,
-    IntegrationSync, PasswordResetToken, Run, Tenant, User, UserRole,
+    CreatePasswordResetTokenInput, CreateRunInput, CreateTenantInput, CreateUserInput,
+    IntegrationSync, Invitation, PasswordResetToken, Run, Tenant, User, UserRole,
 };
 use chronicle_interfaces::{
-    AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, InvitationRepository,
-    IntegrationSyncRepository, PasswordResetRepository, RepoError, RepoResult, RunRepository,
-    TenantRepository, UserRepository,
+    AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository,
+    IntegrationSyncRepository, InvitationRepository, PasswordResetRepository, RepoError,
+    RepoResult, RunRepository, TenantRepository, UserRepository,
 };
 
 fn new_id() -> String {

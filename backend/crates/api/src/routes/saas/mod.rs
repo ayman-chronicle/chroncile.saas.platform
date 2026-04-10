@@ -6,6 +6,7 @@ pub mod dashboard;
 mod error;
 pub mod feature_access;
 pub mod integrations;
+pub mod intercom;
 pub mod runs;
 pub mod sandboxes;
 pub mod settings;
@@ -69,6 +70,10 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route("/api/platform/admin/orgs", post(admin::create_org))
         .route("/api/webhooks/stripe", post(webhooks::stripe_webhook))
         .route("/api/webhooks/nango", post(webhooks::nango_webhook))
+        .route(
+            "/api/webhooks/intercom",
+            get(intercom::webhook_head).post(intercom::webhook),
+        )
         .route(
             "/api/webhooks/trellus/:connection_id",
             post(trellus::webhook),
@@ -148,6 +153,22 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route(
             "/api/platform/integrations/disconnect",
             post(integrations::disconnect),
+        )
+        .route(
+            "/api/platform/integrations/intercom",
+            get(intercom::get_integration),
+        )
+        .route(
+            "/api/platform/integrations/intercom/authorize",
+            post(intercom::authorize),
+        )
+        .route(
+            "/api/platform/integrations/intercom/callback",
+            get(intercom::callback),
+        )
+        .route(
+            "/api/platform/integrations/intercom/disconnect",
+            post(intercom::disconnect),
         )
         .route(
             "/api/platform/integrations/trellus",

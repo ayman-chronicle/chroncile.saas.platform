@@ -154,6 +154,12 @@ impl LaunchConfig {
         if let Some(value) = non_empty_env("NANGO_FRONT_INTEGRATION_ID") {
             self.integrations.nango.front_integration_id = value;
         }
+        if let Some(value) = non_empty_env("INTERCOM_CLIENT_ID") {
+            self.integrations.intercom.client_id = Some(value);
+        }
+        if let Some(value) = non_empty_env("INTERCOM_CLIENT_SECRET") {
+            self.integrations.intercom.client_secret = Some(value);
+        }
 
         if let Some(value) = non_empty_env("RESEND_API_KEY") {
             self.integrations.resend.api_key = Some(value);
@@ -381,6 +387,7 @@ pub struct HealthConfig {
 #[derive(Debug, Clone, Serialize)]
 pub struct IntegrationsConfig {
     pub nango: NangoConfig,
+    pub intercom: IntercomConfig,
     pub resend: ResendConfig,
     pub sandbox_ai: SandboxAiConfig,
     pub sentry: SentryConfig,
@@ -391,6 +398,7 @@ impl Default for IntegrationsConfig {
     fn default() -> Self {
         Self {
             nango: NangoConfig::default(),
+            intercom: IntercomConfig::default(),
             resend: ResendConfig::default(),
             sandbox_ai: SandboxAiConfig::default(),
             sentry: SentryConfig::default(),
@@ -420,6 +428,12 @@ impl Default for NangoConfig {
             front_integration_id: "front".to_string(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct IntercomConfig {
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -641,6 +655,12 @@ impl FileConfig {
         if let Some(value) = self.integrations.nango.front_integration_id {
             config.integrations.nango.front_integration_id = value;
         }
+        if let Some(value) = self.integrations.intercom.client_id {
+            config.integrations.intercom.client_id = Some(value);
+        }
+        if let Some(value) = self.integrations.intercom.client_secret {
+            config.integrations.intercom.client_secret = Some(value);
+        }
 
         if let Some(value) = self.integrations.resend.api_key {
             config.integrations.resend.api_key = Some(value);
@@ -771,6 +791,7 @@ struct FileHealthConfig {
 #[serde(default)]
 struct FileIntegrationsConfig {
     nango: FileNangoConfig,
+    intercom: FileIntercomConfig,
     resend: FileResendConfig,
     sandbox_ai: FileSandboxAiConfig,
     sentry: FileSentryConfig,
@@ -786,6 +807,13 @@ struct FileNangoConfig {
     intercom_integration_id: Option<String>,
     slack_integration_id: Option<String>,
     front_integration_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+struct FileIntercomConfig {
+    client_id: Option<String>,
+    client_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

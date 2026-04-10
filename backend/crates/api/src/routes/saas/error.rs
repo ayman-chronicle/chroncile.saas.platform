@@ -3,6 +3,7 @@ use chronicle_interfaces::RepoError;
 
 pub type ApiResult<T> = Result<T, ApiError>;
 
+#[derive(Debug)]
 pub struct ApiError {
     status: StatusCode,
     message: String,
