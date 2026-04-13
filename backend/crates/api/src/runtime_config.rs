@@ -54,6 +54,8 @@ pub struct SaasRuntimeConfig {
     pub nango: NangoRuntimeConfig,
     pub intercom_client_id: Option<String>,
     pub intercom_client_secret: Option<String>,
+    pub klaviyo_client_id: Option<String>,
+    pub klaviyo_client_secret: Option<String>,
 }
 
 impl Default for SaasRuntimeConfig {
@@ -66,6 +68,8 @@ impl Default for SaasRuntimeConfig {
             nango: NangoRuntimeConfig::default(),
             intercom_client_id: None,
             intercom_client_secret: None,
+            klaviyo_client_id: None,
+            klaviyo_client_secret: None,
         }
     }
 }

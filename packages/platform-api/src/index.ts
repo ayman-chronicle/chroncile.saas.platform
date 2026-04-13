@@ -73,6 +73,27 @@ export interface IntercomAuthorizeResponse {
   authorizeUrl: string;
 }
 
+export interface KlaviyoIntegrationResponse {
+  provider: string;
+  displayName: string;
+  description: string;
+  transport: "direct";
+  isAvailable: boolean;
+  connection: ConnectionListResponse["connections"][number] | null;
+  setupStatus: string;
+  accountId?: string | null;
+  accountName?: string | null;
+  connectedAt?: string | null;
+  lastReceivedAt?: string | null;
+  subscribedTopicCount?: number | null;
+  eventCount?: number | null;
+  webhookUrl: string;
+}
+
+export interface KlaviyoAuthorizeResponse {
+  authorizeUrl: string;
+}
+
 export interface TrellusIntegrationResponse {
   provider: string;
   displayName: string;
@@ -335,6 +356,27 @@ class PlatformApi {
     return this.request<IntercomIntegrationResponse>(
       "POST",
       "/api/platform/integrations/intercom/disconnect",
+    );
+  }
+
+  getKlaviyoIntegration() {
+    return this.request<KlaviyoIntegrationResponse>(
+      "GET",
+      "/api/platform/integrations/klaviyo",
+    );
+  }
+
+  authorizeKlaviyo() {
+    return this.request<KlaviyoAuthorizeResponse>(
+      "POST",
+      "/api/platform/integrations/klaviyo/authorize",
+    );
+  }
+
+  disconnectKlaviyo() {
+    return this.request<KlaviyoIntegrationResponse>(
+      "POST",
+      "/api/platform/integrations/klaviyo/disconnect",
     );
   }
 

@@ -160,6 +160,12 @@ impl LaunchConfig {
         if let Some(value) = non_empty_env("INTERCOM_CLIENT_SECRET") {
             self.integrations.intercom.client_secret = Some(value);
         }
+        if let Some(value) = non_empty_env("KLAVIYO_CLIENT_ID") {
+            self.integrations.klaviyo.client_id = Some(value);
+        }
+        if let Some(value) = non_empty_env("KLAVIYO_CLIENT_SECRET") {
+            self.integrations.klaviyo.client_secret = Some(value);
+        }
 
         if let Some(value) = non_empty_env("RESEND_API_KEY") {
             self.integrations.resend.api_key = Some(value);
@@ -388,6 +394,7 @@ pub struct HealthConfig {
 pub struct IntegrationsConfig {
     pub nango: NangoConfig,
     pub intercom: IntercomConfig,
+    pub klaviyo: KlaviyoConfig,
     pub resend: ResendConfig,
     pub sandbox_ai: SandboxAiConfig,
     pub sentry: SentryConfig,
@@ -399,6 +406,7 @@ impl Default for IntegrationsConfig {
         Self {
             nango: NangoConfig::default(),
             intercom: IntercomConfig::default(),
+            klaviyo: KlaviyoConfig::default(),
             resend: ResendConfig::default(),
             sandbox_ai: SandboxAiConfig::default(),
             sentry: SentryConfig::default(),
@@ -432,6 +440,12 @@ impl Default for NangoConfig {
 
 #[derive(Debug, Clone, Serialize, Default)]
 pub struct IntercomConfig {
+    pub client_id: Option<String>,
+    pub client_secret: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct KlaviyoConfig {
     pub client_id: Option<String>,
     pub client_secret: Option<String>,
 }
@@ -661,6 +675,12 @@ impl FileConfig {
         if let Some(value) = self.integrations.intercom.client_secret {
             config.integrations.intercom.client_secret = Some(value);
         }
+        if let Some(value) = self.integrations.klaviyo.client_id {
+            config.integrations.klaviyo.client_id = Some(value);
+        }
+        if let Some(value) = self.integrations.klaviyo.client_secret {
+            config.integrations.klaviyo.client_secret = Some(value);
+        }
 
         if let Some(value) = self.integrations.resend.api_key {
             config.integrations.resend.api_key = Some(value);
@@ -792,6 +812,7 @@ struct FileHealthConfig {
 struct FileIntegrationsConfig {
     nango: FileNangoConfig,
     intercom: FileIntercomConfig,
+    klaviyo: FileKlaviyoConfig,
     resend: FileResendConfig,
     sandbox_ai: FileSandboxAiConfig,
     sentry: FileSentryConfig,
@@ -812,6 +833,13 @@ struct FileNangoConfig {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 struct FileIntercomConfig {
+    client_id: Option<String>,
+    client_secret: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(default)]
+struct FileKlaviyoConfig {
     client_id: Option<String>,
     client_secret: Option<String>,
 }

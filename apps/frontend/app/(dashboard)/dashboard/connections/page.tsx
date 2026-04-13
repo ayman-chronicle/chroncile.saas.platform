@@ -3,6 +3,7 @@ import { fetchFromBackend } from "@/server/backend/fetch-from-backend";
 import { redirect } from "next/navigation";
 import type {
   IntercomIntegrationResponse,
+  KlaviyoIntegrationResponse,
   NangoProviderSummary,
   TrellusIntegrationResponse,
 } from "platform-api";
@@ -25,10 +26,11 @@ export default async function ConnectionsPage({
   let providers: NangoProviderSummary[] = [];
   let connections: ConnectionListResponse["connections"] = [];
   let intercom: IntercomIntegrationResponse | null = null;
+  let klaviyo: KlaviyoIntegrationResponse | null = null;
   let trellus: TrellusIntegrationResponse | null = null;
   let initialLoadError: string | null = null;
 
-  const [providersResult, connectionsResult, intercomResult, trellusResult] =
+  const [providersResult, connectionsResult, intercomResult, klaviyoResult, trellusResult] =
     await Promise.allSettled([
       fetchFromBackend<{ providers: NangoProviderSummary[] }>(
         "/api/platform/integrations/providers",
@@ -38,6 +40,9 @@ export default async function ConnectionsPage({
       ),
       fetchFromBackend<IntercomIntegrationResponse>(
         "/api/platform/integrations/intercom",
+      ),
+      fetchFromBackend<KlaviyoIntegrationResponse>(
+        "/api/platform/integrations/klaviyo",
       ),
       fetchFromBackend<TrellusIntegrationResponse>(
         "/api/platform/integrations/trellus",
@@ -98,11 +103,34 @@ export default async function ConnectionsPage({
     };
   }
 
+  if (klaviyoResult.status === "fulfilled") {
+    klaviyo = klaviyoResult.value;
+  } else {
+    klaviyo = {
+      provider: "klaviyo",
+      displayName: "Klaviyo",
+      description:
+        "Connect Klaviyo directly via OAuth with Chronicle-managed system webhooks.",
+      transport: "direct",
+      isAvailable: false,
+      connection: null,
+      setupStatus: "unavailable",
+      accountId: null,
+      accountName: null,
+      connectedAt: null,
+      lastReceivedAt: null,
+      subscribedTopicCount: 0,
+      eventCount: 0,
+      webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/webhooks/klaviyo`,
+    };
+  }
+
   return (
     <ConnectionsClient
       initialProviders={providers}
       initialConnections={connections}
       initialIntercom={intercom}
+      initialKlaviyo={klaviyo}
       initialTrellus={trellus}
       initialLoadError={initialLoadError}
       initialSuccessMessage={params.success ?? null}

@@ -5,6 +5,7 @@ import { startTransition, useEffect, useMemo, useState, type MouseEvent } from "
 import { useRouter } from "next/navigation";
 import type {
   IntercomIntegrationResponse,
+  KlaviyoIntegrationResponse,
   NangoProviderSummary,
   TrellusIntegrationResponse,
 } from "platform-api";
@@ -28,6 +29,7 @@ interface ConnectionsClientProps {
   initialProviders: NangoProviderSummary[];
   initialConnections: ConnectionData[];
   initialIntercom: IntercomIntegrationResponse | null;
+  initialKlaviyo: KlaviyoIntegrationResponse | null;
   initialTrellus: TrellusIntegrationResponse | null;
   initialLoadError?: string | null;
   initialSuccessMessage?: string | null;
@@ -107,8 +109,22 @@ function getIntercomStatus(intercom: IntercomIntegrationResponse | null) {
   return { label: "Active", badge: "badge--nominal" };
 }
 
+function getKlaviyoStatus(klaviyo: KlaviyoIntegrationResponse | null) {
+  if (!klaviyo?.isAvailable) {
+    return { label: "Unavailable", badge: "badge--critical" };
+  }
+  if (!klaviyo.connection) {
+    return { label: "Not configured", badge: "badge--neutral" };
+  }
+  return { label: "Active", badge: "badge--nominal" };
+}
+
 function getTrellusLastReceived(trellus: TrellusIntegrationResponse | null) {
   return formatConnectedAt(trellus?.lastReceivedAt) || "No events received yet";
+}
+
+function getKlaviyoLastReceived(klaviyo: KlaviyoIntegrationResponse | null) {
+  return formatConnectedAt(klaviyo?.lastReceivedAt) || "No events received yet";
 }
 
 function formatProviderName(provider: string) {
@@ -138,6 +154,7 @@ export function ConnectionsClient({
   initialProviders,
   initialConnections,
   initialIntercom,
+  initialKlaviyo,
   initialTrellus,
   initialLoadError,
   initialSuccessMessage,
@@ -149,12 +166,15 @@ export function ConnectionsClient({
   const [providers, setProviders] = useState(initialProviders);
   const [connections, setConnections] = useState(initialConnections);
   const [intercom, setIntercom] = useState<IntercomIntegrationResponse | null>(initialIntercom);
+  const [klaviyo, setKlaviyo] = useState<KlaviyoIntegrationResponse | null>(initialKlaviyo);
   const [trellus, setTrellus] = useState<TrellusIntegrationResponse | null>(initialTrellus);
   const [trellusSecret, setTrellusSecret] = useState<string | null>(
     initialTrellus?.headerValue ?? null,
   );
   const [isIntercomDisconnectOpen, setIsIntercomDisconnectOpen] = useState(false);
   const [isIntercomBusy, setIsIntercomBusy] = useState(false);
+  const [isKlaviyoDisconnectOpen, setIsKlaviyoDisconnectOpen] = useState(false);
+  const [isKlaviyoBusy, setIsKlaviyoBusy] = useState(false);
   const [isTrellusModalOpen, setIsTrellusModalOpen] = useState(false);
   const [isTrellusDisconnectOpen, setIsTrellusDisconnectOpen] = useState(false);
   const [isTrellusBusy, setIsTrellusBusy] = useState(false);
@@ -178,6 +198,10 @@ export function ConnectionsClient({
   useEffect(() => {
     setIntercom(initialIntercom);
   }, [initialIntercom]);
+
+  useEffect(() => {
+    setKlaviyo(initialKlaviyo);
+  }, [initialKlaviyo]);
 
   useEffect(() => {
     setTrellus(initialTrellus);
@@ -237,11 +261,18 @@ export function ConnectionsClient({
   ]);
 
   const refreshData = async () => {
-    const [providersResult, connectionsResult, intercomResult, trellusResult] =
+    const [
+      providersResult,
+      connectionsResult,
+      intercomResult,
+      klaviyoResult,
+      trellusResult,
+    ] =
       await Promise.allSettled([
         api.listNangoProviders(),
         api.listNangoConnections(),
         api.getIntercomIntegration(),
+        api.getKlaviyoIntegration(),
         api.getTrellusIntegration(),
       ]);
 
@@ -260,6 +291,10 @@ export function ConnectionsClient({
 
     if (intercomResult.status === "fulfilled") {
       setIntercom(intercomResult.value);
+    }
+
+    if (klaviyoResult.status === "fulfilled") {
+      setKlaviyo(klaviyoResult.value);
     }
 
     if (trellusResult.status === "fulfilled") {
@@ -314,9 +349,14 @@ export function ConnectionsClient({
     intercom?.connection && intercom.connection.status === "active"
       ? intercom.connection
       : null;
+  const activeKlaviyoConnection =
+    klaviyo?.connection && klaviyo.connection.status === "active"
+      ? klaviyo.connection
+      : null;
   const activeConnectionsCount =
     activeConnections.length +
     (activeIntercomConnection ? 1 : 0) +
+    (activeKlaviyoConnection ? 1 : 0) +
     (activeTrellusConnection ? 1 : 0);
 
   const resetFeedback = () => {
@@ -418,6 +458,48 @@ export function ConnectionsClient({
       );
     } finally {
       setIsIntercomBusy(false);
+    }
+  };
+
+  const handleAuthorizeKlaviyo = async () => {
+    if (!klaviyo?.isAvailable) {
+      setError("Klaviyo direct integration is not configured in this environment.");
+      return;
+    }
+
+    setIsKlaviyoBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.authorizeKlaviyo();
+      window.location.assign(response.authorizeUrl);
+    } catch (authorizeError) {
+      setError(
+        authorizeError instanceof Error
+          ? authorizeError.message
+          : "Failed to start the Klaviyo connect flow.",
+      );
+      setIsKlaviyoBusy(false);
+    }
+  };
+
+  const handleDisconnectKlaviyo = async () => {
+    setIsKlaviyoBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.disconnectKlaviyo();
+      setKlaviyo(response);
+      setIsKlaviyoDisconnectOpen(false);
+      setMessage("Klaviyo disconnected.");
+    } catch (disconnectError) {
+      setError(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : "Failed to disconnect Klaviyo.",
+      );
+    } finally {
+      setIsKlaviyoBusy(false);
     }
   };
 
@@ -564,6 +646,7 @@ export function ConnectionsClient({
   };
 
   const intercomStatus = getIntercomStatus(intercom);
+  const klaviyoStatus = getKlaviyoStatus(klaviyo);
   const trellusStatus = getTrellusStatus(trellus);
 
   return (
@@ -627,6 +710,21 @@ export function ConnectionsClient({
         cancelText="Cancel"
         variant="danger"
         isLoading={isTrellusBusy}
+      />
+
+      <ConfirmModal
+        isOpen={isKlaviyoDisconnectOpen}
+        onClose={() => {
+          if (isKlaviyoBusy) return;
+          setIsKlaviyoDisconnectOpen(false);
+        }}
+        onConfirm={handleDisconnectKlaviyo}
+        title="Disconnect Klaviyo"
+        message="Are you sure you want to disconnect Klaviyo? Chronicle will remove the managed webhook subscription for this account and stop ingesting new Klaviyo events, but your existing events will remain."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isKlaviyoBusy}
       />
 
       <Modal
@@ -859,6 +957,102 @@ export function ConnectionsClient({
                 </div>
                 {intercom.connection && intercom.workspaceRegion && (
                   <span className="badge badge--neutral">{intercom.workspaceRegion}</span>
+                )}
+              </div>
+            </section>
+          )}
+
+          {klaviyo && (
+            <section className="flex h-full flex-col rounded-md border border-border-dim bg-surface p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-medium text-primary">
+                      {klaviyo.displayName}
+                    </h2>
+                    <span className="rounded-sm border border-border-dim px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-tertiary">
+                      Direct
+                    </span>
+                  </div>
+                  <p className="text-sm text-secondary">{klaviyo.description}</p>
+                </div>
+                <span className={`badge ${klaviyoStatus.badge}`}>
+                  {klaviyoStatus.label}
+                </span>
+              </div>
+
+              <div className="mt-4 flex-1">
+                {klaviyo.connection ? (
+                  <div className="space-y-3">
+                    <div className="rounded-sm border border-border-dim bg-elevated p-3">
+                      <div className="label">Account</div>
+                      <div className="mt-1 text-sm text-primary">
+                        {klaviyo.accountName || klaviyo.accountId || "Connected account"}
+                      </div>
+                      <div className="mt-1 text-xs text-tertiary">
+                        Chronicle manages the Klaviyo system webhook automatically for this account.
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Connected At</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {formatConnectedAt(klaviyo.connectedAt) || "Unknown"}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Last Webhook</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {getKlaviyoLastReceived(klaviyo)}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Subscribed Topics</div>
+                        <div className="mt-1 font-mono text-sm text-primary">
+                          {klaviyo.subscribedTopicCount ?? 0}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Events</div>
+                        <div className="mt-1 font-mono text-sm text-primary">
+                          {klaviyo.eventCount ?? 0}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-sm border border-border-dim bg-elevated p-3 text-sm text-secondary">
+                    {klaviyo.isAvailable
+                      ? "Connect Klaviyo via OAuth. Chronicle will provision and manage the system webhook automatically, so the account owner does not need to paste any endpoint manually."
+                      : "Klaviyo direct is not configured in this environment yet. Add the Klaviyo OAuth credentials to enable this connection."}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAuthorizeKlaviyo}
+                    disabled={isKlaviyoBusy || !klaviyo.isAvailable}
+                    className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {klaviyo.connection ? "Reconnect" : "Connect Klaviyo"}
+                  </button>
+                  {klaviyo.connection && (
+                    <button
+                      type="button"
+                      onClick={() => setIsKlaviyoDisconnectOpen(true)}
+                      disabled={isKlaviyoBusy}
+                      className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+                {klaviyo.accountId && (
+                  <span className="badge badge--neutral font-mono">{klaviyo.accountId}</span>
                 )}
               </div>
             </section>
@@ -1214,6 +1408,33 @@ export function ConnectionsClient({
                   <span className="badge badge--neutral">
                     {intercom?.eventCount ?? 0} events
                   </span>
+                </div>
+              </div>
+            )}
+            {activeKlaviyoConnection && (
+              <div className="flex items-start gap-3 rounded-sm border border-border-dim bg-elevated p-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-sm border border-border-dim bg-background text-sm font-semibold text-primary">
+                  KL
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-primary">Klaviyo</div>
+                      <div className="mt-1 text-xs text-tertiary">
+                        {klaviyo?.accountName || klaviyo?.accountId || getConnectionLabel(activeKlaviyoConnection)}
+                      </div>
+                    </div>
+                    <span className="badge badge--nominal">Live</span>
+                  </div>
+                  <div className="mt-2 text-xs text-secondary">
+                    {getKlaviyoLastReceived(klaviyo)}
+                    {klaviyo?.subscribedTopicCount ? (
+                      <>
+                        {" "}
+                        · <span className="font-mono">{klaviyo.subscribedTopicCount}</span> topics
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             )}
