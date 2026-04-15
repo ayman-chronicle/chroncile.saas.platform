@@ -5,6 +5,7 @@ import type {
   IntercomIntegrationResponse,
   KlaviyoIntegrationResponse,
   NangoProviderSummary,
+  ShopifyIntegrationResponse,
   TrellusIntegrationResponse,
 } from "platform-api";
 import type { ConnectionListResponse } from "shared/generated";
@@ -27,27 +28,37 @@ export default async function ConnectionsPage({
   let connections: ConnectionListResponse["connections"] = [];
   let intercom: IntercomIntegrationResponse | null = null;
   let klaviyo: KlaviyoIntegrationResponse | null = null;
+  let shopify: ShopifyIntegrationResponse | null = null;
   let trellus: TrellusIntegrationResponse | null = null;
   let initialLoadError: string | null = null;
 
-  const [providersResult, connectionsResult, intercomResult, klaviyoResult, trellusResult] =
-    await Promise.allSettled([
-      fetchFromBackend<{ providers: NangoProviderSummary[] }>(
-        "/api/platform/integrations/providers",
-      ),
-      fetchFromBackend<ConnectionListResponse>(
-        "/api/platform/integrations/connections",
-      ),
-      fetchFromBackend<IntercomIntegrationResponse>(
-        "/api/platform/integrations/intercom",
-      ),
-      fetchFromBackend<KlaviyoIntegrationResponse>(
-        "/api/platform/integrations/klaviyo",
-      ),
-      fetchFromBackend<TrellusIntegrationResponse>(
-        "/api/platform/integrations/trellus",
-      ),
-    ]);
+  const [
+    providersResult,
+    connectionsResult,
+    intercomResult,
+    klaviyoResult,
+    shopifyResult,
+    trellusResult,
+  ] = await Promise.allSettled([
+    fetchFromBackend<{ providers: NangoProviderSummary[] }>(
+      "/api/platform/integrations/providers",
+    ),
+    fetchFromBackend<ConnectionListResponse>(
+      "/api/platform/integrations/connections",
+    ),
+    fetchFromBackend<IntercomIntegrationResponse>(
+      "/api/platform/integrations/intercom",
+    ),
+    fetchFromBackend<KlaviyoIntegrationResponse>(
+      "/api/platform/integrations/klaviyo",
+    ),
+    fetchFromBackend<ShopifyIntegrationResponse>(
+      "/api/platform/integrations/shopify",
+    ),
+    fetchFromBackend<TrellusIntegrationResponse>(
+      "/api/platform/integrations/trellus",
+    ),
+  ]);
 
   if (providersResult.status === "fulfilled") {
     providers = providersResult.value.providers;
@@ -125,12 +136,35 @@ export default async function ConnectionsPage({
     };
   }
 
+  if (shopifyResult.status === "fulfilled") {
+    shopify = shopifyResult.value;
+  } else {
+    shopify = {
+      provider: "shopify",
+      displayName: "Shopify",
+      description:
+        "Connect Shopify directly via OAuth with Chronicle-managed webhook subscriptions.",
+      transport: "direct",
+      isAvailable: false,
+      connection: null,
+      setupStatus: "unavailable",
+      shopDomain: null,
+      shopName: null,
+      connectedAt: null,
+      lastReceivedAt: null,
+      subscribedTopicCount: 0,
+      eventCount: 0,
+      webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/webhooks/shopify`,
+    };
+  }
+
   return (
     <ConnectionsClient
       initialProviders={providers}
       initialConnections={connections}
       initialIntercom={intercom}
       initialKlaviyo={klaviyo}
+      initialShopify={shopify}
       initialTrellus={trellus}
       initialLoadError={initialLoadError}
       initialSuccessMessage={params.success ?? null}

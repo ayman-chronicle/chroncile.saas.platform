@@ -56,6 +56,8 @@ pub struct SaasRuntimeConfig {
     pub intercom_client_secret: Option<String>,
     pub klaviyo_client_id: Option<String>,
     pub klaviyo_client_secret: Option<String>,
+    pub shopify_client_id: Option<String>,
+    pub shopify_client_secret: Option<String>,
 }
 
 impl Default for SaasRuntimeConfig {
@@ -70,6 +72,8 @@ impl Default for SaasRuntimeConfig {
             intercom_client_secret: None,
             klaviyo_client_id: None,
             klaviyo_client_secret: None,
+            shopify_client_id: None,
+            shopify_client_secret: None,
         }
     }
 }

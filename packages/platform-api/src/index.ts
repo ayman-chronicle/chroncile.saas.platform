@@ -94,6 +94,31 @@ export interface KlaviyoAuthorizeResponse {
   authorizeUrl: string;
 }
 
+export interface ShopifyIntegrationResponse {
+  provider: string;
+  displayName: string;
+  description: string;
+  transport: "direct";
+  isAvailable: boolean;
+  connection: ConnectionListResponse["connections"][number] | null;
+  setupStatus: string;
+  shopDomain?: string | null;
+  shopName?: string | null;
+  connectedAt?: string | null;
+  lastReceivedAt?: string | null;
+  subscribedTopicCount?: number | null;
+  eventCount?: number | null;
+  webhookUrl: string;
+}
+
+export interface ShopifyAuthorizeRequest {
+  shopDomain: string;
+}
+
+export interface ShopifyAuthorizeResponse {
+  authorizeUrl: string;
+}
+
 export interface TrellusIntegrationResponse {
   provider: string;
   displayName: string;
@@ -377,6 +402,28 @@ class PlatformApi {
     return this.request<KlaviyoIntegrationResponse>(
       "POST",
       "/api/platform/integrations/klaviyo/disconnect",
+    );
+  }
+
+  getShopifyIntegration() {
+    return this.request<ShopifyIntegrationResponse>(
+      "GET",
+      "/api/platform/integrations/shopify",
+    );
+  }
+
+  authorizeShopify(body: ShopifyAuthorizeRequest) {
+    return this.request<ShopifyAuthorizeResponse>(
+      "POST",
+      "/api/platform/integrations/shopify/authorize",
+      { body },
+    );
+  }
+
+  disconnectShopify() {
+    return this.request<ShopifyIntegrationResponse>(
+      "POST",
+      "/api/platform/integrations/shopify/disconnect",
     );
   }
 

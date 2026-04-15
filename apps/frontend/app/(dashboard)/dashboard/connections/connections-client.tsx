@@ -7,6 +7,7 @@ import type {
   IntercomIntegrationResponse,
   KlaviyoIntegrationResponse,
   NangoProviderSummary,
+  ShopifyIntegrationResponse,
   TrellusIntegrationResponse,
 } from "platform-api";
 import type { ConnectionListResponse } from "shared/generated";
@@ -30,6 +31,7 @@ interface ConnectionsClientProps {
   initialConnections: ConnectionData[];
   initialIntercom: IntercomIntegrationResponse | null;
   initialKlaviyo: KlaviyoIntegrationResponse | null;
+  initialShopify: ShopifyIntegrationResponse | null;
   initialTrellus: TrellusIntegrationResponse | null;
   initialLoadError?: string | null;
   initialSuccessMessage?: string | null;
@@ -119,12 +121,26 @@ function getKlaviyoStatus(klaviyo: KlaviyoIntegrationResponse | null) {
   return { label: "Active", badge: "badge--nominal" };
 }
 
+function getShopifyStatus(shopify: ShopifyIntegrationResponse | null) {
+  if (!shopify?.isAvailable) {
+    return { label: "Unavailable", badge: "badge--critical" };
+  }
+  if (!shopify.connection) {
+    return { label: "Not configured", badge: "badge--neutral" };
+  }
+  return { label: "Active", badge: "badge--nominal" };
+}
+
 function getTrellusLastReceived(trellus: TrellusIntegrationResponse | null) {
   return formatConnectedAt(trellus?.lastReceivedAt) || "No events received yet";
 }
 
 function getKlaviyoLastReceived(klaviyo: KlaviyoIntegrationResponse | null) {
   return formatConnectedAt(klaviyo?.lastReceivedAt) || "No events received yet";
+}
+
+function getShopifyLastReceived(shopify: ShopifyIntegrationResponse | null) {
+  return formatConnectedAt(shopify?.lastReceivedAt) || "No events received yet";
 }
 
 function formatProviderName(provider: string) {
@@ -155,6 +171,7 @@ export function ConnectionsClient({
   initialConnections,
   initialIntercom,
   initialKlaviyo,
+  initialShopify,
   initialTrellus,
   initialLoadError,
   initialSuccessMessage,
@@ -167,6 +184,7 @@ export function ConnectionsClient({
   const [connections, setConnections] = useState(initialConnections);
   const [intercom, setIntercom] = useState<IntercomIntegrationResponse | null>(initialIntercom);
   const [klaviyo, setKlaviyo] = useState<KlaviyoIntegrationResponse | null>(initialKlaviyo);
+  const [shopify, setShopify] = useState<ShopifyIntegrationResponse | null>(initialShopify);
   const [trellus, setTrellus] = useState<TrellusIntegrationResponse | null>(initialTrellus);
   const [trellusSecret, setTrellusSecret] = useState<string | null>(
     initialTrellus?.headerValue ?? null,
@@ -175,6 +193,10 @@ export function ConnectionsClient({
   const [isIntercomBusy, setIsIntercomBusy] = useState(false);
   const [isKlaviyoDisconnectOpen, setIsKlaviyoDisconnectOpen] = useState(false);
   const [isKlaviyoBusy, setIsKlaviyoBusy] = useState(false);
+  const [isShopifyDisconnectOpen, setIsShopifyDisconnectOpen] = useState(false);
+  const [isShopifyBusy, setIsShopifyBusy] = useState(false);
+  const [isShopifyModalOpen, setIsShopifyModalOpen] = useState(false);
+  const [shopifyShopDomain, setShopifyShopDomain] = useState(initialShopify?.shopDomain ?? "");
   const [isTrellusModalOpen, setIsTrellusModalOpen] = useState(false);
   const [isTrellusDisconnectOpen, setIsTrellusDisconnectOpen] = useState(false);
   const [isTrellusBusy, setIsTrellusBusy] = useState(false);
@@ -202,6 +224,11 @@ export function ConnectionsClient({
   useEffect(() => {
     setKlaviyo(initialKlaviyo);
   }, [initialKlaviyo]);
+
+  useEffect(() => {
+    setShopify(initialShopify);
+    setShopifyShopDomain(initialShopify?.shopDomain ?? "");
+  }, [initialShopify]);
 
   useEffect(() => {
     setTrellus(initialTrellus);
@@ -266,6 +293,7 @@ export function ConnectionsClient({
       connectionsResult,
       intercomResult,
       klaviyoResult,
+      shopifyResult,
       trellusResult,
     ] =
       await Promise.allSettled([
@@ -273,6 +301,7 @@ export function ConnectionsClient({
         api.listNangoConnections(),
         api.getIntercomIntegration(),
         api.getKlaviyoIntegration(),
+        api.getShopifyIntegration(),
         api.getTrellusIntegration(),
       ]);
 
@@ -295,6 +324,10 @@ export function ConnectionsClient({
 
     if (klaviyoResult.status === "fulfilled") {
       setKlaviyo(klaviyoResult.value);
+    }
+
+    if (shopifyResult.status === "fulfilled") {
+      setShopify(shopifyResult.value);
     }
 
     if (trellusResult.status === "fulfilled") {
@@ -353,10 +386,15 @@ export function ConnectionsClient({
     klaviyo?.connection && klaviyo.connection.status === "active"
       ? klaviyo.connection
       : null;
+  const activeShopifyConnection =
+    shopify?.connection && shopify.connection.status === "active"
+      ? shopify.connection
+      : null;
   const activeConnectionsCount =
     activeConnections.length +
     (activeIntercomConnection ? 1 : 0) +
     (activeKlaviyoConnection ? 1 : 0) +
+    (activeShopifyConnection ? 1 : 0) +
     (activeTrellusConnection ? 1 : 0);
 
   const resetFeedback = () => {
@@ -500,6 +538,66 @@ export function ConnectionsClient({
       );
     } finally {
       setIsKlaviyoBusy(false);
+    }
+  };
+
+  const openShopifyModal = () => {
+    if (!shopify?.isAvailable) {
+      setError("Shopify direct integration is not configured in this environment.");
+      return;
+    }
+
+    setShopifyShopDomain(shopify.shopDomain ?? "");
+    setIsShopifyModalOpen(true);
+    resetFeedback();
+  };
+
+  const handleAuthorizeShopify = async () => {
+    if (!shopify?.isAvailable) {
+      setError("Shopify direct integration is not configured in this environment.");
+      return;
+    }
+
+    if (!shopifyShopDomain.trim()) {
+      setError("Enter the Shopify store domain before continuing.");
+      return;
+    }
+
+    setIsShopifyBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.authorizeShopify({
+        shopDomain: shopifyShopDomain.trim(),
+      });
+      window.location.assign(response.authorizeUrl);
+    } catch (authorizeError) {
+      setError(
+        authorizeError instanceof Error
+          ? authorizeError.message
+          : "Failed to start the Shopify connect flow.",
+      );
+      setIsShopifyBusy(false);
+    }
+  };
+
+  const handleDisconnectShopify = async () => {
+    setIsShopifyBusy(true);
+    resetFeedback();
+
+    try {
+      const response = await api.disconnectShopify();
+      setShopify(response);
+      setIsShopifyDisconnectOpen(false);
+      setMessage("Shopify disconnected.");
+    } catch (disconnectError) {
+      setError(
+        disconnectError instanceof Error
+          ? disconnectError.message
+          : "Failed to disconnect Shopify.",
+      );
+    } finally {
+      setIsShopifyBusy(false);
     }
   };
 
@@ -647,6 +745,7 @@ export function ConnectionsClient({
 
   const intercomStatus = getIntercomStatus(intercom);
   const klaviyoStatus = getKlaviyoStatus(klaviyo);
+  const shopifyStatus = getShopifyStatus(shopify);
   const trellusStatus = getTrellusStatus(trellus);
 
   return (
@@ -725,6 +824,21 @@ export function ConnectionsClient({
         cancelText="Cancel"
         variant="danger"
         isLoading={isKlaviyoBusy}
+      />
+
+      <ConfirmModal
+        isOpen={isShopifyDisconnectOpen}
+        onClose={() => {
+          if (isShopifyBusy) return;
+          setIsShopifyDisconnectOpen(false);
+        }}
+        onConfirm={handleDisconnectShopify}
+        title="Disconnect Shopify"
+        message="Are you sure you want to disconnect Shopify? Chronicle will remove the managed webhook subscriptions for this store and stop ingesting new Shopify events, but your existing events will remain."
+        confirmText="Disconnect"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={isShopifyBusy}
       />
 
       <Modal
@@ -817,6 +931,59 @@ export function ConnectionsClient({
                 </span>
               ))}
             </div>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={isShopifyModalOpen}
+        onClose={() => {
+          if (isShopifyBusy) return;
+          setIsShopifyModalOpen(false);
+        }}
+        title="Connect Shopify"
+        variant="dark"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setIsShopifyModalOpen(false)}
+              disabled={isShopifyBusy}
+              className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAuthorizeShopify}
+              disabled={isShopifyBusy || !shopifyShopDomain.trim()}
+              className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isShopifyBusy ? "Connecting..." : "Continue"}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-sm border border-data-dim bg-data-bg p-3 text-sm text-data">
+            Enter the store domain, for example <code>store.myshopify.com</code>.
+            Chronicle will handle OAuth and provision the webhook subscriptions automatically.
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="shopify-shop-domain" className="label">
+              Store Domain
+            </label>
+            <input
+              id="shopify-shop-domain"
+              type="text"
+              value={shopifyShopDomain}
+              onChange={(event) => setShopifyShopDomain(event.target.value)}
+              placeholder="store.myshopify.com"
+              className="input w-full"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
           </div>
         </div>
       </Modal>
@@ -1053,6 +1220,102 @@ export function ConnectionsClient({
                 </div>
                 {klaviyo.accountId && (
                   <span className="badge badge--neutral font-mono">{klaviyo.accountId}</span>
+                )}
+              </div>
+            </section>
+          )}
+
+          {shopify && (
+            <section className="flex h-full flex-col rounded-md border border-border-dim bg-surface p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-medium text-primary">
+                      {shopify.displayName}
+                    </h2>
+                    <span className="rounded-sm border border-border-dim px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-tertiary">
+                      Direct
+                    </span>
+                  </div>
+                  <p className="text-sm text-secondary">{shopify.description}</p>
+                </div>
+                <span className={`badge ${shopifyStatus.badge}`}>
+                  {shopifyStatus.label}
+                </span>
+              </div>
+
+              <div className="mt-4 flex-1">
+                {shopify.connection ? (
+                  <div className="space-y-3">
+                    <div className="rounded-sm border border-border-dim bg-elevated p-3">
+                      <div className="label">Store</div>
+                      <div className="mt-1 text-sm text-primary">
+                        {shopify.shopName || shopify.shopDomain || "Connected store"}
+                      </div>
+                      <div className="mt-1 text-xs text-tertiary">
+                        Chronicle manages the Shopify webhook subscriptions automatically for this store.
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Connected At</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {formatConnectedAt(shopify.connectedAt) || "Unknown"}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Last Webhook</div>
+                        <div className="mt-1 text-sm text-primary">
+                          {getShopifyLastReceived(shopify)}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Subscribed Topics</div>
+                        <div className="mt-1 font-mono text-sm text-primary">
+                          {shopify.subscribedTopicCount ?? 0}
+                        </div>
+                      </div>
+                      <div className="rounded-sm border border-border-dim bg-background/60 p-3">
+                        <div className="label">Events</div>
+                        <div className="mt-1 font-mono text-sm text-primary">
+                          {shopify.eventCount ?? 0}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-sm border border-border-dim bg-elevated p-3 text-sm text-secondary">
+                    {shopify.isAvailable
+                      ? "Connect a Shopify store via OAuth. Chronicle will create and manage the webhook subscriptions automatically, so the merchant does not need to paste any endpoint manually."
+                      : "Shopify direct is not configured in this environment yet. Add the Shopify OAuth credentials to enable this connection."}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={openShopifyModal}
+                    disabled={isShopifyBusy || !shopify.isAvailable}
+                    className="btn btn--primary disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {shopify.connection ? "Reconnect" : "Connect Shopify"}
+                  </button>
+                  {shopify.connection && (
+                    <button
+                      type="button"
+                      onClick={() => setIsShopifyDisconnectOpen(true)}
+                      disabled={isShopifyBusy}
+                      className="btn btn--secondary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+                {shopify.shopDomain && (
+                  <span className="badge badge--neutral font-mono">{shopify.shopDomain}</span>
                 )}
               </div>
             </section>

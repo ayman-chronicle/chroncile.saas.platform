@@ -109,6 +109,8 @@ pub async fn build_platform_runtime(
         intercom_client_secret: launch_config.integrations.intercom.client_secret.clone(),
         klaviyo_client_id: launch_config.integrations.klaviyo.client_id.clone(),
         klaviyo_client_secret: launch_config.integrations.klaviyo.client_secret.clone(),
+        shopify_client_id: launch_config.integrations.shopify.client_id.clone(),
+        shopify_client_secret: launch_config.integrations.shopify.client_secret.clone(),
     };
 
     let saas_state = match launch_config.storage.saas.backend {

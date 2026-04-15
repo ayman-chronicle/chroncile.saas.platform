@@ -11,6 +11,7 @@ pub mod klaviyo;
 pub mod runs;
 pub mod sandboxes;
 pub mod settings;
+pub mod shopify;
 pub mod team;
 pub mod tenant;
 pub mod trellus;
@@ -80,6 +81,7 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
             "/api/webhooks/trellus/:connection_id",
             post(trellus::webhook),
         )
+        .route("/api/webhooks/shopify", post(shopify::webhook))
         .route(
             "/api/platform/auth/accept-invite/:token",
             post(team::accept_invite),
@@ -203,6 +205,22 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
         .route(
             "/api/platform/integrations/trellus/disconnect",
             post(trellus::disconnect),
+        )
+        .route(
+            "/api/platform/integrations/shopify",
+            get(shopify::get_integration),
+        )
+        .route(
+            "/api/platform/integrations/shopify/authorize",
+            post(shopify::authorize),
+        )
+        .route(
+            "/api/platform/integrations/shopify/callback",
+            get(shopify::callback),
+        )
+        .route(
+            "/api/platform/integrations/shopify/disconnect",
+            post(shopify::disconnect),
         )
         .route("/api/platform/team/members", get(team::list_members))
         .route("/api/platform/team/invite", post(team::invite_member))
