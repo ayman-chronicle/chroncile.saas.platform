@@ -1,40 +1,40 @@
-export { Badge } from "./components/badge";
-export type { BadgeProps, BadgeVariant } from "./components/badge";
+// Chronicle Labs Design System — public API
+//
+// Imports stay compatible with the previous `ui` package exports so
+// existing call sites across apps/frontend and apps/env-manager keep
+// compiling. Old variant names are shimmed at the component level.
 
-export { Button } from "./components/button";
-export type { ButtonProps, ButtonVariant, ButtonSize } from "./components/button";
+export * from "./primitives";
+export * from "./typography";
+export * from "./surfaces";
+export * from "./product";
+export * from "./layout";
+export * from "./providers";
 
-export { CopyButton } from "./components/copy-button";
-
-export { Checkbox } from "./components/checkbox";
-export type { CheckboxProps } from "./components/checkbox";
-
-export { FormField } from "./components/form-field";
-export type { FormFieldProps } from "./components/form-field";
-
-export { Input } from "./components/input";
-export type { InputProps } from "./components/input";
-
-export { Logo } from "./components/logo";
-export type { LogoProps } from "./components/logo";
-
-export { Modal, ConfirmModal } from "./components/modal";
-
-export { Panel, PanelHeader, PanelContent } from "./components/panel";
+// Theme
+export {
+  ThemeProvider,
+  useTheme,
+  ThemeToggle,
+  themeScript,
+  THEME_STORAGE_KEY,
+} from "./theme";
 export type {
-  PanelProps,
-  PanelHeaderProps,
-  PanelContentProps,
-} from "./components/panel";
+  Theme,
+  ThemeProviderProps,
+  ThemeToggleProps,
+} from "./theme";
 
-export { Skeleton } from "./components/skeleton";
-export type { SkeletonProps } from "./components/skeleton";
+// Tokens (TS mirrors)
+export * as tokens from "./tokens";
 
-export { StatusDot } from "./components/status-dot";
-export type { StatusDotProps, StatusDotVariant } from "./components/status-dot";
+// Small utilities some consumers reach for
+export { cx } from "./utils/cx";
+export type { ClassValue } from "./utils/cx";
 
-export { Select } from "./components/select";
-export type { SelectProps } from "./components/select";
-
-export { Textarea } from "./components/textarea";
-export type { TextareaProps } from "./components/textarea";
+// Variant + render-prop compose helpers (for building on RAC primitives)
+export { tv } from "./utils/tv";
+export type { VariantProps } from "./utils/tv";
+export { composeTwRenderProps, composeSlotClassName } from "./utils/compose";
+export { dom } from "./utils/dom";
+export type { DOMRenderProps, DOMRenderFunction } from "./utils/dom";

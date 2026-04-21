@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { Button, FormField, Input, Select } from "ui";
+import { Button, FormField, Input, NativeSelect } from "ui";
 import { fetcher } from "@/shared/fetcher";
 import type { EnvironmentRecord } from "@/shared/types";
 
@@ -124,7 +124,7 @@ function CreateTemplateModal({ envs, onClose, onCreated }: {
             {mode === "FLY_DB" && (
               <div>
                 <FormField label="Fly Postgres App" htmlFor="fly-db-name">
-                  <Select
+                  <NativeSelect
                     id="fly-db-name"
                   required
                   value={flyDbName}
@@ -139,7 +139,7 @@ function CreateTemplateModal({ envs, onClose, onCreated }: {
                         {e.flyDbName} — {e.name} ({e.type.toLowerCase()})
                       </option>
                     ))}
-                  </Select>
+                  </NativeSelect>
                 </FormField>
                 <p className="text-[10px] text-tertiary mt-1">
                   Or enter a custom Fly Postgres app name:
@@ -156,14 +156,14 @@ function CreateTemplateModal({ envs, onClose, onCreated }: {
 
             {mode === "ENVIRONMENT" && (
               <FormField label="Source Environment" htmlFor="source-environment-id">
-                <Select id="source-environment-id" required value={sourceEnvId} onChange={(e) => setSourceEnvId(e.target.value)} className="font-mono text-sm">
+                <NativeSelect id="source-environment-id" required value={sourceEnvId} onChange={(e) => setSourceEnvId(e.target.value)} className="font-mono text-sm">
                   <option value="">Select environment...</option>
                   {envs.filter((e) => e.flyDbName).map((e) => (
                     <option key={e.id} value={e.id}>
                       {e.name} ({e.type.toLowerCase()}) — {e.flyDbName}
                     </option>
                   ))}
-                </Select>
+                </NativeSelect>
               </FormField>
             )}
 

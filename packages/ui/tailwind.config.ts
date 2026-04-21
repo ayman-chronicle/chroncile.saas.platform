@@ -1,120 +1,207 @@
 import type { Config } from "tailwindcss";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Shared Chronicle Labs Tailwind preset.
- * Import in each app's tailwind.config.ts via:
- *   presets: [require("ui/tailwind.config")]
+ * Chronicle Labs shared Tailwind preset.
+ *
+ * Every token is wired to a CSS variable declared in `src/styles/tokens.css`
+ * so utilities pick up the active `data-theme` automatically and a single
+ * source of truth stays in CSS.
+ *
+ * This file plays two roles:
+ *   1. As a Tailwind *preset* for apps — they do
+ *        presets: [require("ui/tailwind.config")]
+ *      and add their own `content` globs.
+ *   2. As a Tailwind *config* for Storybook — it points `content` at this
+ *      package's own sources via an absolute path so Tailwind generates
+ *      every utility the design-system components use.
+ *
+ * App Tailwind configs' `content` is merged with the preset's, so having
+ * absolute paths here is harmless for apps and necessary for Storybook.
  */
-const preset: Partial<Config> = {
+const preset: Config = {
+  content: [
+    path.join(here, "src/**/*.{ts,tsx,mdx}"),
+    path.join(here, ".storybook/**/*.{ts,tsx,mdx}"),
+  ],
+  darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
-        void: "#050607",
-        base: "#0a0c0f",
-        surface: "#0f1215",
-        elevated: "#141719",
-        hover: "#1a1d21",
-        active: "#1f2328",
+        void: "var(--c-void)",
+        black: "var(--c-black)",
+        page: "var(--c-page)",
 
-        "border-dim": "#1a1d21",
-        "border-default": "#252a30",
-        "border-bright": "#353c45",
+        surface: {
+          DEFAULT: "var(--c-surface-01)",
+          "00": "var(--c-surface-00)",
+          "01": "var(--c-surface-01)",
+          "02": "var(--c-surface-02)",
+          "03": "var(--c-surface-03)",
+        },
 
-        primary: "#e8eaed",
-        secondary: "#9aa0a6",
-        tertiary: "#5f6368",
-        disabled: "#3c4043",
+        hairline: {
+          DEFAULT: "var(--c-hairline)",
+          strong: "var(--c-hairline-strong)",
+        },
+        divider: "var(--c-divider)",
 
-        critical: {
-          DEFAULT: "#ff3b3b",
-          dim: "#661717",
-          bg: "#1a0a0a",
+        ink: {
+          DEFAULT: "var(--c-ink)",
+          hi: "var(--c-ink-hi)",
+          lo: "var(--c-ink-lo)",
+          dim: "var(--c-ink-dim)",
+          faint: "var(--c-ink-faint)",
+          inv: {
+            DEFAULT: "var(--c-ink-inv)",
+            hi: "var(--c-ink-inv-hi)",
+            lo: "var(--c-ink-inv-lo)",
+            dim: "var(--c-ink-inv-dim)",
+          },
         },
-        caution: {
-          DEFAULT: "#ffb800",
-          dim: "#664a00",
-          bg: "#1a1400",
+
+        ember: {
+          DEFAULT: "var(--c-ember)",
+          deep: "var(--c-ember-deep)",
         },
-        nominal: {
-          DEFAULT: "#00ff88",
-          dim: "#006633",
-          bg: "#001a0d",
+        sage: {
+          DEFAULT: "var(--c-sage)",
+          deep: "var(--c-sage-deep)",
         },
-        data: {
-          DEFAULT: "#00d4ff",
-          dim: "#005566",
-          bg: "#001419",
+        gold: {
+          DEFAULT: "var(--c-gold)",
+          deep: "var(--c-gold-deep)",
         },
+        bronze: "var(--c-bronze)",
+        bone: "var(--c-bone)",
+
+        event: {
+          teal: "var(--c-event-teal)",
+          amber: "var(--c-event-amber)",
+          green: "var(--c-event-green)",
+          orange: "var(--c-event-orange)",
+          pink: "var(--c-event-pink)",
+          violet: "var(--c-event-violet)",
+          red: "var(--c-event-red)",
+          white: "var(--c-event-white)",
+        },
+
+        row: {
+          hover: "var(--c-row-hover)",
+          active: "var(--c-row-active)",
+        },
+
+        // Legacy aliases — kept so older variant names in consumer code
+        // don't 500 during the migration. Map to the closest new token.
+        critical: "var(--c-event-red)",
+        caution: "var(--c-event-amber)",
+        nominal: "var(--c-event-green)",
+        data: "var(--c-event-teal)",
+        primary: "var(--c-ink-hi)",
+        secondary: "var(--c-ink-lo)",
+        tertiary: "var(--c-ink-dim)",
+        disabled: "var(--c-ink-faint)",
+        elevated: "var(--c-surface-02)",
+        hover: "var(--c-surface-03)",
+        active: "var(--c-surface-03)",
+        base: "var(--c-surface-00)",
+        "border-dim": "var(--c-hairline)",
+        "border-default": "var(--c-hairline-strong)",
+        "border-bright": "var(--c-ink-dim)",
       },
 
       fontFamily: {
-        mono: ["IBM Plex Mono", "Consolas", "Monaco", "monospace"],
-        sans: [
-          "Helvetica Neue LT Pro",
-          "Helvetica Neue",
-          "Helvetica",
-          "-apple-system",
-          "system-ui",
-          "sans-serif",
-        ],
+        display: ["var(--font-display)"],
+        sans: ["var(--font-sans)"],
+        mono: ["var(--font-mono)"],
       },
 
       fontSize: {
-        "2xs": ["10px", { lineHeight: "14px", letterSpacing: "0.08em" }],
-        xs: ["11px", { lineHeight: "16px" }],
-        sm: ["12px", { lineHeight: "18px" }],
-        base: ["14px", { lineHeight: "22px" }],
-        lg: ["16px", { lineHeight: "24px" }],
-        xl: ["20px", { lineHeight: "28px" }],
-        "2xl": ["24px", { lineHeight: "32px" }],
-        "3xl": ["28px", { lineHeight: "36px" }],
-        metric: ["32px", { lineHeight: "1", letterSpacing: "-0.02em" }],
+        "display-xxl": ["var(--fs-display-xxl)", { lineHeight: "0.94" }],
+        "display-xl": ["var(--fs-display-xl)", { lineHeight: "0.96" }],
+        "display-lg": ["var(--fs-display-lg)", { lineHeight: "1" }],
+        "display-md": ["var(--fs-display-md)", { lineHeight: "1" }],
+        "display-sm": ["var(--fs-display-sm)", { lineHeight: "1.05" }],
+        "title-lg": ["var(--fs-title-lg)", { lineHeight: "1.15" }],
+        title: ["var(--fs-title)", { lineHeight: "1.2" }],
+        "title-sm": ["var(--fs-title-sm)", { lineHeight: "1.3" }],
+        "body-lg": ["var(--fs-body-lg)", { lineHeight: "1.5" }],
+        body: ["var(--fs-body)", { lineHeight: "1.5" }],
+        "body-sm": ["var(--fs-body-sm)", { lineHeight: "1.5" }],
+        micro: ["var(--fs-micro)", { lineHeight: "1.4" }],
+        "mono-lg": ["var(--fs-mono-lg)", { lineHeight: "1.5" }],
+        mono: ["var(--fs-mono)", { lineHeight: "1.5" }],
+        "mono-sm": ["var(--fs-mono-sm)", { lineHeight: "1.5" }],
+        "mono-xs": ["var(--fs-mono-xs)", { lineHeight: "1.5" }],
       },
 
       letterSpacing: {
-        tighter: "-0.02em",
-        tight: "-0.01em",
+        tight: "-0.02em",
+        display: "-0.025em",
         normal: "0",
-        wide: "0.02em",
-        wider: "0.05em",
-        widest: "0.1em",
+        mono: "0.02em",
         tactical: "0.08em",
+        eyebrow: "0.1em",
       },
 
       spacing: {
-        sidebar: "240px",
-        header: "48px",
+        "s-1": "var(--s-1)",
+        "s-2": "var(--s-2)",
+        "s-3": "var(--s-3)",
+        "s-4": "var(--s-4)",
+        "s-5": "var(--s-5)",
+        "s-6": "var(--s-6)",
+        "s-8": "var(--s-8)",
+        "s-10": "var(--s-10)",
+        "s-12": "var(--s-12)",
+        "s-16": "var(--s-16)",
+        "s-20": "var(--s-20)",
       },
 
       borderRadius: {
         none: "0",
-        sm: "2px",
-        DEFAULT: "4px",
-        md: "4px",
-        lg: "6px",
+        xs: "var(--r-xs)",
+        sm: "var(--r-sm)",
+        md: "var(--r-md)",
+        lg: "var(--r-lg)",
+        xl: "var(--r-xl)",
+        pill: "var(--r-pill)",
       },
 
       boxShadow: {
-        "glow-critical": "0 0 8px #ff3b3b",
-        "glow-caution": "0 0 8px #ffb800",
-        "glow-nominal": "0 0 8px #00ff88",
-        "glow-data": "0 0 8px #00d4ff",
+        card: "var(--shadow-card)",
+        panel: "var(--shadow-panel)",
+        "glow-ember": "var(--shadow-glow-ember)",
+      },
+
+      backgroundImage: {
+        lightsource: "var(--grad-lightsource)",
+        "lightsource-90": "var(--grad-lightsource-90)",
+        "lightsource-45": "var(--grad-lightsource-45)",
+      },
+
+      transitionTimingFunction: {
+        out: "var(--ease-out)",
+        "in-out": "var(--ease-in-out)",
       },
 
       transitionDuration: {
-        instant: "50ms",
-        fast: "100ms",
-        base: "150ms",
+        fast: "var(--dur-fast)",
+        DEFAULT: "var(--dur)",
+        slow: "var(--dur-slow)",
       },
 
       animation: {
-        "pulse-slow": "pulse 2s ease-in-out infinite",
+        "chron-pulse": "chron-pulse 1.6s ease-in-out infinite",
       },
 
       keyframes: {
-        pulse: {
+        "chron-pulse": {
           "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
+          "50%": { opacity: "0.4" },
         },
       },
     },

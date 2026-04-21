@@ -1,0 +1,105 @@
+"use client";
+
+import * as React from "react";
+import {
+  Button as RACButton,
+  type ButtonProps as RACButtonProps,
+} from "react-aria-components/Button";
+
+import { tv } from "../utils/tv";
+import { composeTwRenderProps } from "../utils/compose";
+
+const copyButton = tv({
+  base:
+    "inline-flex h-[30px] w-[30px] items-center justify-center rounded-xs border " +
+    "transition-colors duration-fast ease-out outline-none " +
+    "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
+    "data-[focus-visible=true]:outline-ember",
+  variants: {
+    copied: {
+      true: "border-event-green/40 bg-[rgba(74,222,128,0.08)] text-event-green",
+      false:
+        "border-hairline-strong bg-surface-02 text-ink-dim " +
+        "data-[hovered=true]:border-ink-dim data-[hovered=true]:text-ink-hi",
+    },
+  },
+  defaultVariants: { copied: false },
+});
+
+export interface CopyButtonProps
+  extends Omit<RACButtonProps, "className" | "children" | "onPress"> {
+  text: string;
+  /** Milliseconds the "copied" confirmation stays visible. */
+  confirmFor?: number;
+  className?: string;
+}
+
+export function CopyButton({
+  text,
+  confirmFor = 2000,
+  className,
+  ...props
+}: CopyButtonProps) {
+  const [copied, setCopied] = React.useState(false);
+  const timeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const handleCopy = React.useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = window.setTimeout(
+        () => setCopied(false),
+        confirmFor,
+      );
+    } catch {
+      // Clipboard API unavailable — silently noop. Caller can rely on the
+      // button never flipping to "copied" to surface an error path.
+    }
+  }, [text, confirmFor]);
+
+  return (
+    <RACButton
+      {...props}
+      onPress={handleCopy}
+      aria-label={copied ? "Copied" : "Copy to clipboard"}
+      className={composeTwRenderProps(className, copyButton({ copied }))}
+    >
+      {copied ? (
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+          <path
+            d="M4.5 12.75l6 6 9-13.5"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+          <rect
+            x="8"
+            y="8"
+            width="12"
+            height="12"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          />
+          <path
+            d="M4 16V6a2 2 0 0 1 2-2h10"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+    </RACButton>
+  );
+}

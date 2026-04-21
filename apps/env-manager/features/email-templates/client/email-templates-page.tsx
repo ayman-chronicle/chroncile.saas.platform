@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
-import { Button, FormField, Input, Select, Textarea } from "ui";
+import { Button, FormField, Input, NativeSelect, Textarea } from "ui";
 import { fetcher } from "@/shared/fetcher";
 import {
   assignTemplateSchema,
@@ -364,7 +364,7 @@ function RegisterKeyModal({
               htmlFor="template-category"
               error={form.formState.errors.category?.message}
             >
-              <Select
+              <NativeSelect
                 id="template-category"
                 className="text-sm"
                 invalid={!!form.formState.errors.category}
@@ -373,7 +373,7 @@ function RegisterKeyModal({
                 <option value="transactional">Transactional</option>
                 <option value="auth">Auth</option>
                 <option value="notification">Notification</option>
-              </Select>
+              </NativeSelect>
             </FormField>
             <FormField
               label="Variables (JSON)"
@@ -467,7 +467,7 @@ function AssignModal({
               htmlFor="assign-template-key"
               error={form.formState.errors.templateKeyId?.message}
             >
-              <Select
+              <NativeSelect
                 id="assign-template-key"
                 className="text-sm"
                 invalid={!!form.formState.errors.templateKeyId}
@@ -477,10 +477,10 @@ function AssignModal({
                 {templateKeys.map((tk) => (
                   <option key={tk.id} value={tk.id}>{tk.name} ({tk.key})</option>
                 ))}
-              </Select>
+              </NativeSelect>
             </FormField>
             <FormField label="Environment" htmlFor="assign-environment">
-              <Select
+              <NativeSelect
                 id="assign-environment"
                 className="text-sm"
                 {...form.register("environmentId")}
@@ -489,7 +489,7 @@ function AssignModal({
                 {environments.map((env) => (
                   <option key={env.id} value={env.id}>{env.name}</option>
                 ))}
-              </Select>
+              </NativeSelect>
             </FormField>
             <FormField
               label="Resend Template ID"

@@ -1,0 +1,354 @@
+/* ─────────────────────────────────────────────────────────────
+   Chronicle Labs — Design Tokens
+   Font faces live in ./fonts.css so this file is pure vars + helpers.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Type families ───────────────────────────────────────── */
+  --font-display: "Kalice", "Times New Roman", ui-serif, serif;
+  --font-sans: "TWK Lausanne", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* ── Core surface / neutrals ─────────────────────────────── */
+  --c-void: #000000;                /* absolute black, logos on white */
+  --c-black: #040404;               /* brand canvas (slides, marketing) */
+  --c-surface-00: #0a0806;          /* app background */
+  --c-surface-01: #0f0f0f;          /* default card */
+  --c-surface-02: #131313;          /* elevated card */
+  --c-surface-03: #1a1a1a;          /* input / hover */
+  --c-hairline: rgba(255,255,255,0.06);
+  --c-hairline-strong: rgba(255,255,255,0.12);
+  --c-divider: rgba(255,255,255,0.05);
+
+  /* ── Ink (text on dark) ──────────────────────────────────── */
+  --c-ink-hi: #ffffff;              /* titles */
+  --c-ink: #eaeaea;                 /* body */
+  --c-ink-lo: #bfbfbf;              /* secondary */
+  --c-ink-dim: #6b6b6b;             /* labels */
+  --c-ink-faint: rgba(255,255,255,0.35);
+
+  /* ── Ink (text on light) ─────────────────────────────────── */
+  --c-ink-inv-hi: #040404;
+  --c-ink-inv: #121212;
+  --c-ink-inv-lo: #2b2720;          /* warm charcoal */
+  --c-ink-inv-dim: #6b6b6b;
+
+  /* ── Primary palette (the ember → sage → ember arc) ──────── */
+  --c-ember: #d8430a;               /* signature orange */
+  --c-ember-deep: #b83606;
+  --c-bronze: #905838;               /* "Dark Blue" in figma */
+  --c-gold: #b09b74;                 /* Primary Gold (light) */
+  --c-gold-deep: #786e68;            /* Primary Gold (dark) */
+  --c-sage: #709188;                 /* Primary Blue / teal-sage */
+  --c-sage-deep: #3e547c;            /* deeper teal from figma */
+  --c-bone: #eee4ce;                 /* cream accent */
+
+  /* ── Event / stream colors (used in product UI) ──────────── */
+  --c-event-teal: #2dd4bf;           /* intercom / support */
+  --c-event-amber: #fbbf24;          /* shopify / commerce */
+  --c-event-green: #4ade80;          /* stripe / billing, ok */
+  --c-event-orange: #d86b3d;         /* ops / alerts */
+  --c-event-pink: #f472b6;           /* slack / notify */
+  --c-event-violet: #8b5cf6;         /* replay / sandbox */
+  --c-event-red: #ef4444;            /* fail / divergence */
+  --c-event-white: #ffffff;          /* raw / system */
+
+  /* ── Signature gradient stops (light-source bar) ─────────── */
+  --grad-lightsource: linear-gradient(
+    90deg,
+    #d8430a 0%,
+    #905838 16%,
+    #709188 49%,
+    #b09b74 80%,
+    #786e68 100%
+  );
+  --grad-lightsource-90: linear-gradient(
+    180deg,
+    #d8430a 0%,
+    #905838 16%,
+    #709188 49%,
+    #b09b74 80%,
+    #786e68 100%
+  );
+  --grad-lightsource-45: linear-gradient(
+    135deg,
+    #d8430a 0%,
+    #905838 16%,
+    #709188 49%,
+    #b09b74 80%,
+    #786e68 100%
+  );
+
+  /* ── Type scale (sized for 1440px marketing / 1920 decks) ─ */
+  --fs-display-xxl: 120px;
+  --fs-display-xl: 96px;
+  --fs-display-lg: 72px;
+  --fs-display-md: 56px;
+  --fs-display-sm: 40px;
+  --fs-title-lg: 32px;
+  --fs-title: 24px;
+  --fs-title-sm: 20px;
+  --fs-body-lg: 18px;
+  --fs-body: 16px;
+  --fs-body-sm: 14px;
+  --fs-micro: 12px;
+  --fs-mono-lg: 13px;
+  --fs-mono: 11px;
+  --fs-mono-sm: 10px;
+  --fs-mono-xs: 9px;
+
+  /* ── Spacing ─────────────────────────────────────────────── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+
+  /* ── Radius ──────────────────────────────────────────────── */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 10px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* ── Motion ──────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(.22,.61,.36,1);
+  --ease-in-out: cubic-bezier(.65,.05,.36,1);
+  --dur-fast: 120ms;
+  --dur: 220ms;
+  --dur-slow: 480ms;
+
+  /* ── Shadow ──────────────────────────────────────────────── */
+  --shadow-card: 0 1px 0 rgba(255,255,255,0.02) inset, 0 24px 60px -20px rgba(0,0,0,0.8);
+  --shadow-panel: 0 40px 80px -30px rgba(0,0,0,0.9), 0 0 0 1px var(--c-hairline);
+  --shadow-glow-ember: 0 0 80px -20px rgba(216,67,10,0.55);
+
+  /* ── Semantic surface aliases (theme-aware) ──────────────
+     Prefer these in page-level CSS so light/dark flips cleanly.
+     They default to the dark values above; the light theme
+     remaps them below. */
+  --c-page:          var(--c-black);          /* root page canvas */
+  --c-specimen-bg:   #0a0a0a;                 /* type/color specimen plates */
+  --c-row-hover:     rgba(255,255,255,0.02);  /* subtle row hover */
+  --c-row-active:    rgba(216,67,10,0.06);    /* ember-tinted selection */
+  --c-track:         rgba(255,255,255,0.06);  /* progress track / empty bar */
+  --c-btn-invert-bg: #ffffff;                 /* "primary on dark" button bg */
+  --c-btn-invert-fg: #040404;                 /* its text */
+}
+
+/* ─────────────────────────────────────────────────────────────
+   LIGHT THEME
+   Apply via <html data-theme="light"> or <body data-theme="light">.
+   Keeps the ember/sage/gold arc intact — only neutrals + inks flip.
+   Base palette is a warm bone/cream built off --c-bone.
+   ───────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  /* Core surfaces — warm paper, not cold white */
+  --c-void:        #ffffff;
+  --c-black:       #f5ecd7;   /* brand canvas (slides, marketing) */
+  --c-surface-00:  #f1e7cf;   /* app background — warm bone */
+  --c-surface-01:  #faf2dd;   /* default card — lighter bone */
+  --c-surface-02:  #fff7e2;   /* elevated card */
+  --c-surface-03:  #ece1c4;   /* input / hover */
+
+  --c-hairline:         rgba(40,28,12,0.10);
+  --c-hairline-strong:  rgba(40,28,12,0.22);
+  --c-divider:          rgba(40,28,12,0.08);
+
+  /* Ink (text on light) — warm charcoal stack */
+  --c-ink-hi:    #1a140a;
+  --c-ink:       #2b2720;
+  --c-ink-lo:    #5a5348;
+  --c-ink-dim:   #8a8374;
+  --c-ink-faint: rgba(26,20,10,0.40);
+
+  /* Inverse ink (text on dark) — unchanged whites for ember accents etc. */
+  --c-ink-inv-hi:  #ffffff;
+  --c-ink-inv:     #eaeaea;
+  --c-ink-inv-lo:  #bfbfbf;
+  --c-ink-inv-dim: #6b6b6b;
+
+  /* Semantic aliases */
+  --c-page:          var(--c-black);
+  --c-specimen-bg:   #faf2dd;
+  --c-row-hover:     rgba(40,28,12,0.04);
+  --c-row-active:    rgba(216,67,10,0.08);
+  --c-track:         rgba(40,28,12,0.08);
+  --c-btn-invert-bg: #1a140a;
+  --c-btn-invert-fg: #faf2dd;
+
+  /* Shadow — softer, warmer */
+  --shadow-card:  0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 50px -24px rgba(70,50,20,0.25);
+  --shadow-panel: 0 40px 80px -30px rgba(70,50,20,0.28), 0 0 0 1px var(--c-hairline);
+}
+
+/* Slat overlay reads darker on light surfaces */
+[data-theme="light"] .bg-slats {
+  background-image: repeating-linear-gradient(
+    120deg,
+    rgba(40,28,12,0.10) 0px,
+    rgba(40,28,12,0.10) 1px,
+    rgba(255,255,255,0.20) 1px,
+    rgba(255,255,255,0.20) 140px,
+    rgba(40,28,12,0.05) 140px,
+    rgba(40,28,12,0.05) 280px
+  );
+  mix-blend-mode: multiply;
+}
+
+/* Live status glow softer on light */
+[data-theme="light"] .status-live::before { box-shadow: 0 0 10px rgba(74,222,128,.6); }
+
+/* ── Light-theme per-page overrides ─────────────────────────
+   These selectors patch a handful of hardcoded whites that live in
+   page-level <style> blocks. Cheaper than rewriting every page. */
+
+/* 07 Replay Suite + 05 UI components + index thumb — white-alpha tracks */
+[data-theme="light"] table.runs tr:hover { background: rgba(40,28,12,0.04) !important; }
+[data-theme="light"] .sim-bar,
+[data-theme="light"] .thumb-replay .bar { background: rgba(40,28,12,0.10) !important; }
+[data-theme="light"] .verdict.pending { background: rgba(40,28,12,0.05) !important; }
+
+/* index + 05: masthead tag chips */
+[data-theme="light"] .tag-row .tag { background: rgba(40,28,12,0.03); }
+
+/* 05: stripe overlay (was repeating white gradient on dark) */
+[data-theme="light"] .mark::after { border-color: rgba(40,28,12,0.10); }
+
+/* Colors page swatches — text stays white (contrast against colored swatch) */
+[data-theme="light"] .sw.light .meta { color: rgba(0,0,0,.55); }
+
+/* 06 event stream dots/chrome */
+[data-theme="light"] .minimap .range { background: rgba(139,92,246,.14); }
+
+/* Replay/thumb placeholder trailing slots — faint track that still reads on cream */
+[data-theme="light"] .thumb-replay > div > b[style*="rgba(255,255,255"],
+[data-theme="light"] .thumb-ui .evt { background: var(--c-surface-02); }
+
+/* Any inline "empty slot" bar using rgba(255,255,255,.06) — flip via attr selector */
+[data-theme="light"] b[style*="rgba(255,255,255,.06)"] {
+  background: rgba(40,28,12,0.08) !important;
+}
+
+/* ─── Base helpers ─────────────────────────────────────────── */
+
+.font-display { font-family: var(--font-display); }
+.font-sans    { font-family: var(--font-sans); }
+.font-mono    { font-family: var(--font-mono); }
+
+/* Uppercase tiny mono label — used throughout product + decks */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-ink-dim);
+  line-height: 1;
+}
+
+/* Kalice display, tight tracking, near-1 line height */
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--c-ink-hi);
+}
+
+/* TWK Lausanne body — light, generous line height */
+.body {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  font-size: var(--fs-body);
+  line-height: 1.45;
+  color: var(--c-ink);
+}
+
+/* ─── Base reset for cards ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--c-page);
+  color: var(--c-ink);
+  transition: background-color 220ms var(--ease-out), color 220ms var(--ease-out);
+  font-family: var(--font-sans);
+  font-weight: 300;
+  font-feature-settings: "ss01", "ss02", "cv01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* The signature "light source + glass" background. Drop
+   <div class="bg-lightsource"></div> inside a relative parent. */
+.bg-lightsource {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--c-black);
+}
+.bg-lightsource::before,
+.bg-lightsource::after {
+  content: "";
+  position: absolute;
+  width: 160%;
+  aspect-ratio: 1 / 2.17;
+  border-radius: 657px;
+  background: var(--grad-lightsource);
+  opacity: 0.8;
+  filter: blur(0.5px);
+}
+.bg-lightsource::before {
+  top: -20%; left: -55%;
+  transform: rotate(-28deg);
+}
+.bg-lightsource::after {
+  bottom: -30%; right: -55%;
+  transform: rotate(-28deg);
+}
+/* Glass slats sit above the bars. Use .bg-lightsource-slats
+   on the same element for the slat overlay (SVG filter). */
+.bg-slats {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    120deg,
+    rgba(0,0,0,0.55) 0px,
+    rgba(0,0,0,0.55) 1px,
+    rgba(255,255,255,0.015) 1px,
+    rgba(255,255,255,0.015) 140px,
+    rgba(0,0,0,0.25) 140px,
+    rgba(0,0,0,0.25) 280px
+  );
+  mix-blend-mode: multiply;
+  backdrop-filter: blur(18px);
+}
+
+/* ─── Shared page header ───────────────────────────────────
+   Just the wordmark, top-left. Nothing else.
+   ─────────────────────────────────────────────────────────── */
+.chron-header {
+  padding: 64px 72px;
+}
+.chron-header__logo {
+  display: inline-block;
+  height: 8px;
+  opacity: 0.7;
+  transition: opacity 200ms ease;
+}
+.chron-header__logo:hover { opacity: 1; }
+.chron-header__logo img {
+  height: 100%;
+  width: auto;
+  display: block;
+}
