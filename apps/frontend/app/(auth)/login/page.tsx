@@ -1,65 +1,17 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Suspense, useState } from "react";
-import { useForm } from "react-hook-form";
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { FormField, Input } from "ui";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+
 import { AydeaIcon } from "@/components/icons/AydeaIcon";
-import { loginSchema, type LoginInput } from "@/lib/validations";
-import { useTrack } from "@/shared/analytics";
 
-function LoginForm() {
-  const router = useRouter();
+function LoginContent() {
   const searchParams = useSearchParams();
-  const track = useTrack();
-  const [authState, setAuthState] = useState<
-    "idle" | "credentials" | "google" | "redirecting"
-  >("idle");
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
-  const registered = searchParams.get("registered");
-  const reset = searchParams.get("reset");
-
-  const form = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const isAuthPending = form.formState.isSubmitting || authState !== "idle";
-
-  const handleSubmit = form.handleSubmit(async (values) => {
-    form.clearErrors("root");
-    setAuthState("credentials");
-
-    try {
-      track("auth_login_attempted", { method: "credentials" });
-
-      const result = await signIn("credentials", {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-        callbackUrl,
-      });
-
-      if (result?.error) {
-        setAuthState("idle");
-        form.setError("root", { message: "Invalid credentials" });
-        return;
-      }
-
-      setAuthState("redirecting");
-      router.push(callbackUrl);
-      router.refresh();
-    } catch {
-      setAuthState("idle");
-      form.setError("root", { message: "Connection error" });
-    }
-  });
+  const from = searchParams.get("from");
+  const oauthUrl = from
+    ? `/api/auth/oauth/google?from=${encodeURIComponent(from)}`
+    : "/api/auth/oauth/google";
 
   return (
     <div className="space-y-8">
@@ -77,23 +29,11 @@ function LoginForm() {
         <p className="text-sm text-[hsl(0,0%,45%)]">Welcome back</p>
       </div>
 
-      <button
-        type="button"
-        disabled={isAuthPending}
-        onClick={() => {
-          if (isAuthPending) return;
-
-          setAuthState("google");
-          form.clearErrors("root");
-          track("auth_login_attempted", { method: "google" });
-          void signIn("google", { callbackUrl: "/dashboard" }).catch(() => {
-            setAuthState("idle");
-            form.setError("root", { message: "Connection error" });
-          });
-        }}
-        className="w-full flex items-center justify-center gap-3 bg-white border border-[hsl(0,0%,90%)] text-[hsl(0,0%,8%)] py-3.5 text-sm font-medium rounded-[0.75rem] hover:bg-[hsl(0,0%,97%)] focus:outline-none focus:ring-2 focus:ring-[hsl(0,0%,8%)] focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      <a
+        href={oauthUrl}
+        className="w-full flex items-center justify-center gap-3 bg-white border border-[hsl(0,0%,90%)] text-[hsl(0,0%,8%)] py-3.5 text-sm font-medium rounded-[0.75rem] hover:bg-[hsl(0,0%,97%)] focus:outline-none focus:ring-2 focus:ring-[hsl(0,0%,8%)] focus:ring-offset-2 transition-colors"
       >
-        <svg className="h-5 w-5" viewBox="0 0 24 24">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden>
           <path
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
             fill="#4285F4"
@@ -111,90 +51,8 @@ function LoginForm() {
             fill="#EA4335"
           />
         </svg>
-        {authState === "google" ? "..." : "Continue with Google"}
-      </button>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-[hsl(0,0%,90%)]" />
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="bg-white px-4 text-[hsl(0,0%,45%)]">or</span>
-        </div>
-      </div>
-
-      {registered && (
-        <p className="text-sm text-[#00ff88]">Account created successfully</p>
-      )}
-      {reset && (
-        <p className="text-sm text-[#00ff88]">Password reset successfully</p>
-      )}
-      {form.formState.errors.root?.message && (
-        <p className="text-sm text-[#ff3b3b]">
-          {form.formState.errors.root.message}
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          <FormField
-            tone="auth"
-            label="Email"
-            htmlFor="email"
-            error={form.formState.errors.email?.message}
-          >
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              density="brand"
-              variant="auth"
-              disabled={isAuthPending}
-              invalid={!!form.formState.errors.email}
-              {...form.register("email")}
-            />
-          </FormField>
-
-          <FormField
-            tone="auth"
-            label="Password"
-            htmlFor="password"
-            error={form.formState.errors.password?.message}
-          >
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              density="brand"
-              variant="auth"
-              disabled={isAuthPending}
-              invalid={!!form.formState.errors.password}
-              {...form.register("password")}
-            />
-          </FormField>
-
-          <div className="flex justify-end">
-            <Link
-              href="/forgot-password"
-              className="text-sm text-[hsl(0,0%,45%)] underline underline-offset-2 hover:text-[hsl(0,0%,8%)] transition-colors"
-            >
-              Forgot password?
-            </Link>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isAuthPending}
-          className="w-full bg-[hsl(0,0%,8%)] text-white py-3.5 text-sm font-medium rounded-[0.75rem] hover:bg-[hsl(0,0%,12%)] focus:outline-none focus:ring-2 focus:ring-[hsl(0,0%,8%)] focus:ring-offset-2 transition-colors disabled:opacity-50 mt-2"
-        >
-          {authState === "credentials" || authState === "redirecting"
-            ? "..."
-            : "Continue"}
-        </button>
-      </form>
+        Continue with Google
+      </a>
 
       <p className="text-sm text-[hsl(0,0%,45%)] mt-6 text-center">
         No account?{" "}
@@ -214,7 +72,7 @@ export default function LoginPage() {
     <Suspense
       fallback={<div className="text-sm text-[hsl(0,0%,45%)]">Loading...</div>}
     >
-      <LoginForm />
+      <LoginContent />
     </Suspense>
   );
 }

@@ -260,7 +260,7 @@ fn build_saas_state_postgres(
     use chronicle_infra::postgres::{repositories::*, PgFeatureFlagRepo};
 
     SaasAppState::new(
-        &launch_config.security.auth_secret,
+        &launch_config.security.workos_client_id,
         Arc::new(PgTenantRepo::new(pool.clone())),
         Arc::new(PgUserRepo::new(pool.clone())),
         Arc::new(PgRunRepo::new(pool.clone())),
@@ -270,7 +270,6 @@ fn build_saas_state_postgres(
         Arc::new(PgIntegrationSyncRepo::new(pool.clone())),
         Arc::new(PgFeatureFlagRepo::new(pool.clone())),
         Arc::new(PgInvitationRepo::new(pool.clone())),
-        Arc::new(PgPasswordResetRepo::new(pool)),
         build_nango_client(launch_config),
         build_email_service(launch_config),
         build_sandbox_ai_service(launch_config),
@@ -289,7 +288,7 @@ fn build_saas_state_memory(
     use chronicle_infra::memory::{repositories::*, InMemoryFeatureFlagRepo};
 
     SaasAppState::new(
-        &launch_config.security.auth_secret,
+        &launch_config.security.workos_client_id,
         Arc::new(InMemoryTenantRepo::default()),
         Arc::new(InMemoryUserRepo::default()),
         Arc::new(InMemoryRunRepo::default()),
@@ -299,7 +298,6 @@ fn build_saas_state_memory(
         Arc::new(InMemoryIntegrationSyncRepo::default()),
         Arc::new(InMemoryFeatureFlagRepo::default()),
         Arc::new(InMemoryInvitationRepo::default()),
-        Arc::new(InMemoryPasswordResetRepo::default()),
         build_nango_client(launch_config),
         build_email_service(launch_config),
         build_sandbox_ai_service(launch_config),

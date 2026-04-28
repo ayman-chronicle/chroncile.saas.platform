@@ -3,9 +3,9 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { getBackendUrl } from "platform-api";
 import { Skeleton } from "ui";
+import { useAuthSession } from "@/shared/auth/auth-session-provider";
 import { useApiSwr } from "@/shared/hooks/use-api-swr";
 import { usePlatformApi } from "@/shared/hooks/use-platform-api";
 import type { ListRunsResponse, Run } from "shared/generated";
@@ -67,7 +67,7 @@ export function RunsClient() {
   const searchParams = useSearchParams();
   const workflowFromUrl = searchParams.get("workflowId") ?? "";
   const api = usePlatformApi();
-  const { data: session } = useSession();
+  const { authorizedFetch } = useAuthSession();
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [workflowFilter, setWorkflowFilter] = useState<string>(
@@ -123,14 +123,12 @@ export function RunsClient() {
       limit,
       effectiveWorkflowId
     );
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (session?.backendToken) {
-      headers["Authorization"] = `Bearer ${session.backendToken}`;
-    }
 
-    const res = await fetch(`${BACKEND_URL}${url}`, { headers });
+    // authorizedFetch attaches Authorization automatically and retries once
+    // on 401 (after refreshing the session via /api/auth/refresh).
+    const res = await authorizedFetch(`${BACKEND_URL}${url}`, {
+      headers: { "Content-Type": "application/json" },
+    });
     if (!res.ok) return;
     const next = (await res.json()) as ListRunsResponse;
     setAdditionalRuns((prev) => [...prev, ...next.runs]);
@@ -142,7 +140,7 @@ export function RunsClient() {
     totalRuns,
     statusFilter,
     effectiveWorkflowId,
-    session?.backendToken,
+    authorizedFetch,
   ]);
 
   const [creating, setCreating] = useState(false);

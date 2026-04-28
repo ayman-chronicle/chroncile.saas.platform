@@ -1588,7 +1588,7 @@ mod tests {
         config.nango.webhook_secret = webhook_secret.map(ToString::to_string);
 
         let state = SaasAppState::new(
-            "test-secret-change-me",
+            "client_test_workos",
             tenants,
             users,
             runs.clone(),

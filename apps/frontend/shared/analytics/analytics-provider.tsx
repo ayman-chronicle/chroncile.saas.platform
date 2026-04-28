@@ -1,7 +1,5 @@
 "use client";
 
-import type { Session } from "next-auth";
-import { useSession } from "next-auth/react";
 import {
   createContext,
   useCallback,
@@ -10,34 +8,36 @@ import {
   useMemo,
   useRef,
 } from "react";
+
+import { useAuthSession, type AuthSession } from "@/shared/auth/auth-session-provider";
 import { getAnalyticsClient, noopAnalyticsClient } from "./client";
 import type { AnalyticsClient, AnalyticsProperties } from "./types";
 
 const AnalyticsContext = createContext<AnalyticsClient>(noopAnalyticsClient);
 
-function getIdentity(user?: Session["user"]) {
-  if (!user) {
-    return null;
-  }
+function getIdentity(session: AuthSession | null) {
+  if (!session) return null;
+
+  const fullName = [session.user.firstName, session.user.lastName]
+    .filter((part): part is string => Boolean(part && part.length > 0))
+    .join(" ");
 
   return {
-    id: user.id,
-    email: user.email ?? undefined,
-    name: user.name ?? undefined,
-    role: user.role,
-    tenantId: user.tenantId,
-    tenantName: user.tenantName,
-    tenantSlug: user.tenantSlug,
+    id: session.user.id,
+    email: session.user.email,
+    name: fullName || undefined,
+    role: session.role ?? undefined,
+    tenantId: session.organizationId ?? undefined,
   };
 }
 
 export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   const analytics = useMemo(() => getAnalyticsClient(), []);
-  const { data: session } = useSession();
+  const { session } = useAuthSession();
   const lastIdentityRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const identity = getIdentity(session?.user);
+    const identity = getIdentity(session);
     const identityKey = identity ? JSON.stringify(identity) : null;
 
     if (!identity) {
@@ -54,7 +54,7 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
 
     analytics.identify(identity.id, identity);
     lastIdentityRef.current = identityKey;
-  }, [analytics, session?.user]);
+  }, [analytics, session]);
 
   return (
     <AnalyticsContext.Provider value={analytics}>
@@ -74,6 +74,6 @@ export function useTrack() {
     (event: string, properties?: AnalyticsProperties) => {
       analytics.track(event, properties);
     },
-    [analytics]
+    [analytics],
   );
 }

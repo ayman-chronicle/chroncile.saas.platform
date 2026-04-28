@@ -1,9 +1,9 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAnalytics } from "@/shared/analytics";
+import { useAuthSession } from "@/shared/auth/auth-session-provider";
 import { getSentryDebugInfo } from "@/shared/observability/sentry-client";
 
 const REQUIRED_CLICKS = 5;
@@ -66,7 +66,7 @@ function InfoRow({
 export function DeveloperWidget() {
   const analytics = useAnalytics();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { session } = useAuthSession();
   const [clickCount, setClickCount] = useState(0);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isLocalHost, setIsLocalHost] = useState(false);
@@ -129,7 +129,8 @@ export function DeveloperWidget() {
             { label: "Route", value: pathname },
             { label: "Host name", value: host },
             { label: "User ID", value: session?.user?.id },
-            { label: "Tenant ID", value: session?.user?.tenantId },
+            { label: "Organization ID", value: session?.organizationId },
+            { label: "Role", value: session?.role },
             { label: "Environment", value: process.env.NODE_ENV },
             { label: "Sentry environment", value: sentryDebugInfo.environment },
           ],
@@ -149,7 +150,8 @@ export function DeveloperWidget() {
       pathname,
       sentryDebugInfo,
       session?.user?.id,
-      session?.user?.tenantId,
+      session?.organizationId,
+      session?.role,
     ]
   );
   const activeTabContent = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];

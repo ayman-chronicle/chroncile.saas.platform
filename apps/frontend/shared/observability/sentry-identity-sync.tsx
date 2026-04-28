@@ -1,32 +1,32 @@
 "use client";
 
-import type { Session } from "next-auth";
-import { useSession } from "next-auth/react";
 import { useEffect } from "react";
+
+import { useAuthSession, type AuthSession } from "@/shared/auth/auth-session-provider";
 import { syncSentryIdentity } from "./sentry-client";
 
-function buildSentryIdentity(user?: Session["user"]) {
-  if (!user) {
-    return null;
-  }
+function buildSentryIdentity(session: AuthSession | null) {
+  if (!session) return null;
+
+  const fullName = [session.user.firstName, session.user.lastName]
+    .filter((part): part is string => Boolean(part && part.length > 0))
+    .join(" ");
 
   return {
-    email: user.email ?? undefined,
-    id: user.id,
-    name: user.name ?? undefined,
-    role: user.role,
-    tenantId: user.tenantId,
-    tenantName: user.tenantName,
-    tenantSlug: user.tenantSlug,
+    id: session.user.id,
+    email: session.user.email || undefined,
+    name: fullName || undefined,
+    role: session.role ?? undefined,
+    tenantId: session.organizationId ?? undefined,
   };
 }
 
 export function SentryIdentitySync() {
-  const { data: session } = useSession();
+  const { session } = useAuthSession();
 
   useEffect(() => {
-    syncSentryIdentity(buildSentryIdentity(session?.user));
-  }, [session?.user]);
+    syncSentryIdentity(buildSentryIdentity(session));
+  }, [session]);
 
   return null;
 }

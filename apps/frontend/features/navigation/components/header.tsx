@@ -1,6 +1,5 @@
 "use client";
 
-import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "ui";
@@ -45,8 +44,9 @@ export function Header({ user }: { user: User }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+  const handleSignOut = () => {
+    // Server route handles WorkOS logout + cookie wipe + redirect.
+    window.location.href = "/api/auth/sign-out";
   };
 
   const initials = user?.name

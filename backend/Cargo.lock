@@ -1798,6 +1798,7 @@ dependencies = [
  "axum 0.7.9",
  "chronicle_auth",
  "chronicle_backend",
+ "chronicle_interfaces",
  "chronicle_mcp",
  "dotenvy",
  "rmcp",

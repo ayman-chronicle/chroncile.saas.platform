@@ -3,11 +3,12 @@ pub mod audit;
 pub mod auth;
 pub mod connections;
 pub mod dashboard;
-mod error;
+pub(crate) mod error;
 pub mod feature_access;
 pub mod integrations;
 pub mod intercom;
 pub mod klaviyo;
+pub mod me;
 pub mod metrics;
 pub mod runs;
 pub mod sandboxes;
@@ -28,31 +29,17 @@ use crate::feature_access::ResolvedFeatureAccess;
 use crate::saas_state::SaasAppState;
 
 pub fn build_saas_routes(state: SaasAppState) -> Router {
-    let jwt = state.jwt.clone();
-    let feature_access = state.feature_access.clone();
 
     let public = Router::new()
-        // WorkOS AuthKit migration (Phase 0b). The legacy bcrypt
-        // signup/login/forgot/reset/oauth_signup handlers have been
-        // removed; the frontend talks to WorkOS directly and trades
-        // the resulting access token for a Chronicle JWT here.
+        // CP 7.1 — register a Tenant for an Organization the frontend just
+        // created in WorkOS (server-to-server, service_secret auth).
         .route(
-            "/api/platform/auth/workos-exchange",
-            post(auth::workos_exchange),
+            "/api/platform/tenants/register-workos",
+            post(tenant::register_workos_tenant),
         )
-        .route(
-            "/api/platform/auth/workspace/provision",
-            post(auth::provision_workspace),
-        )
-        .route("/api/platform/auth/discover", get(auth::discover))
-        .route(
-            "/api/platform/auth/invitations/send",
-            post(auth::send_invitation),
-        )
-        .route(
-            "/api/platform/auth/invitations/resend",
-            post(auth::resend_invitation),
-        )
+        // CP 7.5 — current user via WorkOS JWKS path. Self-protected by the
+        // WorkosAuthUser extractor (no JWT middleware).
+        .route("/api/saas/me", get(me::get_me))
         .route("/api/webhooks/workos", post(auth::workos_webhook))
         .route("/api/platform/admin/stats", get(dashboard::admin_stats))
         .route(
@@ -242,46 +229,68 @@ pub fn build_saas_routes(state: SaasAppState) -> Router {
             "/api/platform/team/members/:user_id/role",
             patch(team::update_member_role),
         )
-        .layer(axum_mw::from_fn(
-            move |mut req: axum::extract::Request, next: axum_mw::Next| {
-                let jwt = jwt.clone();
-                let feature_access = feature_access.clone();
-                async move {
-                    req.extensions_mut().insert(jwt.clone());
-
-                    let maybe_token = req
-                        .headers()
-                        .get("authorization")
-                        .and_then(|value| value.to_str().ok())
-                        .and_then(|header| header.strip_prefix("Bearer "))
-                        .map(str::to_string);
-
-                    if let Some(token) = maybe_token {
-                        match jwt.validate(&token) {
-                            Ok(user) => {
-                                req.extensions_mut().insert(user.clone());
-                                match feature_access.resolve_for_user(&user).await {
-                                    Ok(access) => {
-                                        req.extensions_mut().insert(ResolvedFeatureAccess(access));
+        // Pre-resolve `AuthUser` + `ResolvedFeatureAccess` and stash them in
+        // request extensions, so handlers that take `user: AuthUser` get the
+        // already-resolved value (the extractor's `from_request_parts` checks
+        // extensions first) and `feature_access` is available without a
+        // second round-trip.
+        //
+        // If anything fails (no token, bad signature, missing user/tenant)
+        // we silently skip the bootstrap — the per-handler extractor will
+        // surface the proper 401 to the caller.
+        .layer(axum_mw::from_fn_with_state(
+            state.clone(),
+            |axum::extract::State(state): axum::extract::State<SaasAppState>,
+             mut req: axum::extract::Request,
+             next: axum_mw::Next| async move {
+                if let Some(token) = req
+                    .headers()
+                    .get("authorization")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|h| h.strip_prefix("Bearer "))
+                    .map(str::to_string)
+                {
+                    if let Ok(claims) = state.workos_jwt.verify(&token).await {
+                        if let (Ok(Some(user_row)), Some(org_id)) = (
+                            state.users.find_by_workos_user_id(&claims.sub).await,
+                            claims.org_id.as_deref(),
+                        ) {
+                            if let Ok(Some(tenant_row)) = state
+                                .tenants
+                                .find_by_workos_organization_id(org_id)
+                                .await
+                            {
+                                if user_row.tenant_id == tenant_row.id {
+                                    let role = match user_row.role {
+                                        chronicle_domain::UserRole::Owner => "owner",
+                                        chronicle_domain::UserRole::Admin => "admin",
+                                        chronicle_domain::UserRole::Member => "member",
                                     }
-                                    Err(error) => {
-                                        tracing::warn!(
-                                            tenant_id = %user.tenant_id,
-                                            user_id = %user.id,
-                                            error = %error,
-                                            "Failed to resolve feature access during request bootstrap"
-                                        );
+                                    .to_string();
+                                    let auth_user = chronicle_auth::types::AuthUser {
+                                        id: user_row.id,
+                                        email: user_row.email,
+                                        name: user_row.name,
+                                        role,
+                                        tenant_id: tenant_row.id,
+                                        tenant_name: tenant_row.name,
+                                        tenant_slug: tenant_row.slug,
+                                    };
+
+                                    if let Ok(access) =
+                                        state.feature_access.resolve_for_user(&auth_user).await
+                                    {
+                                        req.extensions_mut()
+                                            .insert(ResolvedFeatureAccess(access));
                                     }
+                                    req.extensions_mut().insert(auth_user);
                                 }
-                            }
-                            Err(error) => {
-                                tracing::debug!(error = %error, "Skipping feature access bootstrap due to invalid auth token");
                             }
                         }
                     }
-
-                    next.run(req).await
                 }
+
+                next.run(req).await
             },
         ))
         .with_state(state);

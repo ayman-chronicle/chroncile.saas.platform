@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use chronicle_auth::jwt::JwtService;
+use chronicle_auth::middleware::HasAuthDeps;
+use chronicle_auth::workos_jwt::WorkosJwtVerifier;
 use chronicle_infra::{StoreBackend, StreamBackend};
 use chronicle_interfaces::{
     AgentEndpointConfigRepository, AuditLogRepository, ConnectionRepository, EmailService,
-    FeatureFlagRepository, IntegrationSyncRepository, InvitationRepository,
-    PasswordResetRepository, RunRepository, SandboxAiConfigService, TenantRepository,
-    UserRepository,
+    FeatureFlagRepository, IntegrationSyncRepository, InvitationRepository, RunRepository,
+    SandboxAiConfigService, TenantRepository, UserRepository,
 };
 use chronicle_nango::NangoClient;
 
@@ -15,7 +15,9 @@ use crate::runtime_config::SaasRuntimeConfig;
 
 #[derive(Clone)]
 pub struct SaasAppState {
-    pub jwt: Arc<JwtService>,
+    /// Validates WorkOS access tokens via JWKS. Used by every authenticated
+    /// extractor (`AuthUser` and `WorkosAuthUser`).
+    pub workos_jwt: Arc<WorkosJwtVerifier>,
     pub tenants: Arc<dyn TenantRepository>,
     pub users: Arc<dyn UserRepository>,
     pub runs: Arc<dyn RunRepository>,
@@ -24,7 +26,6 @@ pub struct SaasAppState {
     pub agent_configs: Arc<dyn AgentEndpointConfigRepository>,
     pub integration_syncs: Arc<dyn IntegrationSyncRepository>,
     pub invitations: Arc<dyn InvitationRepository>,
-    pub password_resets: Arc<dyn PasswordResetRepository>,
     pub nango: Option<Arc<NangoClient>>,
     pub email: Arc<dyn EmailService>,
     pub sandbox_ai: Option<Arc<dyn SandboxAiConfigService>>,
@@ -37,7 +38,7 @@ pub struct SaasAppState {
 impl SaasAppState {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        jwt_secret: &str,
+        workos_client_id: &str,
         tenants: Arc<dyn TenantRepository>,
         users: Arc<dyn UserRepository>,
         runs: Arc<dyn RunRepository>,
@@ -47,7 +48,6 @@ impl SaasAppState {
         integration_syncs: Arc<dyn IntegrationSyncRepository>,
         feature_flags: Arc<dyn FeatureFlagRepository>,
         invitations: Arc<dyn InvitationRepository>,
-        password_resets: Arc<dyn PasswordResetRepository>,
         nango: Option<Arc<NangoClient>>,
         email: Arc<dyn EmailService>,
         sandbox_ai: Option<Arc<dyn SandboxAiConfigService>>,
@@ -56,7 +56,7 @@ impl SaasAppState {
         config: SaasRuntimeConfig,
     ) -> Self {
         Self {
-            jwt: Arc::new(JwtService::new(jwt_secret)),
+            workos_jwt: Arc::new(WorkosJwtVerifier::new(workos_client_id)),
             tenants: Arc::clone(&tenants),
             users,
             runs,
@@ -65,7 +65,6 @@ impl SaasAppState {
             agent_configs,
             integration_syncs,
             invitations,
-            password_resets,
             nango,
             email,
             sandbox_ai,
@@ -78,5 +77,17 @@ impl SaasAppState {
             )),
             config: Arc::new(config),
         }
+    }
+}
+
+impl HasAuthDeps for SaasAppState {
+    fn workos_jwt(&self) -> &Arc<WorkosJwtVerifier> {
+        &self.workos_jwt
+    }
+    fn users(&self) -> &Arc<dyn UserRepository> {
+        &self.users
+    }
+    fn tenants(&self) -> &Arc<dyn TenantRepository> {
+        &self.tenants
     }
 }

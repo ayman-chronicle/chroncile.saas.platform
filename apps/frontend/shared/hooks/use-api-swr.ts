@@ -1,43 +1,39 @@
 "use client";
 
 import useSWR, { type SWRConfiguration, type SWRResponse } from "swr";
-import { useSession } from "next-auth/react";
 import { getBackendUrl } from "platform-api";
+
+import { useAuthSession } from "@/shared/auth/auth-session-provider";
 
 const BACKEND_URL = getBackendUrl();
 
-function buildFetcher(token: string | undefined) {
-  return async <T>(path: string): Promise<T> => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(`${BACKEND_URL}${path}`, {
-      headers,
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({
-        error: res.statusText,
-      }));
-      throw new Error(err.error || `Request failed: ${res.status}`);
-    }
-
-    return res.json();
-  };
-}
-
+/**
+ * SWR-backed reader for the Chronicle backend.
+ *
+ * Uses `authorizedFetch` from `<AuthSessionProvider>` so that:
+ *   - The Authorization header is attached automatically.
+ *   - On 401, the provider triggers a refresh + retries the request once.
+ */
 export function useApiSwr<T>(
   path: string | null,
-  config?: SWRConfiguration<T>
+  config?: SWRConfiguration<T>,
 ): SWRResponse<T> {
-  const { data: session } = useSession();
-  const token = session?.backendToken;
-  const fetcher = buildFetcher(token);
+  const { session, authorizedFetch } = useAuthSession();
+  const token = session?.accessToken ?? null;
+
+  const fetcher = async (p: string): Promise<T> => {
+    const res = await authorizedFetch(`${BACKEND_URL}${p}`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res
+        .json()
+        .catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || `Request failed: ${res.status}`);
+    }
+    return res.json();
+  };
 
   return useSWR<T>(token && path ? path : null, fetcher, config);
 }

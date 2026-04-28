@@ -8,6 +8,7 @@ pub mod routes;
 pub mod runtime_config;
 pub mod saas_state;
 pub mod state;
+pub mod workos_user;
 
 pub use error::{ApiError, ApiResult};
 pub use feature_access::{FeatureAccessService, ResolvedFeatureAccess};

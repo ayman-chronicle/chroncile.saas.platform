@@ -92,10 +92,10 @@ fn user_from_row(row: sqlx::postgres::PgRow) -> Result<User, sqlx::Error> {
         id: row.try_get("id")?,
         email: row.try_get("email")?,
         name: row.try_get("name")?,
-        password: row.try_get("password")?,
+        password: row.try_get("password").unwrap_or(None),
         auth_provider: row
             .try_get::<String, _>("authProvider")
-            .unwrap_or_else(|_| "credentials".to_string()),
+            .unwrap_or_else(|_| "workos".to_string()),
         role: role_str.parse().unwrap_or(UserRole::Member),
         tenant_id: row.try_get("tenantId")?,
         workos_user_id: row.try_get("workosUserId").unwrap_or(None),
@@ -349,17 +349,17 @@ impl UserRepository for PgUserRepo {
         let id = new_id();
         let now = Utc::now().naive_utc();
         let role_str = input.role.as_str();
+        let _ = input.password_hash;
+        let _ = input.auth_provider;
         sqlx::query(
             "INSERT INTO \"User\" \
-             (id, email, name, password, \"authProvider\", role, \"tenantId\", \
+             (id, email, name, role, \"tenantId\", \
               \"workosUserId\", \"createdVia\", \"createdAt\", \"updatedAt\") \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
         )
         .bind(&id)
         .bind(&input.email)
         .bind(&input.name)
-        .bind(&input.password_hash)
-        .bind(&input.auth_provider)
         .bind(role_str)
         .bind(&input.tenant_id)
         .bind(&input.workos_user_id)
@@ -443,10 +443,10 @@ impl UserRepository for PgUserRepo {
     }
 
     async fn update_password(&self, id: &str, password_hash: &str) -> RepoResult<User> {
+        let _ = password_hash;
         sqlx::query(
-            "UPDATE \"User\" SET password = $1, \"updatedAt\" = $3 WHERE id = $2 RETURNING *",
+            "UPDATE \"User\" SET \"updatedAt\" = $2 WHERE id = $1 RETURNING *",
         )
-        .bind(password_hash)
         .bind(id)
         .bind(Utc::now().naive_utc())
         .try_map(user_from_row)
