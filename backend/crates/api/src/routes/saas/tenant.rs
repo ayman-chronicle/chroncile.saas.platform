@@ -150,7 +150,6 @@ pub async fn register_workos_tenant(
         return Err(ApiError::bad_request("email is required"));
     }
 
-    // 3. Idempotency — if a tenant already exists for this WorkOS org, return it.
     if let Some(existing_tenant) = state
         .tenants
         .find_by_workos_organization_id(&input.workos_organization_id)
@@ -175,7 +174,46 @@ pub async fn register_workos_tenant(
         }));
     }
 
-    // 4. Create the Tenant.
+    if let Some(existing_user) = state.users.find_by_email(&input.email).await? {
+        match existing_user.workos_user_id.as_deref() {
+            None => {
+                state
+                    .users
+                    .set_workos_user_id(&existing_user.id, &input.workos_user_id)
+                    .await?;
+                tracing::warn!(
+                    user_id = %existing_user.id,
+                    email = %input.email,
+                    "Email pre-existed without WorkOS link; backfilled workos_user_id and reusing the user's current tenant — the freshly created WorkOS Organization will not be linked to this Chronicle Tenant. Investigate / clean up manually if this is unexpected."
+                );
+                return Ok(Json(RegisterWorkosTenantResponse {
+                    tenant_id: existing_user.tenant_id,
+                    user_id: existing_user.id,
+                    created: false,
+                }));
+            }
+            Some(linked) if linked == input.workos_user_id => {
+                return Ok(Json(RegisterWorkosTenantResponse {
+                    tenant_id: existing_user.tenant_id,
+                    user_id: existing_user.id,
+                    created: false,
+                }));
+            }
+            Some(linked) => {
+                tracing::warn!(
+                    user_id = %existing_user.id,
+                    email = %input.email,
+                    existing_workos_user_id = linked,
+                    incoming_workos_user_id = %input.workos_user_id,
+                    "Email already linked to a different WorkOS user — refusing to overwrite",
+                );
+                return Err(ApiError::bad_request(
+                    "email_already_registered_to_different_workos_user",
+                ));
+            }
+        }
+    }
+
     let tenant = state
         .tenants
         .create(CreateTenantInput {
@@ -184,13 +222,11 @@ pub async fn register_workos_tenant(
         })
         .await?;
 
-    // 5. Link tenant to WorkOS organization.
     state
         .tenants
         .set_workos_organization_id(&tenant.id, &input.workos_organization_id)
         .await?;
 
-    // 6. JIT-create user (if not already present from a SCIM webhook).
     let user = if let Some(existing) = state
         .users
         .find_by_workos_user_id(&input.workos_user_id)
