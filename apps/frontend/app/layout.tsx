@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
-import { Providers } from "./providers";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
-  title: "Chronicle Labs | Command Center",
-  description: "AI Agent Testing & Validation Platform",
+  title: "Chronicle Labs",
+  description: "Chronicle customer workspace",
   icons: {
     icon: "/icon.svg",
   },
@@ -17,21 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        {/* IBM Plex Mono for monospace - Helvetica Neue LT Pro loaded via @font-face in globals.css */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="antialiased bg-base text-primary font-sans">
-        <Providers>{children}</Providers>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
+      >
+        {children}
       </body>
     </html>
   );

@@ -10,7 +10,7 @@ export const buttonVariants = cva(
   {
     variants: {
       density: {
-        compact: "rounded-l font-sans font-medium tracking-normal leading-none",
+        compact: "rounded-md font-sans font-medium tracking-normal leading-none",
         brand: "rounded-xs font-mono uppercase tracking-tactical",
       },
       variant: {

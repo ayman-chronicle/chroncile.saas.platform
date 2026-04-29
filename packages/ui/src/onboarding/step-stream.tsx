@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button } from "../primitives/button";
+import { Label } from "../primitives/label";
 import { Eyebrow } from "../primitives/eyebrow";
 import { ArrowLeftIcon, ArrowRightIcon } from "../icons/glyphs";
 import { CompanyLogo } from "../icons";
@@ -61,6 +62,7 @@ export function StepStream({
 
   const [paused, setPaused] = React.useState(!livePreview);
   const [rows, setRows] = React.useState<StreamRow[]>([]);
+  const scrollerRef = React.useRef<HTMLDivElement | null>(null);
   const tickRef = React.useRef(0);
 
   React.useEffect(() => {
@@ -101,6 +103,12 @@ export function StepStream({
     return () => clearInterval(id);
   }, [paused, connectedSources, events]);
 
+  React.useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({ top: 0, behavior: "smooth" });
+  }, [rows.length]);
+
   if (connectedSources.length === 0) {
     return (
       <div className="flex flex-col">
@@ -136,7 +144,7 @@ export function StepStream({
         connected sources.
       </AuthLede>
 
-      <div className="cg-fade-up cg-fade-up-2 mt-s-6 flex items-center gap-s-3">
+      <div className="cg-fade-up cg-fade-up-2 mt-s-6 flex items-center gap-s-3 justify-between">
         <Button
           variant="secondary"
           size="sm"
@@ -144,12 +152,16 @@ export function StepStream({
         >
           {paused ? "▶ Resume" : "❚❚ Pause"}
         </Button>
-        <span className="font-mono text-mono-sm text-ink-dim">
+        <Label color="green" density="compact">
           {paused ? "Paused" : "Live"} · {rows.length} events
-        </span>
+        </Label>
+   
       </div>
 
-      <div className="cg-fade-up cg-fade-up-3 mt-s-3 max-h-[440px] overflow-y-auto rounded-sm border border-hairline bg-surface-01">
+      <div
+        ref={scrollerRef}
+        className="cg-fade-up cg-fade-up-3 mt-s-3 h-[320px] overflow-y-auto rounded-sm border border-hairline bg-surface-01"
+      >
         {rows.length === 0 ? (
           <div className="px-s-4 py-s-8 text-center font-mono text-mono text-ink-dim">
             Waiting for events<span className="cg-blink">_</span>

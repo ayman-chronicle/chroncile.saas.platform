@@ -39,7 +39,11 @@ import {
   setSealedSession,
 } from "@/server/auth/session";
 import { verifyOAuthState } from "@/server/auth/state-token";
-import { workos, WORKOS_CLIENT_ID } from "@/server/auth/workos";
+import {
+  assertWorkOSEnvironment,
+  workos,
+  WORKOS_CLIENT_ID,
+} from "@/server/auth/workos";
 
 function errorRedirect(message: string): never {
   redirect(`/login?error=${encodeURIComponent(message)}`);
@@ -82,6 +86,8 @@ function classifyAuthError(err: unknown): string {
 }
 
 export async function GET(request: NextRequest) {
+  assertWorkOSEnvironment();
+
   // 1. Provider-level error came back (user hit "Cancel" on Google, etc.).
   const providerError = request.nextUrl.searchParams.get("error");
   if (providerError) {

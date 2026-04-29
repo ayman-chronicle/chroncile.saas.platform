@@ -8,7 +8,7 @@ export const ssoButtonVariants = cva(
         brand:
           "h-[44px] gap-s-3 px-s-3 rounded-sm border-hairline-strong bg-surface-01 font-sans text-[13.5px] font-medium text-ink-hi data-[hovered=true]:bg-surface-02 data-[hovered=true]:border-ink-dim",
         compact:
-          "h-[32px] gap-[8px] px-[10px] rounded-l border-l-border bg-l-surface-raised font-sans text-[13px] font-medium text-l-ink data-[hovered=true]:bg-l-surface-hover data-[hovered=true]:border-l-border-strong",
+          "h-[32px] gap-[8px] px-[10px] rounded-md border-l-border bg-l-surface-raised font-sans text-[13px] font-medium text-l-ink data-[hovered=true]:bg-l-surface-hover data-[hovered=true]:border-l-border-strong",
       },
     },
     defaultVariants: {

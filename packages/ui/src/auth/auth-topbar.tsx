@@ -7,9 +7,8 @@ import { tv } from "../utils/tv";
 
 /*
  * AuthTopbar — the v2 topbar from `app-v2.jsx`. Renders the logo
- * (icon + wordmark, theme-aware), an optional step counter, the
- * pip stepper, and a fallback CTA on the right when there's no
- * active flow.
+ * (wordmark lockup, theme-aware), an optional step counter, the pip
+ * stepper, and a fallback CTA on the right when there's no active flow.
  *
  * This is a *layout* component — state lives in the parent. The
  * topbar takes `steps` + `currentIndex` if a flow is active, or a
@@ -22,8 +21,7 @@ const topbar = tv({
       "relative z-10 flex h-[64px] w-full items-center justify-between " +
       "px-s-6 border-b border-hairline bg-transparent",
     left: "flex items-center gap-s-3 min-w-0",
-    word: "h-[20px] w-auto shrink-0",
-    icon: "h-[24px] w-[24px] shrink-0",
+    word: "h-[36px] w-auto shrink-0",
     div: "h-[18px] w-px bg-hairline-strong shrink-0 mx-s-1",
     stepLabel:
       "font-mono text-mono-sm uppercase tracking-tactical text-ink-dim " +
@@ -76,12 +74,7 @@ export function AuthTopbar({
       {...rest}
     >
       <div className={slots.left()}>
-        {brand ?? (
-          <>
-            <Logo variant="icon" theme="auto" className={slots.icon()} />
-            <Logo variant="wordmark" theme="auto" className={slots.word()} />
-          </>
-        )}
+        {brand ?? <Logo variant="wordmark" theme="auto" className={slots.word()} />}
         {hasFlow && stepLabel ? (
           <>
             <span className={slots.div()} aria-hidden />

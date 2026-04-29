@@ -4,7 +4,7 @@ import type {
 } from "@workos-inc/node";
 import { cookies } from "next/headers";
 
-import { workos } from "./workos";
+import { assertWorkOSEnvironment, workos } from "./workos";
 
 export const SESSION_COOKIE_NAME = "wos-session";
 
@@ -85,6 +85,8 @@ export interface SealedSession {
 export async function loadSession(): Promise<SealedSession | null> {
   const sessionData = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!sessionData) return null;
+
+  assertWorkOSEnvironment();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const helper = (workos.userManagement as any).loadSealedSession({

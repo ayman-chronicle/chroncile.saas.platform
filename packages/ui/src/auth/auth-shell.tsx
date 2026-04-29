@@ -7,6 +7,8 @@ import {
   useChromeStyleContext,
   type ChromeStyle,
 } from "../theme/chrome-style-context";
+import { Blinds } from "../surfaces/recipes/blinds";
+import { Ember } from "../surfaces/recipes/ember";
 import { AuthTopbar, type AuthTopbarProps } from "./auth-topbar";
 
 /*
@@ -28,9 +30,9 @@ import { AuthTopbar, type AuthTopbarProps } from "./auth-topbar";
  * `Input` / composites pick up the right density without per-control
  * `density` props.
  *
- * The shell paints the ambient backdrop, sets the page surface, and
- * caps the content column at ~520 px so long lede paragraphs stay
- * readable. Set `maxWidth` to override.
+ * The shell paints the Blinds glass recipe background, sets the page
+ * surface, and caps the content column at ~520 px so long lede paragraphs
+ * stay readable. Set `maxWidth` to override.
  */
 
 const shell = tv({
@@ -65,7 +67,7 @@ export interface AuthShellProps extends Omit<
   maxWidth?: number;
   /** Vertical alignment for short content. */
   align?: "top" | "center";
-  /** Hide the ambient backdrop blob (rare — only inside dense embeds). */
+  /** Hide the Blinds background (rare — only inside dense embeds). */
   bare?: boolean;
   /**
    * Drives default control density + auth composite surfaces under this shell.
@@ -127,7 +129,13 @@ export function AuthShell({
         data-chrome={resolvedChrome}
         {...rest}
       >
-        {bare ? null : <div className="cg-auth-ambient" aria-hidden />}
+        {bare ? null : (
+          <Ember
+            slats={10}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-0 h-full w-full opacity-70"
+          />
+        )}
         {topbarNode}
         <main className={slots.main()}>
           <div className={slots.inner()} style={{ maxWidth }}>

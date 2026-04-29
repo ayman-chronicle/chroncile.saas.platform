@@ -40,7 +40,7 @@ export function Blinds({ slats = 11, ...rest }: BlindsProps) {
         blend="overlay"
         highlightAngle={268.16}
         noise
-        paneGrain={0.8}
+        paneGrain={0.9}
       />
     </GlassScene>
   );

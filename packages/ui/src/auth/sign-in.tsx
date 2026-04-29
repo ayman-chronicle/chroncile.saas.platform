@@ -142,8 +142,9 @@ export function SignIn({
 
   return (
     <div className="flex flex-col">
-      <Eyebrow className="inline-flex items-center gap-s-2">
-        <b>SIGN IN</b> · CHRONICLE
+      <Eyebrow className="inline-flex items-center gap-s-2" style={{ fontFamily: "TWK Lausanne, sans-serif" }}>
+ 
+        <b>SIGN IN</b> · CHRONICLE LABS
       </Eyebrow>
       <AuthDisplay>
         {headline ?? (

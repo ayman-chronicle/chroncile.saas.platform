@@ -22,12 +22,15 @@ import type { NextRequest } from "next/server";
 
 import { createOAuthState } from "@/server/auth/state-token";
 import {
+  assertWorkOSEnvironment,
   workos,
   WORKOS_CLIENT_ID,
   WORKOS_REDIRECT_URI,
 } from "@/server/auth/workos";
 
 export async function GET(request: NextRequest) {
+  assertWorkOSEnvironment();
+
   const fromParam = request.nextUrl.searchParams.get("from");
   const state = createOAuthState(fromParam);
 
