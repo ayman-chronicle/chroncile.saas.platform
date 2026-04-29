@@ -1,53 +1,14 @@
 "use client";
 
 import * as React from "react";
-import {
-  Button as RACButton,
-  type ButtonProps as RACButtonProps,
-} from "react-aria-components/Button";
 
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
-
-const copyButton = tv({
-  base:
-    "inline-flex items-center justify-center border " +
-    "transition-colors duration-fast ease-out outline-none " +
-    "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-    "data-[focus-visible=true]:outline-ember",
-  variants: {
-    density: {
-      brand: "h-[30px] w-[30px] rounded-xs",
-      compact: "h-[24px] w-[24px] rounded-l",
-    },
-    copied: {
-      true: "border-event-green/40 bg-[rgba(74,222,128,0.08)] text-event-green",
-      false: "",
-    },
-  },
-  compoundVariants: [
-    {
-      density: "brand",
-      copied: false,
-      class:
-        "border-hairline-strong bg-surface-02 text-ink-dim " +
-        "data-[hovered=true]:border-ink-dim data-[hovered=true]:text-ink-hi",
-    },
-    {
-      density: "compact",
-      copied: false,
-      class:
-        "border-l-border bg-l-surface-raised text-l-ink-lo " +
-        "data-[hovered=true]:border-l-border-strong data-[hovered=true]:text-l-ink",
-    },
-  ],
-  defaultVariants: { density: "brand", copied: false },
-});
+import { copyButtonVariants } from "./shadcn";
 
 export interface CopyButtonProps extends Omit<
-  RACButtonProps,
-  "className" | "children" | "onPress"
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "className" | "children"
 > {
   text: string;
   /** Milliseconds the "copied" confirmation stays visible. */
@@ -55,14 +16,25 @@ export interface CopyButtonProps extends Omit<
   /** Force a density flavor. Defaults to whichever the surrounding
    * `ChromeStyleProvider` resolves to. */
   density?: "compact" | "brand";
+  /** Render as an icon button (default) or a compact text action. */
+  appearance?: "icon" | "text";
+  label?: string;
+  copiedLabel?: string;
   className?: string;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export function CopyButton({
   text,
   confirmFor = 2000,
   density: densityProp,
+  appearance = "icon",
+  label = "Copy",
+  copiedLabel = "Copied",
   className,
+  onClick,
+  ref,
+  type,
   ...props
 }: CopyButtonProps) {
   const [copied, setCopied] = React.useState(false);
@@ -91,15 +63,30 @@ export function CopyButton({
   }, [text, confirmFor]);
 
   return (
-    <RACButton
+    <button
       {...props}
-      onPress={handleCopy}
+      ref={ref}
+      type={type ?? "button"}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) void handleCopy();
+      }}
       aria-label={copied ? "Copied" : "Copy to clipboard"}
       data-density={density}
-      className={composeTwRenderProps(className, copyButton({ density, copied }))}
+      className={cn(copyButtonVariants({ appearance, density, copied }), className)}
     >
-      {copied ? (
-        <svg viewBox="0 0 24 24" fill="none" className={density === "compact" ? "h-3.5 w-3.5" : "h-4 w-4"}>
+      {appearance === "text" ? (
+        copied ? (
+          copiedLabel
+        ) : (
+          label
+        )
+      ) : copied ? (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          className={density === "compact" ? "h-3.5 w-3.5" : "h-4 w-4"}
+        >
           <path
             d="M4.5 12.75l6 6 9-13.5"
             stroke="currentColor"
@@ -109,7 +96,11 @@ export function CopyButton({
           />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" fill="none" className={density === "compact" ? "h-3.5 w-3.5" : "h-4 w-4"}>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          className={density === "compact" ? "h-3.5 w-3.5" : "h-4 w-4"}
+        >
           <rect
             x="8"
             y="8"
@@ -127,6 +118,6 @@ export function CopyButton({
           />
         </svg>
       )}
-    </RACButton>
+    </button>
   );
 }

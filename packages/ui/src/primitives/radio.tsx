@@ -2,7 +2,7 @@
 
 /*
  * RadioGroup + Radio — single-select exclusive choice. Keyboard nav
- * (arrows), focus rings, required/invalid ARIA all come from RAC.
+ * and ARIA state are provided by Radix RadioGroup.
  *
  *   <RadioGroup value={v} onChange={setV}>
  *     <Radio value="stg">Staging</Radio>
@@ -11,58 +11,22 @@
  */
 
 import * as React from "react";
-import {
-  RadioGroup as RACRadioGroup,
-  Radio as RACRadio,
-  type RadioGroupProps as RACRadioGroupProps,
-  type RadioProps as RACRadioProps,
-} from "react-aria-components";
+import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
-
-const radioStyles = tv({
-  slots: {
-    group: "flex flex-col gap-s-2 data-[orientation=horizontal]:flex-row",
-    radio:
-      "inline-flex items-center gap-s-2 cursor-pointer " +
-      "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50",
-    indicator:
-      "relative flex shrink-0 items-center justify-center rounded-full " +
-      "transition-colors duration-fast ease-out " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember " +
-      "data-[selected=true]:border-ember " +
-      "data-[invalid=true]:border-event-red",
-    dot: "rounded-full bg-ember opacity-0 data-[selected=true]:opacity-100",
-    label: "font-sans text-sm text-ink",
-  },
-  variants: {
-    size: {
-      sm: {
-        indicator:
-          "h-[14px] w-[14px] border border-l-border-strong bg-transparent " +
-          "data-[hovered=true]:border-l-border-hover",
-        dot: "h-[6px] w-[6px]",
-        label: "text-[12.5px] text-l-ink",
-      },
-      md: {
-        indicator:
-          "h-[16px] w-[16px] border border-hairline-strong bg-surface-00 " +
-          "data-[hovered=true]:border-ink-dim",
-        dot: "h-[6px] w-[6px]",
-        label: "text-sm text-ink",
-      },
-    },
-  },
-  defaultVariants: { size: "md" },
-});
+import {
+  radioBaseVariants,
+  radioDotVariants,
+  radioGroupVariants,
+  radioIndicatorVariants,
+  radioLabelVariants,
+} from "./shadcn";
 
 export type RadioSize = "sm" | "md";
 
 export interface RadioGroupProps extends Omit<
-  RACRadioGroupProps,
+  React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>,
   "className" | "children"
 > {
   className?: string;
@@ -76,35 +40,57 @@ export interface RadioGroupProps extends Omit<
   size?: RadioSize;
   /** Explicit density override (alias for choosing between `sm` and `md`). */
   density?: "compact" | "brand";
+  ref?: React.Ref<HTMLDivElement>;
 }
 
 const RadioSizeContext = React.createContext<RadioSize>("md");
+const RadioValueContext = React.createContext<string | undefined>(undefined);
 
 export function RadioGroup({
   className,
   children,
   size,
   density: densityProp,
+  value,
+  defaultValue,
+  onValueChange,
+  ref,
   ...rest
 }: RadioGroupProps) {
   const density = useResolvedChromeDensity(densityProp);
   const resolvedSize: RadioSize = size ?? (density === "compact" ? "sm" : "md");
-  const slots = radioStyles({ size: resolvedSize });
+  const [uncontrolled, setUncontrolled] = React.useState(defaultValue);
+  const selectedValue = value ?? uncontrolled;
+
+  const handleValueChange = React.useCallback(
+    (next: string) => {
+      if (value === undefined) setUncontrolled(next);
+      onValueChange?.(next);
+    },
+    [onValueChange, value]
+  );
+
   return (
-    <RACRadioGroup
+    <RadioGroupPrimitive.Root
       {...rest}
+      ref={ref}
+      value={value}
+      defaultValue={defaultValue}
+      onValueChange={handleValueChange}
       data-density={density}
-      className={composeTwRenderProps(className, slots.group())}
+      className={cn(radioGroupVariants(), className)}
     >
       <RadioSizeContext.Provider value={resolvedSize}>
-        {children as React.ReactNode}
+        <RadioValueContext.Provider value={selectedValue}>
+          {children as React.ReactNode}
+        </RadioValueContext.Provider>
       </RadioSizeContext.Provider>
-    </RACRadioGroup>
+    </RadioGroupPrimitive.Root>
   );
 }
 
 export interface RadioProps extends Omit<
-  RACRadioProps,
+  React.ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Item>,
   "className" | "children"
 > {
   className?: string;
@@ -116,6 +102,7 @@ export interface RadioProps extends Omit<
   };
   children?: React.ReactNode;
   size?: RadioSize;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export function Radio({
@@ -123,27 +110,55 @@ export function Radio({
   classNames,
   children,
   size,
+  ref,
+  value,
+  disabled,
   ...rest
 }: RadioProps) {
   const ctxSize = React.useContext(RadioSizeContext);
+  const selectedValue = React.useContext(RadioValueContext);
   const resolved: RadioSize = size ?? ctxSize;
-  const slots = radioStyles({ size: resolved });
+  const selected = selectedValue === value;
+
   return (
-    <RACRadio
+    <RadioGroupPrimitive.Item
       {...rest}
-      className={composeTwRenderProps(
-        className,
-        slots.radio({ className: classNames?.base })
+      ref={ref}
+      value={value}
+      disabled={disabled}
+      data-disabled={disabled || undefined}
+      className={cn(
+        radioBaseVariants({ className: classNames?.base }),
+        className
       )}
     >
-      <span className={slots.indicator({ className: classNames?.indicator })}>
-        <span className={slots.dot({ className: classNames?.dot })} />
+      <span
+        className={radioIndicatorVariants({
+          size: resolved,
+          className: classNames?.indicator,
+        })}
+        data-selected={selected || undefined}
+      >
+        <RadioGroupPrimitive.Indicator forceMount>
+          <span
+            className={radioDotVariants({
+              size: resolved,
+              className: classNames?.dot,
+            })}
+            data-selected={selected || undefined}
+          />
+        </RadioGroupPrimitive.Indicator>
       </span>
       {children ? (
-        <span className={slots.label({ className: classNames?.label })}>
+        <span
+          className={radioLabelVariants({
+            size: resolved,
+            className: classNames?.label,
+          })}
+        >
           {children}
         </span>
       ) : null}
-    </RACRadio>
+    </RadioGroupPrimitive.Item>
   );
 }

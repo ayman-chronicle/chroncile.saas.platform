@@ -52,11 +52,10 @@
     "vite": "^5.4.0"
   },
   "dependencies": {
-    "@react-aria/i18n": "^3.13.0",
-    "@react-aria/ssr": "^3.10.0",
-    "@react-aria/utils": "^3.34.0",
-    "@react-types/shared": "^3.34.0",
-    "react-aria-components": "^1.17.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.11.0",
+    "radix-ui": "^1.4.3",
     "tailwind-merge": "^3.5.0",
     "tailwind-variants": "^3.2.2"
   }

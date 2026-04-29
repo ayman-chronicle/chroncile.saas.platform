@@ -1,57 +1,23 @@
 "use client";
 
 /*
- * Switch — iOS-style on/off toggle. RAC supplies the toggle state +
- * keyboard accessibility; we style the track and thumb.
+ * Switch — iOS-style on/off toggle backed by Radix Switch.
  */
 
 import * as React from "react";
-import {
-  Switch as RACSwitch,
-  type SwitchProps as RACSwitchProps,
-} from "react-aria-components";
+import { Switch as SwitchPrimitive } from "radix-ui";
 
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
-
-const switchStyles = tv({
-  slots: {
-    base:
-      "inline-flex items-center gap-s-2 cursor-pointer " +
-      "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50",
-    track:
-      "relative inline-flex shrink-0 items-center rounded-pill " +
-      "transition-colors duration-fast ease-out " +
-      "data-[selected=true]:bg-ember data-[selected=true]:border-ember " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
-    thumb:
-      "inline-block rounded-full bg-white shadow-sm " +
-      "transition-transform duration-fast ease-out",
-    label: "font-sans text-sm text-ink",
-  },
-  variants: {
-    size: {
-      sm: {
-        track: "h-[14px] w-[26px] border-0 bg-l-wash-5",
-        thumb:
-          "h-[10px] w-[10px] translate-x-[2px] data-[selected=true]:translate-x-[12px]",
-        label: "text-[12.5px] text-l-ink",
-      },
-      md: {
-        track: "h-[20px] w-[36px] border border-hairline-strong bg-surface-03",
-        thumb:
-          "h-[14px] w-[14px] translate-x-[2px] data-[selected=true]:translate-x-[18px]",
-        label: "text-sm text-ink",
-      },
-    },
-  },
-  defaultVariants: { size: "md" },
-});
+import {
+  switchBaseVariants,
+  switchLabelVariants,
+  switchThumbVariants,
+  switchTrackVariants,
+} from "./shadcn";
 
 export interface SwitchProps extends Omit<
-  RACSwitchProps,
+  React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>,
   "className" | "children"
 > {
   className?: string;
@@ -70,6 +36,10 @@ export interface SwitchProps extends Omit<
   size?: "sm" | "md";
   /** Explicit density override (alias for choosing between `sm` and `md`). */
   density?: "compact" | "brand";
+  isDisabled?: boolean;
+  defaultSelected?: boolean;
+  isSelected?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export function Switch({
@@ -78,39 +48,74 @@ export function Switch({
   children,
   size,
   density: densityProp,
+  checked,
+  defaultChecked,
+  isSelected,
+  defaultSelected,
+  onCheckedChange,
+  disabled,
+  isDisabled,
+  ref,
   ...rest
 }: SwitchProps) {
   const density = useResolvedChromeDensity(densityProp);
   const resolvedSize: "sm" | "md" = size ?? (density === "compact" ? "sm" : "md");
-  const slots = switchStyles({ size: resolvedSize });
+  const resolvedChecked = checked ?? isSelected;
+  const resolvedDefaultChecked = defaultChecked ?? defaultSelected;
+  const resolvedDisabled = disabled ?? isDisabled;
+  const [uncontrolled, setUncontrolled] = React.useState(
+    resolvedDefaultChecked ?? false
+  );
+  const selected = resolvedChecked ?? uncontrolled;
+
+  const handleCheckedChange = React.useCallback(
+    (next: boolean) => {
+      if (resolvedChecked === undefined) setUncontrolled(next);
+      onCheckedChange?.(next);
+    },
+    [onCheckedChange, resolvedChecked]
+  );
+
   return (
-    <RACSwitch
+    <SwitchPrimitive.Root
       {...rest}
+      ref={ref}
+      checked={resolvedChecked}
+      defaultChecked={resolvedDefaultChecked}
+      onCheckedChange={handleCheckedChange}
+      disabled={resolvedDisabled}
       data-density={density}
-      className={composeTwRenderProps(
+      data-disabled={resolvedDisabled || undefined}
+      className={cn(
+        switchBaseVariants({ className: classNames?.base }),
         className,
-        slots.base({ className: classNames?.base })
       )}
     >
-      {(state) => (
-        <>
-          <span
-            className={slots.track({ className: classNames?.track })}
-            data-selected={state.isSelected || undefined}
-            data-focus-visible={state.isFocusVisible || undefined}
-          >
-            <span
-              className={slots.thumb({ className: classNames?.thumb })}
-              data-selected={state.isSelected || undefined}
-            />
-          </span>
-          {children ? (
-            <span className={slots.label({ className: classNames?.label })}>
-              {children}
-            </span>
-          ) : null}
-        </>
-      )}
-    </RACSwitch>
+      <span
+        className={switchTrackVariants({
+          size: resolvedSize,
+          className: classNames?.track,
+        })}
+        data-selected={selected || undefined}
+      >
+        <SwitchPrimitive.Thumb
+          className={switchThumbVariants({
+            size: resolvedSize,
+            className: classNames?.thumb,
+          })}
+          data-selected={selected || undefined}
+        />
+      </span>
+      {children ? (
+        <span
+          className={switchLabelVariants({
+            size: resolvedSize,
+            className: classNames?.label,
+          })}
+        >
+          {children}
+        </span>
+      ) : null}
+    </SwitchPrimitive.Root>
   );
 }

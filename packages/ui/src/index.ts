@@ -13,6 +13,7 @@ export * from "./providers";
 export * from "./icons";
 export * from "./auth";
 export * from "./admin";
+export * from "./env-manager";
 export * from "./onboarding";
 export * from "./connectors";
 
@@ -41,6 +42,8 @@ export * as tokens from "./tokens";
 // Small utilities some consumers reach for
 export { cx } from "./utils/cx";
 export type { ClassValue } from "./utils/cx";
+export { cn } from "./utils/cn";
+export type { ClassValue as CnClassValue } from "./utils/cn";
 
 // Variant + render-prop compose helpers (for building on RAC primitives)
 export { tv } from "./utils/tv";

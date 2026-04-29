@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 import {
   buildEnvName,
   generateSuffix,
   provisionEphemeral,
-} from "@/server/environments/lifecycle";
+} from "@/backend/environments/lifecycle";
 
 const ProvisionSchema = z.object({
   branch: z.string().min(1),

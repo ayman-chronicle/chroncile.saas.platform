@@ -55,6 +55,8 @@
   --l-dot-edge: rgba(0, 0, 0, 0.4);
 
   /* Priority palette (Linear-style) */
+  --l-accent: #d8430a;
+  --l-accent-muted: rgba(216, 67, 10, 0.08);
   --l-p-urgent: #eb5757;
   --l-p-high: #d8430a; /* aliases brand ember */
   --l-p-med: #fbbf24;
@@ -73,7 +75,7 @@
 }
 
 /* ── Light theme remap ──
-   Warm bone/cream aligned with the brand light theme. Only the
+   Cool white aligned with the brand light theme. Only the
    `--l-*` half flips; brand `--c-*` remap lives in tokens.css. */
 [data-theme="light"] {
   --l-border: rgba(40, 28, 12, 0.1);
@@ -81,12 +83,12 @@
   --l-border-hover: rgba(40, 28, 12, 0.28);
   --l-border-faint: rgba(40, 28, 12, 0.05);
 
-  --l-surface: #f5ecd7;
-  --l-surface-raised: #faf2dd;
-  --l-surface-raised-2: #fff7e2;
-  --l-surface-input: #ece1c4;
-  --l-surface-bar: #ece1c4;
-  --l-surface-bar-2: #e5daba;
+  --l-surface: #fafafa;
+  --l-surface-raised: #ffffff;
+  --l-surface-raised-2: #ffffff;
+  --l-surface-input: #f4f4f5;
+  --l-surface-bar: #f4f4f5;
+  --l-surface-bar-2: #e4e4e7;
   --l-surface-hover: rgba(40, 28, 12, 0.04);
   --l-surface-selected: rgba(216, 67, 10, 0.1);
 
@@ -99,19 +101,23 @@
   --l-ink-lo: #5c5243;
   --l-ink-dim: #8a7d66;
 
-  --l-pop-bg: rgba(255, 247, 226, 0.98);
+  --l-pop-bg: rgba(255, 253, 247, 0.98);
   --l-pop-border: rgba(40, 28, 12, 0.18);
   --l-pop-shadow:
     0 4px 24px 0 rgba(40, 28, 12, 0.14), 0 0 0 1px rgba(40, 28, 12, 0.04);
 
   --l-dot-edge: rgba(40, 28, 12, 0.18);
 
-  /* Low-contrast priorities need a bump on cream */
+  /* Ember needs a stronger product value against the light backplane. */
+  --l-accent: #9f2f05;
+  --l-accent-muted: rgba(159, 47, 5, 0.14);
+
+  /* Low-contrast priorities need a bump on light surfaces */
   --l-p-low: #8a7d66;
   --l-p-none: #8a7d66;
   --l-status-backlog: #8a7d66;
   --l-status-todo: #5c5243;
   --l-status-canceled: #8a7d66;
 
-  --l-shade-overlay: rgba(245, 236, 215, 0.7);
+  --l-shade-overlay: rgba(250, 250, 250, 0.7);
 }

@@ -2,8 +2,16 @@
 
 import * as React from "react";
 import { CheckIcon } from "../icons/glyphs";
-import { tv } from "../utils/tv";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  passwordMeterBarVariants,
+  passwordMeterBarsVariants,
+  passwordMeterMetaVariants,
+  passwordMeterRootVariants,
+  passwordMeterRuleCheckVariants,
+  passwordMeterRuleVariants,
+  passwordMeterRulesVariants,
+} from "./shadcn";
 
 /*
  * scorePassword — heuristic 0..4. The four bars correspond to
@@ -33,49 +41,6 @@ const STRENGTH_LABELS = [
   "Excellent",
 ] as const;
 
-const meter = tv({
-  slots: {
-    root: "flex flex-col",
-    bars: "flex gap-[4px]",
-    bar: "h-[3px] flex-1 transition-colors duration-fast ease-out",
-    meta: "flex items-center justify-between",
-    strength: "",
-    rules: "grid grid-cols-2 gap-x-s-3 gap-y-[6px] mt-s-1",
-    rule: "inline-flex items-center gap-[6px]",
-    ruleCheck:
-      "inline-flex h-[12px] w-[12px] items-center justify-center text-transparent",
-  },
-  variants: {
-    density: {
-      brand: {
-        root: "gap-s-2",
-        bar: "rounded-pill bg-surface-03",
-        meta:
-          "font-mono text-mono-sm uppercase tracking-tactical text-ink-dim",
-        strength: "text-ink-lo",
-        rule: "font-mono text-mono-sm text-ink-dim",
-        ruleCheck: "rounded-pill border border-hairline-strong",
-      },
-      compact: {
-        root: "gap-[6px]",
-        bar: "rounded-pill bg-l-wash-5",
-        meta: "font-sans text-[12px] font-medium text-l-ink-dim",
-        strength: "text-l-ink-lo",
-        rule: "font-sans text-[12px] text-l-ink-dim",
-        ruleCheck: "rounded-pill border border-l-border",
-      },
-    },
-    score: {
-      0: {},
-      1: {},
-      2: {},
-      3: {},
-      4: {},
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
-
 const SCORE_COLORS: Record<number, string> = {
   1: "bg-event-red",
   2: "bg-event-amber",
@@ -90,10 +55,6 @@ const STRENGTH_TONE: Record<number, string> = {
   3: "text-event-green",
   4: "text-event-green",
 };
-
-const RULE_MET =
-  "text-ink-hi border-event-green/60 bg-event-green/15 " +
-  "[&>svg]:text-event-green";
 
 export type PasswordMeterDensity = "compact" | "brand";
 
@@ -118,7 +79,6 @@ export function PasswordMeter({
 }: PasswordMeterProps) {
   const score = scorePassword(value);
   const density = useResolvedChromeDensity(densityProp);
-  const slots = meter({ score, density });
   const label = STRENGTH_LABELS[score];
 
   const rules = [
@@ -130,37 +90,40 @@ export function PasswordMeter({
 
   return (
     <div
-      className={slots.root({ className })}
+      className={passwordMeterRootVariants({ density, className })}
       data-score={score}
       role="status"
       aria-label={`Password strength: ${label}`}
       {...rest}
     >
-      <div className={slots.bars()}>
+      <div className={passwordMeterBarsVariants()}>
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
             className={
-              slots.bar() +
+              passwordMeterBarVariants({ density }) +
               (i <= score ? ` ${SCORE_COLORS[score] ?? "bg-ember"}` : "")
             }
           />
         ))}
       </div>
-      <div className={slots.meta()}>
+      <div className={passwordMeterMetaVariants({ density })}>
         <span>Strength</span>
         <b className={`font-medium ${STRENGTH_TONE[score] ?? ""}`}>{label}</b>
       </div>
       {hideRules ? null : (
-        <div className={slots.rules()}>
+        <div className={passwordMeterRulesVariants()}>
           {rules.map((r) => (
             <span
               key={r.txt}
-              className={slots.rule()}
+              className={passwordMeterRuleVariants({ density })}
               data-met={r.ok || undefined}
             >
               <span
-                className={slots.ruleCheck() + (r.ok ? ` ${RULE_MET}` : "")}
+                className={passwordMeterRuleCheckVariants({
+                  density,
+                  met: r.ok || undefined,
+                })}
               >
                 {r.ok ? <CheckIcon size={8} /> : null}
               </span>

@@ -7,43 +7,15 @@
  */
 
 import * as React from "react";
-import { tv, type VariantProps } from "../utils/tv";
+import type { VariantProps } from "class-variance-authority";
+import {
+  scrollShadowContainerVariants,
+  scrollShadowEndVariants,
+  scrollShadowRootVariants,
+  scrollShadowStartVariants,
+} from "./shadcn";
 
-const scrollShadow = tv({
-  slots: {
-    root: "relative",
-    container: "overflow-auto",
-    startShadow:
-      "pointer-events-none absolute left-0 top-0 z-10 " +
-      "transition-opacity duration-fast ease-out",
-    endShadow:
-      "pointer-events-none absolute right-0 bottom-0 z-10 " +
-      "transition-opacity duration-fast ease-out",
-  },
-  variants: {
-    orientation: {
-      vertical: {
-        startShadow:
-          "left-0 right-0 top-0 h-[24px] " +
-          "bg-gradient-to-b from-[var(--c-surface-00)] to-transparent",
-        endShadow:
-          "left-0 right-0 bottom-0 h-[24px] " +
-          "bg-gradient-to-t from-[var(--c-surface-00)] to-transparent",
-      },
-      horizontal: {
-        startShadow:
-          "top-0 bottom-0 left-0 w-[24px] " +
-          "bg-gradient-to-r from-[var(--c-surface-00)] to-transparent",
-        endShadow:
-          "top-0 bottom-0 right-0 w-[24px] " +
-          "bg-gradient-to-l from-[var(--c-surface-00)] to-transparent",
-      },
-    },
-  },
-  defaultVariants: { orientation: "vertical" },
-});
-
-type ScrollShadowVariantProps = VariantProps<typeof scrollShadow>;
+type ScrollShadowVariantProps = VariantProps<typeof scrollShadowStartVariants>;
 
 export interface ScrollShadowProps
   extends React.HTMLAttributes<HTMLDivElement>, ScrollShadowVariantProps {
@@ -59,7 +31,6 @@ export function ScrollShadow({
   children,
   ...props
 }: ScrollShadowProps) {
-  const slots = scrollShadow({ orientation });
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [showStart, setShowStart] = React.useState(false);
   const [showEnd, setShowEnd] = React.useState(false);
@@ -87,21 +58,23 @@ export function ScrollShadow({
   }, [orientation]);
 
   return (
-    <div className={slots.root({ className })} {...props}>
+    <div className={scrollShadowRootVariants({ className })} {...props}>
       <div
         ref={containerRef}
-        className={`${slots.container()}${containerClassName ? ` ${containerClassName}` : ""}`}
+        className={scrollShadowContainerVariants({
+          className: containerClassName,
+        })}
       >
         {children}
       </div>
       <div
         aria-hidden
-        className={slots.startShadow()}
+        className={scrollShadowStartVariants({ orientation })}
         style={{ opacity: showStart ? 1 : 0 }}
       />
       <div
         aria-hidden
-        className={slots.endShadow()}
+        className={scrollShadowEndVariants({ orientation })}
         style={{ opacity: showEnd ? 1 : 0 }}
       />
     </div>

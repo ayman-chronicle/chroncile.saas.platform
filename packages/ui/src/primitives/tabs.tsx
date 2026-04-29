@@ -2,9 +2,9 @@
 
 /*
  * Tabs — horizontally arranged, keyboard-navigable (arrow/home/end)
- * content panels. Automatic panel/tab id linking via RAC.
+ * content panels backed by Radix Tabs.
  *
- *   <Tabs defaultSelectedKey="events">
+ *   <Tabs defaultValue="events">
  *     <TabList aria-label="Dashboard">
  *       <Tab id="events">Events</Tab>
  *       <Tab id="runs">Runs</Tab>
@@ -17,143 +17,136 @@
  */
 
 import * as React from "react";
-import {
-  Tabs as RACTabs,
-  TabList as RACTabList,
-  Tab as RACTab,
-  TabPanel as RACTabPanel,
-  type TabsProps as RACTabsProps,
-  type TabListProps as RACTabListProps,
-  type TabProps as RACTabProps,
-  type TabPanelProps as RACTabPanelProps,
-} from "react-aria-components";
+import { Tabs as TabsPrimitive } from "radix-ui";
 
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
-
-const tabsStyles = tv({
-  slots: {
-    root: "flex flex-col data-[orientation=vertical]:flex-row",
-    list:
-      "flex border-b border-hairline " +
-      "data-[orientation=vertical]:flex-col data-[orientation=vertical]:border-b-0 " +
-      "data-[orientation=vertical]:border-r",
-    tab:
-      "relative cursor-pointer outline-none transition-colors duration-fast ease-out " +
-      "data-[selected=true]:after:absolute data-[selected=true]:after:inset-x-0 " +
-      "data-[selected=true]:after:-bottom-px data-[selected=true]:after:bg-ember " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember " +
-      "data-[disabled=true]:opacity-50 data-[disabled=true]:cursor-not-allowed",
-    panel: "outline-none",
-  },
-  variants: {
-    density: {
-      brand: {
-        root: "gap-s-4",
-        list: "gap-s-2 data-[orientation=vertical]:gap-s-1",
-        tab:
-          "px-s-3 py-s-2 font-mono text-mono uppercase tracking-tactical " +
-          "text-ink-lo data-[hovered=true]:text-ink-hi " +
-          "data-[selected=true]:text-ink-hi data-[selected=true]:after:h-[2px]",
-      },
-      compact: {
-        root: "gap-[12px]",
-        list: "gap-[2px] data-[orientation=vertical]:gap-[2px]",
-        tab:
-          "px-[10px] py-[6px] font-sans text-[13px] font-medium tracking-normal leading-none " +
-          "text-l-ink-lo data-[hovered=true]:text-l-ink " +
-          "data-[selected=true]:text-l-ink data-[selected=true]:after:h-[2px]",
-      },
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
+import {
+  tabPanelVariants,
+  tabVariants,
+  tabsListVariants,
+  tabsRootVariants,
+} from "./shadcn";
 
 const TabsDensityContext = React.createContext<"compact" | "brand" | undefined>(
   undefined,
 );
 
 export interface TabsProps extends Omit<
-  RACTabsProps,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Root>,
   "className" | "children"
 > {
   className?: string;
   density?: "compact" | "brand";
   children: React.ReactNode;
+  selectedKey?: string;
+  defaultSelectedKey?: string;
+  onSelectionChange?: (key: string) => void;
+  ref?: React.Ref<HTMLDivElement>;
 }
 
-export function Tabs({ className, density: densityProp, children, ...rest }: TabsProps) {
+export function Tabs({
+  className,
+  density: densityProp,
+  children,
+  value,
+  defaultValue,
+  onValueChange,
+  selectedKey,
+  defaultSelectedKey,
+  onSelectionChange,
+  ref,
+  ...rest
+}: TabsProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const slots = tabsStyles({ density });
   return (
-    <RACTabs
+    <TabsPrimitive.Root
       {...rest}
+      ref={ref}
+      value={value ?? selectedKey}
+      defaultValue={defaultValue ?? defaultSelectedKey}
+      onValueChange={(next) => {
+        onValueChange?.(next);
+        onSelectionChange?.(next);
+      }}
       data-density={density}
-      className={composeTwRenderProps(className, slots.root())}
+      className={cn(tabsRootVariants({ density }), className)}
     >
       <TabsDensityContext.Provider value={density}>
         {children}
       </TabsDensityContext.Provider>
-    </RACTabs>
+    </TabsPrimitive.Root>
   );
 }
 
-export interface TabListProps<T extends object = object> extends Omit<
-  RACTabListProps<T>,
+export interface TabListProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>,
   "className" | "children"
 > {
   className?: string;
   children: React.ReactNode;
+  ref?: React.Ref<HTMLDivElement>;
 }
 
-export function TabList<T extends object = object>({
+export function TabList({
   className,
   children,
+  ref,
   ...rest
-}: TabListProps<T>) {
+}: TabListProps) {
   const ctxDensity = React.useContext(TabsDensityContext);
   const density = useResolvedChromeDensity(ctxDensity);
-  const slots = tabsStyles({ density });
   return (
-    <RACTabList
-      {...(rest as RACTabListProps<T>)}
-      className={composeTwRenderProps(className, slots.list())}
+    <TabsPrimitive.List
+      {...rest}
+      ref={ref}
+      className={cn(tabsListVariants({ density }), className)}
     >
       {children as React.ReactNode}
-    </RACTabList>
+    </TabsPrimitive.List>
   );
 }
 
-export interface TabProps extends Omit<RACTabProps, "className"> {
+export interface TabProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>,
+  "className" | "value"
+> {
   className?: string;
+  value?: string;
+  id?: string;
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
-export function Tab({ className, ...rest }: TabProps) {
+export function Tab({ className, ref, value, id, ...rest }: TabProps) {
   const ctxDensity = React.useContext(TabsDensityContext);
   const density = useResolvedChromeDensity(ctxDensity);
-  const slots = tabsStyles({ density });
   return (
-    <RACTab
+    <TabsPrimitive.Trigger
       {...rest}
-      className={composeTwRenderProps(className, slots.tab())}
+      ref={ref}
+      value={value ?? id ?? ""}
+      className={cn(tabVariants({ density }), className)}
     />
   );
 }
 
-export interface TabPanelProps extends Omit<RACTabPanelProps, "className"> {
+export interface TabPanelProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>,
+  "className" | "value"
+> {
   className?: string;
+  value?: string;
+  id?: string;
+  ref?: React.Ref<HTMLDivElement>;
 }
 
-export function TabPanel({ className, ...rest }: TabPanelProps) {
-  const ctxDensity = React.useContext(TabsDensityContext);
-  const density = useResolvedChromeDensity(ctxDensity);
-  const slots = tabsStyles({ density });
+export function TabPanel({ className, ref, value, id, ...rest }: TabPanelProps) {
   return (
-    <RACTabPanel
+    <TabsPrimitive.Content
       {...rest}
-      className={composeTwRenderProps(className, slots.panel())}
+      ref={ref}
+      value={value ?? id ?? ""}
+      className={cn(tabPanelVariants(), className)}
     />
   );
 }

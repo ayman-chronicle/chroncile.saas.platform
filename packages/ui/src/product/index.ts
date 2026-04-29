@@ -13,6 +13,19 @@ export type { MetaKVProps, MetaKVEntry } from "./meta-kv";
 export { EventTag } from "./event-tag";
 export type { EventTagProps, EventRole } from "./event-tag";
 
+export { ProductChip, ProductTableAction } from "./product-chip";
+export type {
+  ProductChipProps,
+  ProductChipTone,
+  ProductTableActionProps,
+} from "./product-chip";
+
+export { ProductMultiSelect } from "./product-multi-select";
+export type {
+  ProductMultiSelectOption,
+  ProductMultiSelectProps,
+} from "./product-multi-select";
+
 export { EventRow } from "./event-row";
 export type { EventRowProps, EventLane, EventRowDensity } from "./event-row";
 

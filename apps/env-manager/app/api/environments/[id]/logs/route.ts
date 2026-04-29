@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 
 export interface LogEntry {
   timestamp: string;

@@ -1,9 +1,7 @@
 "use client";
 
 /*
- * DropdownMenu — RAC's Menu wrapped in a MenuTrigger + Popover so the
- * whole compound feels like a single primitive. Supports arrow/home/end
- * navigation, typeahead, sections, and action-based item handling.
+ * DropdownMenu — Radix menu compound with Chronicle density variants.
  *
  *   <DropdownMenu>
  *     <DropdownMenuTrigger>
@@ -19,72 +17,28 @@
  */
 
 import * as React from "react";
-import {
-  MenuTrigger as RACMenuTrigger,
-  Menu as RACMenu,
-  MenuItem as RACMenuItem,
-  MenuSection as RACMenuSection,
-  Popover as RACPopover,
-  Header as RACHeader,
-  Separator as RACSeparator,
-  type MenuTriggerProps,
-  type MenuProps as RACMenuProps,
-  type MenuItemProps as RACMenuItemProps,
-  type MenuSectionProps as RACMenuSectionProps,
-  type PopoverProps as RACPopoverProps,
-} from "react-aria-components";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
-
-const menuStyles = tv({
-  slots: {
-    popover:
-      "z-50 min-w-[180px] border bg-surface-02 shadow-panel outline-none " +
-      "data-[entering=true]:animate-in data-[entering=true]:fade-in " +
-      "data-[exiting=true]:animate-out data-[exiting=true]:fade-out",
-    menu: "outline-none max-h-[360px] overflow-auto",
-    item:
-      "relative cursor-pointer select-none outline-none " +
-      "data-[focused=true]:bg-surface-03 " +
-      "data-[disabled=true]:opacity-50 data-[disabled=true]:cursor-not-allowed",
-    itemDanger: "text-event-red data-[focused=true]:bg-[rgba(239,68,68,0.08)]",
-    section: "py-s-1",
-    sectionHeader: "",
-    separator: "h-px bg-hairline",
-  },
-  variants: {
-    density: {
-      brand: {
-        popover: "rounded-sm border-hairline-strong p-s-1",
-        item: "rounded-xs px-s-2 py-s-2 font-mono text-mono-lg text-ink",
-        sectionHeader:
-          "px-s-2 pt-s-2 pb-s-1 font-mono text-mono-sm uppercase tracking-tactical text-ink-dim",
-        separator: "my-s-1",
-      },
-      compact: {
-        popover: "rounded-l border-l-border p-[2px]",
-        item:
-          "rounded-l-sm px-[8px] py-[5px] font-sans text-[13px] leading-none text-l-ink " +
-          "data-[focused=true]:bg-l-surface-hover",
-        sectionHeader:
-          "px-[8px] pt-[6px] pb-[3px] font-sans text-[11px] font-medium tracking-normal text-l-ink-dim",
-        separator: "my-[3px] bg-l-border-faint",
-      },
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
+import {
+  dropdownMenuItemVariants,
+  dropdownMenuPopoverVariants,
+  dropdownMenuSectionHeaderVariants,
+  dropdownMenuSectionVariants,
+  dropdownMenuSeparatorVariants,
+  dropdownMenuVariants,
+} from "./shadcn";
 
 const DropdownMenuDensityContext = React.createContext<
   "compact" | "brand" | undefined
 >(undefined);
 
-export interface DropdownMenuProps extends MenuTriggerProps {}
+export interface DropdownMenuProps
+  extends React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Root> {}
 
 export function DropdownMenu(props: DropdownMenuProps) {
-  return <RACMenuTrigger {...props} />;
+  return <DropdownMenuPrimitive.Root {...props} />;
 }
 
 export function DropdownMenuTrigger({
@@ -92,114 +46,119 @@ export function DropdownMenuTrigger({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <DropdownMenuPrimitive.Trigger asChild>{children}</DropdownMenuPrimitive.Trigger>;
 }
 
-export interface DropdownMenuContentProps<
-  T extends object = object,
-> extends Omit<RACMenuProps<T>, "className" | "children"> {
+export interface DropdownMenuContentProps
+  extends Omit<
+    React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>,
+    "className" | "children"
+  > {
   className?: string;
   classNames?: { popover?: string; menu?: string };
-  placement?: RACPopoverProps["placement"];
-  popoverProps?: Omit<RACPopoverProps, "children" | "className">;
   density?: "compact" | "brand";
   children: React.ReactNode;
 }
 
-export function DropdownMenuContent<T extends object = object>({
+export function DropdownMenuContent({
   className,
   classNames,
-  placement = "bottom start",
-  popoverProps,
   density: densityProp,
   children,
   ...rest
-}: DropdownMenuContentProps<T>) {
+}: DropdownMenuContentProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const slots = menuStyles({ density });
   return (
-    <RACPopover
-      {...popoverProps}
-      placement={placement}
-      className={composeTwRenderProps(classNames?.popover, slots.popover())}
-    >
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.Content
+        {...rest}
+        className={cn(
+          dropdownMenuPopoverVariants({ density }),
+          dropdownMenuVariants(),
+          classNames?.popover,
+          classNames?.menu,
+          className
+        )}
+      >
       <DropdownMenuDensityContext.Provider value={density}>
-        <RACMenu
-          {...(rest as RACMenuProps<T>)}
-          className={composeTwRenderProps(
-            className ?? classNames?.menu,
-            slots.menu()
-          )}
-        >
-          {children as React.ReactNode}
-        </RACMenu>
+        {children as React.ReactNode}
       </DropdownMenuDensityContext.Provider>
-    </RACPopover>
+      </DropdownMenuPrimitive.Content>
+    </DropdownMenuPrimitive.Portal>
   );
 }
 
-export interface DropdownMenuItemProps<T extends object = object> extends Omit<
-  RACMenuItemProps<T>,
+export interface DropdownMenuItemProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item>,
   "className"
 > {
   className?: string;
   /** Apply destructive styling (red). */
   danger?: boolean;
+  onAction?: () => void;
 }
 
-export function DropdownMenuItem<T extends object = object>({
+export function DropdownMenuItem({
   className,
   danger = false,
+  onAction,
+  onSelect,
   ...props
-}: DropdownMenuItemProps<T>) {
+}: DropdownMenuItemProps) {
   const ctxDensity = React.useContext(DropdownMenuDensityContext);
   const density = useResolvedChromeDensity(ctxDensity);
-  const slots = menuStyles({ density });
   return (
-    <RACMenuItem
-      {...(props as RACMenuItemProps<T>)}
-      className={composeTwRenderProps(
-        className,
-        `${slots.item()} ${danger ? slots.itemDanger() : ""}`
-      )}
+    <DropdownMenuPrimitive.Item
+      {...props}
+      onSelect={(event) => {
+        onSelect?.(event);
+        if (!event.defaultPrevented) onAction?.();
+      }}
+      className={cn(dropdownMenuItemVariants({ density, danger }), className)}
     />
   );
 }
 
-export interface DropdownMenuSectionProps<T extends object> extends Omit<
-  RACMenuSectionProps<T>,
-  "className" | "children"
+export interface DropdownMenuSectionProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Group>,
+  "className" | "children" | "title"
 > {
   className?: string;
   title?: React.ReactNode;
   children?: React.ReactNode;
 }
 
-export function DropdownMenuSection<T extends object>({
+export function DropdownMenuSection({
   className,
   title,
   children,
   ...rest
-}: DropdownMenuSectionProps<T>) {
+}: DropdownMenuSectionProps) {
   const ctxDensity = React.useContext(DropdownMenuDensityContext);
   const density = useResolvedChromeDensity(ctxDensity);
-  const slots = menuStyles({ density });
   return (
-    <RACMenuSection
-      {...(rest as RACMenuSectionProps<T>)}
-      className={slots.section({ className })}
+    <DropdownMenuPrimitive.Group
+      {...rest}
+      className={dropdownMenuSectionVariants({ className })}
     >
       {title ? (
-        <RACHeader className={slots.sectionHeader()}>{title}</RACHeader>
+        <DropdownMenuPrimitive.Label
+          className={dropdownMenuSectionHeaderVariants({ density })}
+        >
+          {title}
+        </DropdownMenuPrimitive.Label>
       ) : null}
       {children as React.ReactNode}
-    </RACMenuSection>
+    </DropdownMenuPrimitive.Group>
   );
 }
 
 export function DropdownMenuSeparator() {
   const ctxDensity = React.useContext(DropdownMenuDensityContext);
   const density = useResolvedChromeDensity(ctxDensity);
-  const slots = menuStyles({ density });
-  return <RACSeparator className={slots.separator()} />;
+  return (
+    <DropdownMenuPrimitive.Separator
+      className={dropdownMenuSeparatorVariants({ density })}
+    />
+  );
 }

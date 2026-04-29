@@ -10,8 +10,6 @@
  * (`--c-event-*`) so it stays theme-correct without being recomputed.
  */
 
-import type { SourceGlyphId } from "../icons/source-glyph";
-
 /* ── Source ─────────────────────────────────────────────────── */
 
 export type SourceCategory =
@@ -67,6 +65,24 @@ export type SourceId =
   | "linear"
   | "notion";
 
+export type SourceLogoId =
+  | "intercom"
+  | "zendesk"
+  | "shopify"
+  | "stripe"
+  | "salesforce"
+  | "hubspot"
+  | "slack"
+  | "segment"
+  | "snowflake"
+  | "postgres"
+  | "kafka"
+  | "webhook"
+  | "http"
+  | "gmail"
+  | "linear"
+  | "notion";
+
 export interface Source {
   id: SourceId;
   name: string;
@@ -74,7 +90,7 @@ export interface Source {
   color: string;
   auth: SourceAuthMethod;
   blurb: string;
-  glyph: SourceGlyphId;
+  glyph: SourceLogoId;
   /** Sample event names (used in the live preview ticker). */
   sample: string[];
   /** Backfill capability. `null` for pure stream-only sources. */
@@ -428,8 +444,8 @@ export const TEMPLATES: readonly Template[] = [
 export interface DomainHint {
   /** Display name shown in the UI ("Stripe", "Intercom", etc.). */
   name: string;
-  /** Glyph id used inside the detected pill. */
-  icon: SourceGlyphId;
+  /** Logo id used inside the detected pill. */
+  icon: SourceLogoId;
   /** Plain-prose follow-on shown after the brand name. */
   message: string;
 }

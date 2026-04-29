@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 
 const BACKEND_URL = process.env.LOCAL_BACKEND_URL ?? "http://localhost:8080";
 const FLY_API_BASE = "https://api.machines.dev/v1";

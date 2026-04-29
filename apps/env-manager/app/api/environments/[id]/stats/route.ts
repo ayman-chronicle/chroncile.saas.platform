@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 
 const SERVICE_USER_ID =
   process.env.SERVICE_USER_ID ?? "env-manager-service-account";

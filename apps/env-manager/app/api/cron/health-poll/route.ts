@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 
 export async function GET(request: NextRequest) {
   if (!verifyCronSecret(request)) {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   });
 
   const results = await Promise.allSettled(
-    environments.map((env) => pollEnvironment(env))
+    environments.map((env: EnvironmentRow) => pollEnvironment(env))
   );
 
   const summary = results.map((r, i) => ({

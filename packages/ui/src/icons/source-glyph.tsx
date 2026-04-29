@@ -2,10 +2,11 @@ import * as React from "react";
 
 /*
  * SourceGlyph — abstract monochrome marks for the data sources the
- * onboarding catalog supports. The glyphs evoke each service without
- * reproducing trademarks verbatim. All draw at 20×20 by default and
- * inherit `currentColor` so callers tint via the surrounding text
- * color (or pass the `color` prop).
+ * onboarding catalog supports. Use `BrandIcon` for real company logos;
+ * these remain local, theme-aware fallbacks that evoke each source without
+ * depending on remote brand assets. All draw at 20×20 by default and inherit
+ * `currentColor` so callers tint via the surrounding text color (or pass the
+ * `color` prop).
  *
  * Add a new glyph: extend `SourceGlyphId`, add an entry to `GLYPHS`.
  */

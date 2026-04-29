@@ -1,10 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {
-  ListBox as RACListBox,
-  ListBoxItem as RACListBoxItem,
-} from "react-aria-components";
 
 import { Button } from "../../primitives/button";
 import { Input } from "../../primitives/input";
@@ -13,7 +9,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../primitives/popover";
-import { composeTwRenderProps } from "../../utils/compose";
 import { tv } from "../../utils/tv";
 
 import { FilterOperatorMenu } from "./filter-operator";
@@ -37,7 +32,7 @@ const styles = tv({
     item:
       "flex cursor-pointer select-none items-center gap-s-3 rounded-xs px-s-2 py-s-2 " +
       "font-mono text-mono text-ink outline-none " +
-      "data-[focused=true]:bg-surface-03 " +
+      "hover:bg-surface-03 focus-visible:bg-surface-03 " +
       "data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50",
     icon:
       "inline-flex h-[20px] w-[20px] shrink-0 items-center justify-center " +
@@ -55,9 +50,9 @@ const draftStyles = tv({
     back:
       "inline-flex h-[24px] w-[24px] items-center justify-center rounded-xs " +
       "text-ink-dim outline-none transition-colors duration-fast ease-out " +
-      "data-[hovered=true]:bg-surface-03 data-[hovered=true]:text-ink-hi " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
+      "hover:bg-surface-03 hover:text-ink-hi " +
+      "focus-visible:outline focus-visible:outline-1 " +
+      "focus-visible:outline-ember",
     columnLabel:
       "font-mono text-mono-sm uppercase tracking-tactical text-ink-hi",
     operator: "ml-auto",
@@ -118,7 +113,7 @@ export function FilterSelector<TRow>({
 
   return (
     <Popover
-      isOpen={open}
+      open={open}
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) reset();
@@ -134,7 +129,7 @@ export function FilterSelector<TRow>({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent placement="bottom start">
+      <PopoverContent side="bottom" align="start">
         {draft === null ? (
           <ColumnPicker
             columns={columns}
@@ -219,35 +214,38 @@ function ColumnPicker<TRow>({
         autoFocus
         aria-label="Search columns"
       />
-      <RACListBox
+      <div
         className={slots.list()}
+        role="listbox"
         aria-label="Columns"
-        selectionMode="single"
-        disabledKeys={disabledIds}
-        onSelectionChange={(keys) => {
-          if (keys === "all") return;
-          const id = [...keys][0];
-          if (id == null) return;
-          const col = columns.find((c) => c.id === String(id));
-          if (col) onPick(col);
-        }}
-        renderEmptyState={() => <div className={slots.empty()}>No matches</div>}
       >
-        {filtered.map((c) => (
-          <RACListBoxItem
-            key={c.id}
-            id={c.id}
-            textValue={c.label}
-            className={composeTwRenderProps(undefined, slots.item())}
-          >
-            <span className={slots.icon()}>
-              {c.icon ?? <ColumnGlyph type={c.type} />}
-            </span>
-            <span className={slots.label()}>{c.label}</span>
-            <span className={slots.type()}>{TYPE_LABEL[c.type]}</span>
-          </RACListBoxItem>
-        ))}
-      </RACListBox>
+        {filtered.length ? (
+          filtered.map((c) => {
+            const disabled = disabledIds?.includes(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                role="option"
+                disabled={disabled}
+                data-disabled={disabled || undefined}
+                className={slots.item()}
+                onClick={() => {
+                  if (!disabled) onPick(c);
+                }}
+              >
+                <span className={slots.icon()}>
+                  {c.icon ?? <ColumnGlyph type={c.type} />}
+                </span>
+                <span className={slots.label()}>{c.label}</span>
+                <span className={slots.type()}>{TYPE_LABEL[c.type]}</span>
+              </button>
+            );
+          })
+        ) : (
+          <div className={slots.empty()}>No matches</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -306,14 +304,14 @@ function DraftView<TRow>({
 
       {draft.column.type !== "option" ? (
         <div className={slots.footer()}>
-          <Button variant="ghost" size="sm" onPress={onBack}>
+          <Button variant="ghost" size="sm" onClick={onBack}>
             Cancel
           </Button>
           <Button
             variant="primary"
             size="sm"
-            isDisabled={!canApply}
-            onPress={() => onCommit()}
+            disabled={!canApply}
+            onClick={() => onCommit()}
           >
             Apply
           </Button>

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Button as RACButton } from "react-aria-components";
 
 import {
   Popover,
@@ -32,15 +31,15 @@ const styles = tv({
     value:
       "flex items-center gap-s-2 px-s-3 font-mono text-mono text-ink-lo " +
       "outline-none transition-colors duration-fast ease-out " +
-      "data-[hovered=true]:text-ink-hi data-[hovered=true]:bg-surface-03 " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
+      "hover:text-ink-hi hover:bg-surface-03 " +
+      "focus-visible:outline focus-visible:outline-1 " +
+      "focus-visible:outline-ember",
     close:
       "flex items-center pl-s-2 pr-s-3 text-ink-dim outline-none " +
       "transition-colors duration-fast ease-out " +
-      "data-[hovered=true]:text-ink-hi data-[hovered=true]:bg-surface-03 " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
+      "hover:text-ink-hi hover:bg-surface-03 " +
+      "focus-visible:outline focus-visible:outline-1 " +
+      "focus-visible:outline-ember",
     icon: "shrink-0 text-ink-dim",
     placeholder: "italic text-ink-dim",
   },
@@ -90,13 +89,13 @@ export function DataTableFilterPill<TRow>({
         />
       </span>
       <span className={slots.divider()} aria-hidden />
-      <Popover isOpen={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger>
-          <RACButton className={slots.value()} aria-label="Edit value">
+          <button type="button" className={slots.value()} aria-label="Edit value">
             {renderValueSummary(column, filter, slots.placeholder())}
-          </RACButton>
+          </button>
         </PopoverTrigger>
-        <PopoverContent placement="bottom start">
+        <PopoverContent side="bottom" align="start">
           <ValueEditor
             column={column}
             filter={filter}
@@ -106,9 +105,10 @@ export function DataTableFilterPill<TRow>({
         </PopoverContent>
       </Popover>
       <span className={slots.divider()} aria-hidden />
-      <RACButton
+      <button
+        type="button"
         className={slots.close()}
-        onPress={onRemove}
+        onClick={onRemove}
         aria-label={`Remove ${column.label} filter`}
       >
         <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" aria-hidden>
@@ -119,7 +119,7 @@ export function DataTableFilterPill<TRow>({
             strokeLinecap="round"
           />
         </svg>
-      </RACButton>
+      </button>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
-import { backendFetch } from "@/server/integrations/backend-client";
-import { auth } from "@/server/auth/auth";
+import { prisma } from "@/backend/data/db";
+import { backendFetch } from "@/backend/integrations/backend-client";
+import { auth } from "@/backend/auth/auth";
 
 export async function PUT(
   req: Request,

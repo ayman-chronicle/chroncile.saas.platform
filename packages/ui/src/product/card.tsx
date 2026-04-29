@@ -1,16 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Link as RACLink } from "react-aria-components";
 
 import { tv } from "../utils/tv";
 
 /**
  * Card — the design-system card with a visual thumb + label foot. Used
  * on the brand index and as a general "clickable tile with preview"
- * primitive. When `href` is provided, renders via RAC's `Link` so
- * navigation integrates with `RouterProvider` (client-side routing) and
- * press/hover/focus states are unified with the rest of the system.
+ * primitive. When `href` is provided, renders as a native anchor.
  */
 const cardStyles = tv({
   slots: {
@@ -19,10 +16,9 @@ const cardStyles = tv({
       "border border-hairline bg-surface-01 no-underline " +
       "transition-[border-color,transform] duration-base ease-out " +
       "outline-none " +
-      "data-[hovered=true]:border-hairline-strong data-[hovered=true]:-translate-y-[2px] " +
       "hover:border-hairline-strong hover:-translate-y-[2px] " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
+      "focus-visible:outline focus-visible:outline-1 " +
+      "focus-visible:outline-ember",
     thumb:
       "relative flex-1 overflow-hidden border-b border-hairline " +
       "bg-surface-02 min-h-[220px]",
@@ -33,7 +29,7 @@ const cardStyles = tv({
     arrow:
       "self-center font-mono text-[14px] text-ink-dim " +
       "transition-colors duration-base ease-out " +
-      "group-hover:text-ember group-data-[hovered=true]:text-ember",
+      "group-hover:text-ember",
   },
 });
 
@@ -98,34 +94,14 @@ export function Card({
   );
 
   if (href) {
-    // RAC Link uses FocusableElement event types, which aren't compatible
-    // with raw HTMLAnchorElement handlers from AnchorHTMLAttributes. Pick
-    // only the anchor-specific props that are safe to forward.
-    const {
-      target,
-      rel,
-      download,
-      hrefLang,
-      referrerPolicy,
-      id,
-      style,
-      "aria-label": ariaLabel,
-    } = props;
     return (
-      <RACLink
+      <a
+        {...props}
         href={href}
-        target={target}
-        rel={rel}
-        download={download as never}
-        hrefLang={hrefLang}
-        referrerPolicy={referrerPolicy}
-        id={id}
-        style={style}
-        aria-label={ariaLabel}
         className={slots.root({ className })}
       >
         {inner}
-      </RACLink>
+      </a>
     );
   }
 

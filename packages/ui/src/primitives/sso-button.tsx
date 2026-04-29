@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import {
-  Button as RACButton,
-  type ButtonProps as RACButtonProps,
-} from "react-aria-components/Button";
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  ssoButtonVariants,
+  ssoIconVariants,
+  ssoKbdVariants,
+  ssoLabelVariants,
+  ssoSpinnerVariants,
+} from "./shadcn";
 
 /*
  * SSOButton — branded "Continue with Google / GitHub / Passkey" button.
@@ -18,51 +20,6 @@ import { useResolvedChromeDensity } from "../theme/chrome-style-context";
  */
 
 export type SSOProvider = "google" | "github" | "passkey" | "custom";
-
-const sso = tv({
-  slots: {
-    base:
-      "group inline-flex w-full items-center border " +
-      "transition-[background-color,border-color,color] duration-fast ease-out " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember " +
-      "data-[disabled=true]:opacity-40 data-[disabled=true]:cursor-not-allowed " +
-      "data-[pending=true]:cursor-wait",
-    icon: "inline-flex shrink-0 items-center justify-center",
-    label: "flex-1 text-left",
-    kbd: "inline-flex items-center justify-center",
-    spinner:
-      "shrink-0 animate-spin rounded-full border-2 " +
-      "border-current border-t-transparent",
-  },
-  variants: {
-    density: {
-      brand: {
-        base:
-          "h-[44px] gap-s-3 px-s-3 rounded-sm border-hairline-strong bg-surface-01 " +
-          "font-sans text-[13.5px] font-medium text-ink-hi " +
-          "data-[hovered=true]:bg-surface-02 data-[hovered=true]:border-ink-dim",
-        icon: "h-5 w-5 text-ink",
-        kbd:
-          "h-[18px] min-w-[18px] rounded-l-sm bg-surface-03 px-[5px] " +
-          "font-mono text-mono-sm text-ink-dim",
-        spinner: "h-4 w-4",
-      },
-      compact: {
-        base:
-          "h-[32px] gap-[8px] px-[10px] rounded-l border-l-border bg-l-surface-raised " +
-          "font-sans text-[13px] font-medium text-l-ink " +
-          "data-[hovered=true]:bg-l-surface-hover data-[hovered=true]:border-l-border-strong",
-        icon: "h-4 w-4 text-l-ink",
-        kbd:
-          "h-[16px] min-w-[16px] rounded-l-sm bg-l-wash-3 px-[4px] " +
-          "font-sans text-[10px] font-medium text-l-ink-dim",
-        spinner: "h-3.5 w-3.5",
-      },
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
 
 const GoogleGlyph = () => (
   <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden>
@@ -124,8 +81,8 @@ const PROVIDER_GLYPH: Record<SSOProvider, React.ReactNode> = {
 };
 
 export interface SSOButtonProps extends Omit<
-  RACButtonProps,
-  "className" | "children"
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "className" | "children" | "disabled"
 > {
   /** SSO provider preset. Use `"custom"` and pass `icon` + `children`. */
   provider: SSOProvider;
@@ -137,10 +94,14 @@ export interface SSOButtonProps extends Omit<
   kbd?: React.ReactNode;
   /** Loading state — disables and swaps the icon for a spinner. */
   isLoading?: boolean;
+  isDisabled?: boolean;
+  onPress?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   /** Force a density flavor. Defaults to whichever the surrounding
    * `ChromeStyleProvider` resolves to. */
   density?: "compact" | "brand";
   className?: string;
+  ref?: React.Ref<HTMLButtonElement>;
+  disabled?: boolean;
 }
 
 /**
@@ -154,33 +115,41 @@ export function SSOButton({
   icon,
   kbd,
   isLoading,
-  isPending,
   density: densityProp,
   className,
+  disabled,
   isDisabled,
+  onClick,
+  onPress,
+  ref,
+  type,
   ...rest
 }: SSOButtonProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const slots = sso({ density });
-  const pending = isLoading ?? isPending;
+  const pending = Boolean(isLoading);
   const label = children ?? PROVIDER_LABEL[provider];
   const glyph = icon ?? PROVIDER_GLYPH[provider];
 
   return (
-    <RACButton
-      type="button"
+    <button
+      {...rest}
+      ref={ref}
+      type={type ?? "button"}
       data-provider={provider}
       data-density={density}
-      isPending={pending}
-      isDisabled={isDisabled || pending}
-      className={composeTwRenderProps(undefined, slots.base({ className }))}
-      {...rest}
+      data-pending={pending || undefined}
+      disabled={disabled || isDisabled || pending}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) onPress?.(event);
+      }}
+      className={cn(ssoButtonVariants({ density }), className)}
     >
-      <span className={slots.icon()}>
-        {pending ? <span className={slots.spinner()} /> : glyph}
+      <span className={ssoIconVariants({ density })}>
+        {pending ? <span className={ssoSpinnerVariants({ density })} /> : glyph}
       </span>
-      <span className={slots.label()}>{label}</span>
-      {kbd ? <span className={slots.kbd()}>{kbd}</span> : null}
-    </RACButton>
+      <span className={ssoLabelVariants()}>{label}</span>
+      {kbd ? <span className={ssoKbdVariants({ density })}>{kbd}</span> : null}
+    </button>
   );
 }

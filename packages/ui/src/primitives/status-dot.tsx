@@ -1,5 +1,8 @@
 import * as React from "react";
-import { tv, type VariantProps } from "../utils/tv";
+import {
+  ShadcnStatusDot,
+  type ShadcnStatusDotProps,
+} from "./shadcn";
 
 /**
  * StatusDot — the colored dot used inline in status labels, nav items,
@@ -24,17 +27,8 @@ export type StatusDotVariant =
   | "nominal"
   | "data";
 
-const dot = tv({
-  base: "inline-block h-[8px] w-[8px] shrink-0 rounded-full",
-  variants: {
-    pulse: { true: "animate-chron-pulse" },
-  },
-});
-
-type DotVariantProps = VariantProps<typeof dot>;
-
 export interface StatusDotProps
-  extends React.HTMLAttributes<HTMLSpanElement>, DotVariantProps {
+  extends Omit<ShadcnStatusDotProps, "pulse"> {
   variant?: StatusDotVariant;
   pulse?: boolean;
   /** Renders the halo ring used on the event stream selected row. */
@@ -67,9 +61,10 @@ export function StatusDot({
 }: StatusDotProps) {
   const v = palette[variant];
   return (
-    <span
+    <ShadcnStatusDot
       aria-hidden
-      className={dot({ pulse, className })}
+      className={className}
+      pulse={pulse}
       data-variant={variant}
       style={{
         background: v.fill,

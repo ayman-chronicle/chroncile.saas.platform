@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Pressable } from "react-aria-components";
 
 import { tv } from "../utils/tv";
 import {
@@ -73,9 +72,7 @@ const streamStyles = tv({
  * down the center, each row hosts a colored lane dot. `selectedId`
  * marks the single hot row; nothing else glows.
  *
- * When `onSelect` is provided, each row is wrapped in RAC's `Pressable`
- * so press semantics (mouse + keyboard + touch) are handled correctly
- * without manual `onKeyDown` plumbing.
+ * When `onSelect` is provided, each row is wrapped in a native button.
  */
 export function EventStream({
   items,
@@ -110,9 +107,14 @@ export function EventStream({
         );
         if (!onSelect) return <React.Fragment key={id}>{row}</React.Fragment>;
         return (
-          <Pressable key={id} onPress={() => onSelect(id)}>
+          <button
+            key={id}
+            type="button"
+            className="block w-full text-left"
+            onClick={() => onSelect(id)}
+          >
             {row}
-          </Pressable>
+          </button>
         );
       })}
     </div>

@@ -5,8 +5,8 @@ import { Button } from "../primitives/button";
 import { Eyebrow } from "../primitives/eyebrow";
 import { Input } from "../primitives/input";
 import { Modal } from "../primitives/modal";
-import { SourceGlyph } from "../icons/source-glyph";
 import { ArrowLeftIcon, ArrowRightIcon } from "../icons/glyphs";
+import { CompanyLogo } from "../icons";
 import { AuthDisplay, AuthLede } from "../auth/_internal";
 import { cx } from "../utils/cx";
 import {
@@ -561,7 +561,12 @@ function SourceRow({
           className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-sm border border-hairline bg-white/[0.03]"
           style={{ color: source.color }}
         >
-          <SourceGlyph id={source.glyph} size={16} />
+          <CompanyLogo
+            name={source.name}
+            size={16}
+            rounded
+            fallbackColor={source.color}
+          />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
           <div className="flex items-center gap-s-2">
@@ -703,7 +708,12 @@ function SourceTile({
         className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-sm border border-hairline bg-white/[0.03]"
         style={{ color: source.color }}
       >
-        <SourceGlyph id={source.glyph} size={13} />
+        <CompanyLogo
+          name={source.name}
+          size={13}
+          rounded
+          fallbackColor={source.color}
+        />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-[1px]">
         <div className="flex items-center gap-[6px]">

@@ -1,4 +1,4 @@
-import type { PermanentEnvConfig } from "@/lib/permanent-envs";
+import type { PermanentEnvConfig } from "./permanent-envs";
 
 const DOPPLER_API_BASE =
   process.env.DOPPLER_API_BASE ?? "https://api.doppler.com";

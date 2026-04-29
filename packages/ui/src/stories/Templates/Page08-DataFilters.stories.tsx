@@ -353,7 +353,7 @@ function Page08({ initial }: { initial?: FilterState[] }) {
         <PageHeader
           eyebrow="08 / 08"
           title="Product — Data filters"
-          lede="A Chronicle-native port of bazza/ui's Linear-style filter bar. Pills compose with AND logic, operator and value share a single popover, and the column picker lives a keystroke away. Built on react-aria-components and the shared token layer — no Radix, no cmdk, no tailwind-merge."
+          lede="A Chronicle-native port of bazza/ui's Linear-style filter bar. Pills compose with AND logic, operator and value share a single popover, and the column picker lives a keystroke away. Built on shadcn/Radix patterns and the shared token layer."
         />
 
         <h2 className="m-0 mb-s-4 mt-s-12 font-display text-title-lg font-medium tracking-tight text-ink-hi">

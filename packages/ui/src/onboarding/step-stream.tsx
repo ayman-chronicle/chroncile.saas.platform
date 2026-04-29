@@ -3,8 +3,8 @@
 import * as React from "react";
 import { Button } from "../primitives/button";
 import { Eyebrow } from "../primitives/eyebrow";
-import { SourceGlyph } from "../icons/source-glyph";
 import { ArrowLeftIcon, ArrowRightIcon } from "../icons/glyphs";
+import { CompanyLogo } from "../icons";
 import { AuthDisplay, AuthLede, StepFoot } from "../auth/_internal";
 import { DEMO_EVENTS, getSource, type DemoEvent, type SourceId } from "./data";
 
@@ -163,8 +163,13 @@ export function StepStream({
               <span className="w-[60px] font-mono text-mono-sm text-ink-dim">
                 {row.t.toTimeString().slice(0, 8)}
               </span>
-              <span style={{ color: row.src!.color }} className="flex">
-                <SourceGlyph id={row.src!.glyph} size={12} />
+              <span className="flex">
+                <CompanyLogo
+                  name={row.src!.name}
+                  size={12}
+                  rounded
+                  fallbackColor={row.src!.color}
+                />
               </span>
               <span className="flex-1 truncate font-mono text-mono-lg text-ink-hi">
                 {row.src!.id}.{row.evName}

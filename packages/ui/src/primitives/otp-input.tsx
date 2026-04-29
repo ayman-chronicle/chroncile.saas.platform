@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { tv } from "../utils/tv";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import { otpCellVariants, otpRowVariants } from "./shadcn";
 
 /*
  * OTPInput — N-cell numeric one-time-passcode input. Paste-aware
@@ -19,73 +19,6 @@ import { useResolvedChromeDensity } from "../theme/chrome-style-context";
  * variant="auth">` — large mono cells, hairline border, ember focus,
  * red on `error`, green on `success`.
  */
-
-const otp = tv({
-  slots: {
-    row: "flex",
-    cell:
-      "text-center border outline-none " +
-      "transition-[border-color,box-shadow,background-color] duration-fast ease-out " +
-      "disabled:opacity-40 disabled:cursor-not-allowed",
-  },
-  variants: {
-    density: {
-      brand: {
-        row: "gap-s-2",
-        cell:
-          "h-[52px] w-[44px] rounded-sm bg-surface-00 caret-ember " +
-          "font-mono text-[20px] text-ink-hi border-hairline-strong " +
-          "hover:border-ink-dim " +
-          "focus:border-ember focus:shadow-[0_0_0_3px_rgba(216,67,10,0.12)]",
-      },
-      compact: {
-        row: "gap-[6px]",
-        cell:
-          "h-[36px] w-[32px] rounded-l bg-l-surface-input caret-ember " +
-          "font-sans font-medium text-[16px] text-l-ink border-l-border " +
-          "hover:border-l-border-strong " +
-          "focus:border-[rgba(216,67,10,0.5)] focus:shadow-[0_0_0_3px_rgba(216,67,10,0.12)]",
-      },
-    },
-    state: {
-      idle: {},
-      filled: {},
-      error: {
-        cell:
-          "border-event-red focus:border-event-red " +
-          "focus:shadow-[0_0_0_3px_rgba(239,68,68,0.18)]",
-      },
-      success: {
-        cell:
-          "border-[rgba(74,222,128,0.45)] focus:border-event-green " +
-          "focus:shadow-[0_0_0_3px_rgba(74,222,128,0.18)]",
-      },
-    },
-    codeGrid: {
-      true: {
-        row: "gap-s-3",
-        cell:
-          "h-[64px] w-[52px] text-[26px] caret-[3px] rounded-md " +
-          "bg-transparent " +
-          "focus:caret-ember focus:shadow-[0_0_0_3px_rgba(216,67,10,0.16)]",
-      },
-      false: {},
-    },
-  },
-  compoundVariants: [
-    {
-      density: "brand",
-      state: "filled",
-      class: { cell: "bg-surface-01" },
-    },
-    {
-      density: "compact",
-      state: "filled",
-      class: { cell: "bg-l-surface-raised-2" },
-    },
-  ],
-  defaultVariants: { density: "brand", state: "idle", codeGrid: false },
-});
 
 export interface OTPInputProps extends Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -159,11 +92,6 @@ export function OTPInput({
 
   const refs = React.useRef<(HTMLInputElement | null)[]>([]);
   const [focusedIdx, setFocusedIdx] = React.useState<number | null>(null);
-  const slots = otp({
-    density,
-    state: error ? "error" : success ? "success" : "idle",
-    codeGrid: codeGridStyle,
-  });
 
   React.useEffect(() => {
     if (autoFocus && refs.current[0] && !disabled) {
@@ -250,7 +178,11 @@ export function OTPInput({
     <div
       role="group"
       aria-label={ariaLabel}
-      className={slots.row({ className })}
+      className={otpRowVariants({
+        density,
+        codeGrid: codeGridStyle,
+        className,
+      })}
       onPaste={handlePaste}
       data-state={error ? "error" : success ? "success" : "idle"}
       data-style={codeGridStyle ? "code-grid" : "default"}
@@ -278,7 +210,7 @@ export function OTPInput({
             }}
             onBlur={() => setFocusedIdx((cur) => (cur === i ? null : cur))}
             aria-label={`Digit ${i + 1} of ${length}`}
-            className={otp({
+            className={otpCellVariants({
               density,
               state: error
                 ? "error"
@@ -288,7 +220,7 @@ export function OTPInput({
                     ? "filled"
                     : "idle",
               codeGrid: codeGridStyle,
-            }).cell()}
+            })}
           />
         );
         if (!codeGridStyle) return cellInput;

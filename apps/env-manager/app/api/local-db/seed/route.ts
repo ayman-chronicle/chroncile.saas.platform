@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runSeed } from "@/lib/local-db";
+import { runSeed } from "@/backend/local-dev";
 
 export async function POST(request: Request) {
   try {

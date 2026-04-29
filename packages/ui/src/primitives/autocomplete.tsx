@@ -17,29 +17,12 @@
  */
 
 import * as React from "react";
-import {
-  Autocomplete as RACAutocomplete,
-  useFilter,
-  type AutocompleteProps as RACAutocompleteProps,
-} from "react-aria-components";
 
-import { tv } from "../utils/tv";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import { autocompleteVariants } from "./shadcn";
 
-const autocompleteStyles = tv({
-  base: "flex flex-col gap-s-2 border shadow-panel",
-  variants: {
-    density: {
-      brand: "rounded-md border-hairline-strong bg-surface-02 p-s-2",
-      compact: "rounded-l border-l-border bg-l-surface-raised p-[6px] gap-[6px]",
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
-
-export interface AutocompleteProps<
-  T extends object = object,
-> extends RACAutocompleteProps<T> {
+export interface AutocompleteProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "className" | "children"> {
   className?: string;
   density?: "compact" | "brand";
   /** Children should include both an input (e.g. `<SearchField>` with
@@ -47,25 +30,20 @@ export interface AutocompleteProps<
   children: React.ReactNode;
 }
 
-export function Autocomplete<T extends object = object>({
+export function Autocomplete({
   className,
   children,
-  filter,
   density: densityProp,
   ...rest
-}: AutocompleteProps<T>) {
+}: AutocompleteProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const { contains } = useFilter({ sensitivity: "base" });
   return (
-    <div className={autocompleteStyles({ density, className })} data-density={density}>
-      <RACAutocomplete<T>
-        {...rest}
-        filter={
-          filter ?? ((textValue, inputValue) => contains(textValue, inputValue))
-        }
-      >
-        {children as React.ReactNode}
-      </RACAutocomplete>
+    <div
+      {...rest}
+      className={autocompleteVariants({ density, className })}
+      data-density={density}
+    >
+      {children as React.ReactNode}
     </div>
   );
 }

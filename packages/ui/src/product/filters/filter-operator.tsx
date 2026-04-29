@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Button as RACButton } from "react-aria-components";
 
 import {
   DropdownMenu,
@@ -19,9 +18,9 @@ const styles = tv({
     trigger:
       "inline-flex h-full items-center gap-s-1 px-s-2 font-mono text-mono-sm " +
       "text-ink-lo outline-none transition-colors duration-fast ease-out " +
-      "data-[hovered=true]:text-ink-hi data-[hovered=true]:bg-surface-03 " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
+      "hover:text-ink-hi hover:bg-surface-03 " +
+      "focus-visible:outline focus-visible:outline-1 " +
+      "focus-visible:outline-ember",
     caret: "h-3 w-3 shrink-0 opacity-60",
   },
 });
@@ -43,7 +42,7 @@ export function FilterOperatorMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <RACButton className={slots.trigger()} aria-label="Operator">
+        <button type="button" className={slots.trigger()} aria-label="Operator">
           <span>{OPERATORS[operator].pillLabel}</span>
           <svg
             aria-hidden
@@ -59,11 +58,11 @@ export function FilterOperatorMenu({
               strokeLinejoin="round"
             />
           </svg>
-        </RACButton>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         {available.map((op) => (
-          <DropdownMenuItem key={op} id={op} onAction={() => onChange(op)}>
+          <DropdownMenuItem key={op} onSelect={() => onChange(op)}>
             {OPERATORS[op].label}
           </DropdownMenuItem>
         ))}

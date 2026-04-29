@@ -26,6 +26,8 @@
     "test:rust": "cd backend && cargo test --workspace",
     "test:rust-full": "cd backend && cargo test --workspace --features postgres-tests",
     "test:contracts": "cd backend && cargo test --test contracts",
+    "test:ai-sdk-capture": "yarn workspace @chroniclelabs/ai-sdk test",
+    "test:ai-sdk-live-node": "yarn workspace @chroniclelabs/ai-sdk test:live-node",
     "test:e2e": "npx playwright test",
     "test:all": "yarn test:rust && yarn test:contracts && yarn test:e2e"
   },

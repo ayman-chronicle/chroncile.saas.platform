@@ -12,7 +12,7 @@ export {
   getBackendLogs,
   restartBackend,
   getLocalDbStatus,
-} from "@/lib/local-db";
+} from "@/backend/local-dev";
 
 export type {
   ContainerState,
@@ -22,4 +22,4 @@ export type {
   MigrationResult,
   DbInfo,
   LocalDbStatus,
-} from "@/lib/local-db";
+} from "@/backend/local-dev";

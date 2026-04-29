@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLocalDbStatus } from "@/lib/local-db";
+import { getLocalDbStatus } from "@/backend/local-dev";
 
 export async function GET() {
   try {

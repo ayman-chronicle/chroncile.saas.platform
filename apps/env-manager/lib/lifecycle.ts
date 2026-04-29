@@ -1,7 +1,6 @@
-import { prisma } from "@/lib/db";
-import * as fly from "@/lib/fly-client";
-import * as vercel from "@/lib/vercel-client";
-import * as github from "@/lib/github-client";
+import { prisma } from "@/lib/data";
+import { fly, vercel } from "@/lib/integrations";
+import * as github from "./github-client";
 
 const FLY_REGION = "ams";
 // Tag of the current production image. Update when a new version is deployed.

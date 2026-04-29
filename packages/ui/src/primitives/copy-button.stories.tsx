@@ -18,3 +18,12 @@ export const Default: Story = {
     </div>
   ),
 };
+
+export const TextAction: Story = {
+  args: { appearance: "text", label: "Copy", copiedLabel: "Copied" },
+  render: (args) => (
+    <div className="rounded-md border border-hairline bg-surface-01 p-s-4">
+      <CopyButton {...args} />
+    </div>
+  ),
+};

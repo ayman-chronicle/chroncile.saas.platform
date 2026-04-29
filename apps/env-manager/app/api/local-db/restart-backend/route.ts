@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { restartBackend } from "@/lib/local-db";
+import { restartBackend } from "@/backend/local-dev";
 
 export async function POST() {
   try {

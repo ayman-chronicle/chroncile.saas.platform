@@ -2,8 +2,13 @@
 
 import * as React from "react";
 
-import { tv, type VariantProps } from "../utils/tv";
+import type { VariantProps } from "class-variance-authority";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  avatarFallbackVariants,
+  avatarImageVariants,
+  avatarRootVariants,
+} from "./shadcn";
 
 /*
  * Avatar — image with fallback initials. Intentionally simple: we don't
@@ -16,58 +21,7 @@ import { useResolvedChromeDensity } from "../theme/chrome-style-context";
 
 export type AvatarDensity = "compact" | "brand";
 
-const avatar = tv({
-  slots: {
-    root:
-      "relative inline-flex shrink-0 items-center justify-center overflow-hidden select-none",
-    image: "h-full w-full object-cover",
-    fallback:
-      "flex h-full w-full items-center justify-center text-[0.5em]",
-  },
-  variants: {
-    density: {
-      brand: {
-        root: "font-mono uppercase text-ink-hi tracking-tactical",
-        fallback: "bg-surface-03 tracking-tactical",
-      },
-      compact: {
-        root: "font-sans font-medium text-l-ink",
-        fallback: "bg-l-wash-5 tracking-normal",
-      },
-    },
-    size: {
-      xs: "h-5 w-5 text-[9px]",
-      sm: "h-6 w-6 text-[10px]",
-      md: "h-8 w-8 text-[11px]",
-      lg: "h-10 w-10 text-[12px]",
-      xl: "h-12 w-12 text-[14px]",
-    },
-    shape: {
-      circle: "rounded-full",
-      square: { root: "rounded-xs" },
-    },
-    tone: {
-      neutral: "",
-      ember: "bg-[rgba(216,67,10,0.12)] text-ember border border-ember/40",
-      teal: "bg-[rgba(45,212,191,0.12)] text-event-teal border border-event-teal/40",
-      violet:
-        "bg-[rgba(139,92,246,0.12)] text-event-violet border border-event-violet/40",
-    },
-  },
-  compoundVariants: [
-    { density: "brand", tone: "neutral", class: { root: "bg-surface-03" } },
-    { density: "compact", tone: "neutral", class: { root: "bg-l-wash-5" } },
-    { density: "compact", shape: "square", class: { root: "rounded-l" } },
-  ],
-  defaultVariants: {
-    size: "md",
-    shape: "circle",
-    tone: "neutral",
-    density: "brand",
-  },
-});
-
-type AvatarVariantProps = VariantProps<typeof avatar>;
+type AvatarVariantProps = VariantProps<typeof avatarRootVariants>;
 
 export interface AvatarProps
   extends React.HTMLAttributes<HTMLSpanElement>, AvatarVariantProps {
@@ -109,22 +63,27 @@ export function Avatar({
   ...props
 }: AvatarProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const slots = avatar({ size, shape, tone, density });
   const [imageFailed, setImageFailed] = React.useState(false);
   const showImage = Boolean(src) && !imageFailed;
   const resolvedInitials = deriveInitials(name, initials);
 
   return (
-    <span className={slots.root({ className })} {...props}>
+    <span
+      className={avatarRootVariants({ size, shape, tone, density, className })}
+      {...props}
+    >
       {showImage ? (
         <img
           src={src ?? undefined}
           alt={alt}
-          className={slots.image()}
+          className={avatarImageVariants()}
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <span className={slots.fallback()} aria-hidden={Boolean(alt)}>
+        <span
+          className={avatarFallbackVariants({ density })}
+          aria-hidden={Boolean(alt)}
+        >
           {resolvedInitials}
         </span>
       )}

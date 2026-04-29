@@ -141,6 +141,30 @@
   --c-track:         rgba(255,255,255,0.06);  /* progress track / empty bar */
   --c-btn-invert-bg: #ffffff;                 /* "primary on dark" button bg */
   --c-btn-invert-fg: #040404;                 /* its text */
+
+  /* ── shadcn semantic aliases ────────────────────────────────
+     These keep generated shadcn-style components on Chronicle's token
+     system instead of introducing a parallel color source. */
+  --background: var(--c-page);
+  --foreground: var(--c-ink);
+  --card: var(--c-surface-01);
+  --card-foreground: var(--c-ink);
+  --popover: var(--c-surface-02);
+  --popover-foreground: var(--c-ink);
+  --primary: var(--c-ember);
+  --primary-foreground: var(--c-ink-inv-hi);
+  --secondary: var(--c-surface-03);
+  --secondary-foreground: var(--c-ink-hi);
+  --muted: var(--c-surface-02);
+  --muted-foreground: var(--c-ink-dim);
+  --accent: var(--c-surface-03);
+  --accent-foreground: var(--c-ink-hi);
+  --destructive: var(--c-event-red);
+  --destructive-foreground: var(--c-ink-inv-hi);
+  --border: var(--c-hairline-strong);
+  --input: var(--c-hairline-strong);
+  --ring: var(--c-ember);
+  --radius: var(--r-lg);
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -150,13 +174,13 @@
    Base palette is a warm bone/cream built off --c-bone.
    ───────────────────────────────────────────────────────────── */
 [data-theme="light"] {
-  /* Core surfaces — warm paper, not cold white */
+  /* Core surfaces — cool white product canvas */
   --c-void:        #ffffff;
-  --c-black:       #f5ecd7;   /* brand canvas (slides, marketing) */
-  --c-surface-00:  #f1e7cf;   /* app background — warm bone */
-  --c-surface-01:  #faf2dd;   /* default card — lighter bone */
-  --c-surface-02:  #fff7e2;   /* elevated card */
-  --c-surface-03:  #ece1c4;   /* input / hover */
+  --c-black:       #fafafa;   /* brand canvas (slides, marketing) */
+  --c-surface-00:  #fafafa;   /* app background — cool white */
+  --c-surface-01:  #ffffff;   /* default card */
+  --c-surface-02:  #ffffff;   /* elevated card */
+  --c-surface-03:  #f4f4f5;   /* input / hover */
 
   --c-hairline:         rgba(40,28,12,0.10);
   --c-hairline-strong:  rgba(40,28,12,0.22);
@@ -177,12 +201,12 @@
 
   /* Semantic aliases */
   --c-page:          var(--c-black);
-  --c-specimen-bg:   #faf2dd;
+  --c-specimen-bg:   #ffffff;
   --c-row-hover:     rgba(40,28,12,0.04);
   --c-row-active:    rgba(216,67,10,0.08);
   --c-track:         rgba(40,28,12,0.08);
   --c-btn-invert-bg: #1a140a;
-  --c-btn-invert-fg: #faf2dd;
+  --c-btn-invert-fg: #fafafa;
 
   /* Shadow — softer, warmer */
   --shadow-card:  0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 50px -24px rgba(70,50,20,0.25);

@@ -13,6 +13,9 @@ export type { CheckboxProps } from "./checkbox";
 export { CopyButton } from "./copy-button";
 export type { CopyButtonProps } from "./copy-button";
 
+export { BackLink } from "./back-link";
+export type { BackLinkProps } from "./back-link";
+
 export { Eyebrow } from "./eyebrow";
 export type { EyebrowProps } from "./eyebrow";
 
@@ -25,8 +28,20 @@ export type { FilterPillProps } from "./filter-pill";
 export { Kbd } from "./kbd";
 export type { KbdProps } from "./kbd";
 
+export { KpiCard, KpiGrid } from "./kpi-card";
+export type { KpiCardProps, KpiGridProps, KpiValueTone } from "./kpi-card";
+
+export { KvGrid } from "./kv-grid";
+export type { KvGridItem, KvGridProps } from "./kv-grid";
+
 export { Label } from "./label";
 export type { LabelProps, LabelColor } from "./label";
+
+export { MetaStrip } from "./meta-strip";
+export type { MetaStripItem, MetaStripProps } from "./meta-strip";
+
+export { OptionTile } from "./option-tile";
+export type { OptionTileProps } from "./option-tile";
 
 export { Priority } from "./priority";
 export type { PriorityProps, PriorityLevel } from "./priority";
@@ -45,6 +60,30 @@ export type { LogoProps, LogoVariant, LogoTheme } from "./logo";
 
 export { Modal, ConfirmModal } from "./modal";
 export type { ModalProps, ConfirmModalProps } from "./modal";
+
+export {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+  DialogTrigger,
+  DialogXClose,
+} from "./dialog";
+
+export { MultiSelect } from "./multi-select";
+export type {
+  MultiSelectDensity,
+  MultiSelectItemType,
+  MultiSelectProps,
+  MultiSelectRenderState,
+  MultiSelectSelection,
+} from "./multi-select";
 
 export { Panel, PanelHeader, PanelContent } from "./panel";
 export type { PanelProps, PanelHeaderProps, PanelContentProps } from "./panel";
@@ -144,6 +183,9 @@ export type { ProgressBarProps } from "./progress-bar";
 export { Spinner } from "./spinner";
 export type { SpinnerProps } from "./spinner";
 
+export { Sparkline } from "./sparkline";
+export type { SparklineProps, SparklineTone } from "./sparkline";
+
 export { ScrollShadow } from "./scroll-shadow";
 export type { ScrollShadowProps } from "./scroll-shadow";
 
@@ -173,6 +215,14 @@ export type { StatusDotProps, StatusDotVariant } from "./status-dot";
 
 export { Tag } from "./tag";
 export type { TagProps, TagVariant } from "./tag";
+
+export { TagList } from "./tag-list";
+export type {
+  TagListColor,
+  TagListDensity,
+  TagListItem,
+  TagListProps,
+} from "./tag-list";
 
 export { Textarea } from "./textarea";
 export type { TextareaProps } from "./textarea";

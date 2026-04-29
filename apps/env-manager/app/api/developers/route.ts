@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 import { execFile as _execFile } from "child_process";
 import { promisify } from "util";
 

@@ -55,9 +55,34 @@ export const Logo = React.forwardRef<SVGSVGElement, LogoProps>(function Logo(
   }
 
   const { theme: active } = useTheme();
+  const [rootTheme, setRootTheme] = React.useState<"dark" | "light" | null>(
+    null
+  );
+
+  React.useEffect(() => {
+    if (effectiveTheme !== "auto" || typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    const readTheme = () => {
+      const attr = root.getAttribute("data-theme");
+      setRootTheme(
+        attr === "light" ? "light" : attr === "dark" ? "dark" : null
+      );
+    };
+
+    readTheme();
+    const observer = new MutationObserver(readTheme);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    return () => observer.disconnect();
+  }, [effectiveTheme]);
+
   const resolvedTheme: "dark" | "light" =
     effectiveTheme === "auto"
-      ? active === "light"
+      ? (rootTheme ?? active) === "light"
         ? "light"
         : "dark"
       : effectiveTheme;

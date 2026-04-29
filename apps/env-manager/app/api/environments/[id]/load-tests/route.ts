@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/data/db";
-import { launchCloudTest, getTestRun } from "@/server/integrations/k6-client";
+import { prisma } from "@/backend/data/db";
+import { launchCloudTest, getTestRun } from "@/backend/integrations/k6-client";
 
 const CreateSchema = z.object({
   name: z.string().min(1).max(200),
@@ -19,6 +19,13 @@ const K6_STATUS_TO_LOCAL: Record<string, string> = {
   processing_metrics: "running",
   completed: "finished",
   aborted: "aborted",
+};
+
+type StressTestRow = {
+  id: string;
+  k6TestRunId: string | null;
+  status: string;
+  startedAt: Date | null;
 };
 
 export async function GET(
@@ -39,7 +46,7 @@ export async function GET(
   });
 
   const refreshed = await Promise.all(
-    tests.map(async (test) => {
+    tests.map(async (test: StressTestRow) => {
       if (
         !test.k6TestRunId ||
         test.status === "finished" ||

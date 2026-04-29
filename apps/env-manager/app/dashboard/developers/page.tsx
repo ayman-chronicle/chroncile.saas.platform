@@ -1,1 +1,1 @@
-export { DevelopersPage as default } from "@/features/developers/client/developers-page";
+export { DevelopersPage as default } from "@/frontend/features/developers/client/developers-page";

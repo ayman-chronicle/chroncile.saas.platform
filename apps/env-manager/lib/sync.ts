@@ -1,11 +1,9 @@
-import { prisma } from "@/lib/db";
-import { getPermanentEnvSecrets } from "@/lib/doppler-client";
+import { prisma } from "@/lib/data";
+import { fly, getPermanentEnvSecrets, vercel } from "@/lib/integrations";
 import {
   getPermanentEnvs,
   type PermanentEnvConfig,
-} from "@/lib/permanent-envs";
-import * as fly from "@/lib/fly-client";
-import * as vercel from "@/lib/vercel-client";
+} from "./permanent-envs";
 
 const FRONTEND_SYNC_KEYS = [
   "AUTH_SECRET",
@@ -145,7 +143,7 @@ export async function ensurePermanentEnvsExist(): Promise<void> {
     where: { name: { in: names } },
     select: { name: true },
   });
-  const existingNames = new Set(existing.map((e) => e.name));
+  const existingNames = new Set(existing.map((e: { name: string }) => e.name));
 
   const missing = configs.filter((c) => !existingNames.has(c.name));
   if (missing.length === 0) return;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/data/db";
+import { prisma } from "@/backend/data/db";
 
 export async function GET() {
   const keys = await prisma.emailTemplateKey.findMany({

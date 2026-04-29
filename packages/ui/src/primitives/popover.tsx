@@ -20,59 +20,36 @@
  */
 
 import * as React from "react";
-import {
-  DialogTrigger as RACDialogTrigger,
-  Popover as RACPopover,
-  Dialog as RACDialog,
-  OverlayArrow as RACOverlayArrow,
-  type PopoverProps as RACPopoverProps,
-  type DialogTriggerProps,
-} from "react-aria-components";
+import { Popover as PopoverPrimitive } from "radix-ui";
 
-import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  popoverArrowVariants,
+  popoverDialogVariants,
+  popoverVariants,
+} from "./shadcn";
 
-const popoverStyles = tv({
-  slots: {
-    popover:
-      "z-50 border bg-surface-02 shadow-panel outline-none " +
-      "data-[entering=true]:animate-in data-[entering=true]:fade-in " +
-      "data-[exiting=true]:animate-out data-[exiting=true]:fade-out",
-    dialog: "outline-none",
-    arrow:
-      "fill-surface-02 stroke-hairline-strong " +
-      "data-[placement=top]:rotate-180 " +
-      "data-[placement=left]:-rotate-90 " +
-      "data-[placement=right]:rotate-90",
-  },
-  variants: {
-    density: {
-      brand: { popover: "rounded-md border-hairline-strong" },
-      compact: { popover: "rounded-l border-l-border" },
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
+type PopoverSide = React.ComponentPropsWithoutRef<
+  typeof PopoverPrimitive.Content
+>["side"];
+type PopoverAlign = React.ComponentPropsWithoutRef<
+  typeof PopoverPrimitive.Content
+>["align"];
 
-export interface PopoverProps extends DialogTriggerProps {}
+export interface PopoverProps
+  extends React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Root> {}
 
 export function Popover(props: PopoverProps) {
-  return <RACDialogTrigger {...props} />;
+  return <PopoverPrimitive.Root {...props} />;
 }
 
-/**
- * Marker component that pairs with `<PopoverContent>`. RAC's
- * `DialogTrigger` treats the first non-overlay child as the trigger;
- * this lets callers wrap their `<Button>` in a named slot for clarity.
- * It's a pass-through — RAC auto-wires the press handler.
- */
 export function PopoverTrigger({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <PopoverPrimitive.Trigger asChild>{children}</PopoverPrimitive.Trigger>;
 }
 
 export interface PopoverContentProps extends Omit<
-  RACPopoverProps,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>,
   "className"
 > {
   className?: string;
@@ -80,6 +57,7 @@ export interface PopoverContentProps extends Omit<
   /** Render a directional arrow pointing at the trigger. Off by default. */
   showArrow?: boolean;
   density?: "compact" | "brand";
+  placement?: "top" | "bottom" | "left" | "right" | string;
   children: React.ReactNode;
 }
 
@@ -88,32 +66,42 @@ export function PopoverContent({
   classNames,
   showArrow = false,
   density: densityProp,
+  placement,
+  side,
+  align,
   children,
   ...rest
 }: PopoverContentProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const slots = popoverStyles({ density });
+  const [placementSide, placementAlign] = String(placement ?? "").split(" ");
+  const resolvedSide = side ?? (placementSide ? (placementSide as PopoverSide) : undefined);
+  const resolvedAlign =
+    align ?? (placementAlign ? (placementAlign as PopoverAlign) : undefined);
   return (
-    <RACPopover
-      {...rest}
-      className={composeTwRenderProps(
-        className ?? classNames?.popover,
-        slots.popover()
-      )}
-    >
-      {showArrow ? (
-        <RACOverlayArrow>
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Content
+        {...rest}
+        side={resolvedSide}
+        align={resolvedAlign}
+        className={cn(popoverVariants({ density }), classNames?.popover, className)}
+      >
+        {showArrow ? (
+          <PopoverPrimitive.Arrow asChild>
           <svg
             viewBox="0 0 12 12"
-            className={slots.arrow({ className: classNames?.arrow })}
+            className={popoverArrowVariants({ className: classNames?.arrow })}
           >
             <path d="M0 0 L6 6 L12 0" />
           </svg>
-        </RACOverlayArrow>
-      ) : null}
-      <RACDialog className={slots.dialog({ className: classNames?.dialog })}>
-        {children}
-      </RACDialog>
-    </RACPopover>
+          </PopoverPrimitive.Arrow>
+        ) : null}
+        <div
+          role="dialog"
+          className={popoverDialogVariants({ className: classNames?.dialog })}
+        >
+          {children}
+        </div>
+      </PopoverPrimitive.Content>
+    </PopoverPrimitive.Portal>
   );
 }

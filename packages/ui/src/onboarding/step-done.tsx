@@ -3,8 +3,8 @@
 import * as React from "react";
 import { Button } from "../primitives/button";
 import { Eyebrow } from "../primitives/eyebrow";
-import { SourceGlyph } from "../icons/source-glyph";
 import { ArrowRightIcon } from "../icons/glyphs";
+import { CompanyLogo } from "../icons";
 import { AuthDisplay, AuthLede, StepFoot } from "../auth/_internal";
 import { getSource, type SourceId } from "./data";
 
@@ -63,8 +63,13 @@ export function StepDone({
               key={s.id}
               className="flex items-center gap-s-3 rounded-sm border border-hairline bg-surface-01 px-s-3 py-s-3"
             >
-              <span style={{ color: s.color }} className="flex">
-                <SourceGlyph id={s.glyph} size={16} />
+              <span className="flex">
+                <CompanyLogo
+                  name={s.name}
+                  size={16}
+                  rounded
+                  fallbackColor={s.color}
+                />
               </span>
               <span className="flex-1 font-sans text-[13.5px] text-ink-hi">
                 {s.name}

@@ -1,9 +1,7 @@
 "use client";
 
 /*
- * Toast — RAC's Toast primitives are marked UNSTABLE in v1.17 but are
- * production-ready. We wrap them behind a stable Chronicle API so the
- * namespace churn doesn't leak to consumers when RAC promotes them.
+ * Toast — small module-level queue rendered by a single ToastProvider.
  *
  * Usage:
  *   // Once, at app root:
@@ -19,17 +17,17 @@
  */
 
 import * as React from "react";
-import {
-  UNSTABLE_ToastRegion as RACToastRegion,
-  UNSTABLE_Toast as RACToast,
-  UNSTABLE_ToastContent as RACToastContent,
-  UNSTABLE_ToastQueue as RACToastQueue,
-  Button as RACButton,
-  Text as RACText,
-} from "react-aria-components";
 
-import { tv } from "../utils/tv";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  toastActionVariants,
+  toastCloseVariants,
+  toastContentVariants,
+  toastDescriptionVariants,
+  toastRegionVariants,
+  toastTitleVariants,
+  toastVariants,
+} from "./shadcn";
 
 export type ToastTone = "default" | "success" | "danger" | "info" | "warning";
 export type ToastDensity = "compact" | "brand";
@@ -42,87 +40,42 @@ export interface ChronicleToastContent {
    * Optional action rendered as a button at the right edge. Calling the
    * returned handler automatically dismisses the toast.
    */
-  action?: { label: string; onPress: () => void };
+  action?: { label: string; onClick?: () => void; onPress?: () => void };
 }
 
-const toastStyles = tv({
-  slots: {
-    region: "fixed top-s-4 right-s-4 z-50 flex flex-col gap-s-2 outline-none",
-    toast:
-      "relative pointer-events-auto flex items-start gap-s-3 border " +
-      "shadow-panel min-w-[260px] max-w-[440px] outline-none " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
-    title: "",
-    description: "",
-    content: "flex-1 flex flex-col gap-s-1",
-    action:
-      "inline-flex items-center border outline-none " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
-    close:
-      "inline-flex items-center justify-center outline-none " +
-      "data-[focus-visible=true]:outline data-[focus-visible=true]:outline-1 " +
-      "data-[focus-visible=true]:outline-ember",
-  },
-  variants: {
-    density: {
-      brand: {
-        toast: "rounded-sm bg-surface-02 px-s-4 py-s-3",
-        title: "font-sans text-sm font-medium text-ink-hi",
-        description: "font-sans text-sm text-ink-lo",
-        action:
-          "rounded-xs border-hairline-strong bg-surface-01 px-s-2 py-s-1 " +
-          "font-mono text-mono-sm uppercase tracking-tactical text-ink " +
-          "data-[hovered=true]:bg-surface-03 data-[hovered=true]:text-ink-hi",
-        close:
-          "h-6 w-6 rounded-xs text-ink-dim " +
-          "data-[hovered=true]:bg-surface-03 data-[hovered=true]:text-ink-hi",
-      },
-      compact: {
-        toast: "rounded-l bg-l-surface-raised px-[12px] py-[10px]",
-        title: "font-sans text-[13px] font-medium text-l-ink",
-        description: "font-sans text-[13px] text-l-ink-lo",
-        action:
-          "rounded-l border-l-border bg-l-surface-input px-[8px] py-[4px] " +
-          "font-sans text-[12px] font-medium text-l-ink " +
-          "data-[hovered=true]:bg-l-surface-hover data-[hovered=true]:text-l-ink",
-        close:
-          "h-5 w-5 rounded-l text-l-ink-dim " +
-          "data-[hovered=true]:bg-l-surface-hover data-[hovered=true]:text-l-ink",
-      },
-    },
-    tone: {
-      default: {},
-      success: {},
-      danger: {},
-      info: {},
-      warning: {},
-    },
-  },
-  compoundVariants: [
-    { density: "brand", tone: "default", class: { toast: "border-hairline-strong" } },
-    { density: "brand", tone: "success", class: { toast: "border-event-green/40" } },
-    { density: "brand", tone: "danger", class: { toast: "border-event-red/40" } },
-    { density: "brand", tone: "info", class: { toast: "border-event-teal/40" } },
-    { density: "brand", tone: "warning", class: { toast: "border-event-amber/40" } },
-    { density: "compact", tone: "default", class: { toast: "border-l-border" } },
-    { density: "compact", tone: "success", class: { toast: "border-event-green/40" } },
-    { density: "compact", tone: "danger", class: { toast: "border-event-red/40" } },
-    { density: "compact", tone: "info", class: { toast: "border-event-teal/40" } },
-    { density: "compact", tone: "warning", class: { toast: "border-event-amber/40" } },
-  ],
-  defaultVariants: { tone: "default", density: "brand" },
-});
+interface ToastRecord {
+  key: string;
+  content: ChronicleToastContent;
+}
 
-/**
- * Module-level queue, created once per browser tab. RAC's `ToastQueue`
- * is a subscribe/publish store that multiple `ToastRegion`s could read
- * from, but we intentionally mount only one region per app.
- */
-const toastQueue = new RACToastQueue<ChronicleToastContent>({
-  maxVisibleToasts: 5,
-});
+let toasts: ToastRecord[] = [];
+const listeners = new Set<() => void>();
+
+function notifyToastListeners() {
+  listeners.forEach((listener) => listener());
+}
+
+function subscribeToasts(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function addToast(content: ChronicleToastContent, timeout = 5000) {
+  const key = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  toasts = [...toasts, { key, content }].slice(-5);
+  notifyToastListeners();
+  if (timeout > 0) {
+    window.setTimeout(() => closeToast(key), timeout);
+  }
+  return key;
+}
+
+function closeToast(key: string) {
+  toasts = toasts.filter((toast) => toast.key !== key);
+  notifyToastListeners();
+}
 
 export interface ToastProviderProps {
   children: React.ReactNode;
@@ -130,43 +83,55 @@ export interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   const density = useResolvedChromeDensity();
-  const slots = toastStyles({ density });
+  const [items, setItems] = React.useState(toasts);
+
+  React.useEffect(
+    () =>
+      subscribeToasts(() => {
+        setItems([...toasts]);
+      }),
+    []
+  );
+
   return (
     <>
       {children}
-      <RACToastRegion queue={toastQueue} className={slots.region()}>
-        {({ toast }) => {
+      <div className={toastRegionVariants()} role="region" aria-live="polite">
+        {items.map((toast) => {
           const tone = toast.content.tone ?? "default";
-          const variantSlots = toastStyles({ tone, density });
           return (
-            <RACToast toast={toast} className={variantSlots.toast()}>
-              <RACToastContent className={variantSlots.content()}>
-                <RACText slot="title" className={variantSlots.title()}>
+            <div
+              key={toast.key}
+              role="status"
+              className={toastVariants({ tone, density })}
+            >
+              <div className={toastContentVariants()}>
+                <div className={toastTitleVariants({ density })}>
                   {toast.content.title}
-                </RACText>
+                </div>
                 {toast.content.description ? (
-                  <RACText
-                    slot="description"
-                    className={variantSlots.description()}
-                  >
+                  <div className={toastDescriptionVariants({ density })}>
                     {toast.content.description}
-                  </RACText>
+                  </div>
                 ) : null}
-              </RACToastContent>
+              </div>
               {toast.content.action ? (
-                <RACButton
-                  onPress={() => {
-                    toast.content.action?.onPress();
-                    toastQueue.close(toast.key);
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.content.action?.onClick?.();
+                    toast.content.action?.onPress?.();
+                    closeToast(toast.key);
                   }}
-                  className={variantSlots.action()}
+                  className={toastActionVariants({ density })}
                 >
                   {toast.content.action.label}
-                </RACButton>
+                </button>
               ) : null}
-              <RACButton
-                slot="close"
-                className={variantSlots.close()}
+              <button
+                type="button"
+                onClick={() => closeToast(toast.key)}
+                className={toastCloseVariants({ density })}
                 aria-label="Close"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3">
@@ -177,11 +142,11 @@ export function ToastProvider({ children }: ToastProviderProps) {
                     strokeLinecap="round"
                   />
                 </svg>
-              </RACButton>
-            </RACToast>
+              </button>
+            </div>
           );
-        }}
-      </RACToastRegion>
+        })}
+      </div>
     </>
   );
 }
@@ -200,8 +165,8 @@ export function useToast(): UseToastReturn {
   return React.useMemo(
     () => ({
       add: (content, options) =>
-        toastQueue.add(content, { timeout: options?.timeout ?? 5000 }),
-      dismiss: (key) => toastQueue.close(key),
+        addToast(content, options?.timeout ?? 5000),
+      dismiss: (key) => closeToast(key),
     }),
     []
   );

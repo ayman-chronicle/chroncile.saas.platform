@@ -1,29 +1,15 @@
 import * as React from "react";
-import { tv, type VariantProps } from "../utils/tv";
+
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  panelHeaderTitleVariants,
+  ShadcnPanel,
+  ShadcnPanelContent,
+  ShadcnPanelHeader,
+  type ShadcnPanelProps,
+} from "./shadcn";
 
-const panel = tv({
-  base: "relative overflow-hidden border",
-  variants: {
-    density: {
-      brand: "rounded-md",
-      compact: "rounded-l",
-    },
-    elevated: {
-      true: "border-hairline-strong bg-surface-02",
-      false: "border-hairline bg-surface-01",
-    },
-    active: {
-      true: "before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-ember",
-    },
-  },
-  defaultVariants: { density: "brand", elevated: false },
-});
-
-type PanelVariantProps = VariantProps<typeof panel>;
-
-export interface PanelProps
-  extends React.HTMLAttributes<HTMLDivElement>, PanelVariantProps {
+export interface PanelProps extends Omit<ShadcnPanelProps, "density"> {
   elevated?: boolean;
   /**
    * When true, the panel paints the ember-tinted selected row treatment
@@ -44,33 +30,17 @@ export function Panel({
 }: PanelProps) {
   const density = useResolvedChromeDensity(densityProp);
   return (
-    <div className={panel({ density, elevated, active, className })} data-density={density} {...props}>
+    <ShadcnPanel
+      active={active}
+      className={className}
+      density={density}
+      elevated={elevated}
+      {...props}
+    >
       {children}
-    </div>
+    </ShadcnPanel>
   );
 }
-
-const panelHeader = tv({
-  base: "flex items-center justify-between border-b border-hairline bg-surface-02",
-  variants: {
-    density: {
-      brand: "gap-s-3 px-s-4 py-s-3",
-      compact: "gap-[8px] px-[12px] py-[8px]",
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
-
-const panelHeaderTitle = tv({
-  base: "",
-  variants: {
-    density: {
-      brand: "font-mono text-mono uppercase tracking-tactical text-ink-lo",
-      compact: "font-sans text-[12px] font-medium tracking-normal text-l-ink-lo",
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
 
 export interface PanelHeaderProps extends Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -91,26 +61,17 @@ export function PanelHeader({
 }: PanelHeaderProps) {
   const density = useResolvedChromeDensity(densityProp);
   return (
-    <div className={panelHeader({ density, className })} data-density={density} {...props}>
-      {title ? <span className={panelHeaderTitle({ density })}>{title}</span> : null}
+    <ShadcnPanelHeader className={className} density={density} {...props}>
+      {title ? (
+        <span className={panelHeaderTitleVariants({ density })}>{title}</span>
+      ) : null}
       {children}
       {actions ? (
         <div className={density === "compact" ? "ml-auto flex items-center gap-[6px]" : "ml-auto flex items-center gap-s-2"}>{actions}</div>
       ) : null}
-    </div>
+    </ShadcnPanelHeader>
   );
 }
-
-const panelContent = tv({
-  base: "",
-  variants: {
-    density: {
-      brand: "p-s-4",
-      compact: "p-[12px]",
-    },
-  },
-  defaultVariants: { density: "brand" },
-});
 
 export interface PanelContentProps extends React.HTMLAttributes<HTMLDivElement> {
   density?: "compact" | "brand";
@@ -124,8 +85,8 @@ export function PanelContent({
 }: PanelContentProps) {
   const density = useResolvedChromeDensity(densityProp);
   return (
-    <div className={panelContent({ density, className })} data-density={density} {...props}>
+    <ShadcnPanelContent className={className} density={density} {...props}>
       {children}
-    </div>
+    </ShadcnPanelContent>
   );
 }

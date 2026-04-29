@@ -2,9 +2,7 @@
  * Polymorphic DOM element proxy.
  *
  * Ported from https://github.com/heroui-inc/heroui/blob/v3/packages/react/src/utils/dom.tsx
- * (MIT), which is itself a vendored copy of Adobe's internal helper at
- * https://github.com/adobe/react-spectrum/blob/0e69a1bf028448551b8e6c3ee936f41b8f70109a/packages/react-aria-components/src/utils.tsx
- * (Apache-2.0). Remove once react-aria-components exports it directly.
+ * (MIT), with local ref/effect helpers to keep this package dependency-light.
  *
  * `dom.button`, `dom.a`, `dom.span`, etc. return memoized `forwardRef`
  * components that accept an optional `render?: (props, state) => ReactElement`
@@ -21,8 +19,24 @@
 
 import type { AllHTMLAttributes, ForwardedRef, ReactElement, JSX } from "react";
 
-import { mergeRefs, useLayoutEffect } from "@react-aria/utils";
 import React, { createElement, forwardRef, useMemo, useRef } from "react";
+
+function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
+  if (typeof ref === "function") {
+    ref(value);
+  } else if (ref) {
+    (ref as React.MutableRefObject<T | null>).current = value;
+  }
+}
+
+function mergeRefs<T>(...refs: Array<React.Ref<T> | undefined>) {
+  return (value: T | null) => {
+    refs.forEach((ref) => assignRef(ref, value));
+  };
+}
+
+const useIsoLayoutEffect =
+  typeof window === "undefined" ? React.useEffect : React.useLayoutEffect;
 
 export type DOMRenderFunction<
   E extends keyof JSX.IntrinsicElements,
@@ -62,7 +76,7 @@ function DOMElement<E extends keyof JSX.IntrinsicElements>(
     [forwardedRef, elementRef]
   );
 
-  useLayoutEffect(() => {
+  useIsoLayoutEffect(() => {
     if (
       typeof process !== "undefined" &&
       process.env?.["NODE_ENV"] !== "production" &&

@@ -1,4 +1,4 @@
-import type { EnvironmentType } from "@prisma/client";
+import type { EnvironmentType } from "./types";
 
 export type PermanentEnvSlug = "dev" | "stg" | "prd";
 

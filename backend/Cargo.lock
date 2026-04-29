@@ -1905,6 +1905,7 @@ dependencies = [
  "tower 0.4.13",
  "tower-http 0.5.2",
  "tracing",
+ "unkey",
 ]
 
 [[package]]
@@ -9612,6 +9613,18 @@ checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
 dependencies = [
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "unkey"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8878913d50aae6c637b90fa3a81ee2898dafb1df4edab5ec20daf8388be3eb47"
+dependencies = [
+ "lazy_static",
+ "reqwest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -36,10 +36,8 @@
  */
 
 import * as React from "react";
-import { Link as RACLink } from "react-aria-components";
 
 import { tv, type VariantProps } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
 import { Avatar } from "../primitives/avatar";
 
 // ─────────────────────────────────────────────────────────────
@@ -55,6 +53,7 @@ const sidebarStyles = tv({
     density: {
       compact: { root: "bg-l-surface-bar-2 border-r border-l-border" },
       brand: { root: "bg-surface-01 border-r border-hairline" },
+      product: { root: "bg-surface-01 border-r border-hairline" },
     },
     variant: {
       /** Fixed-width panel pinned to the viewport edge (dashboard shells). */
@@ -65,6 +64,7 @@ const sidebarStyles = tv({
     width: {
       sm: "lg:w-[200px] w-[200px]",
       md: "lg:w-[224px] w-[224px]",
+      product: "lg:w-[256px] w-[256px]",
       lg: "lg:w-[280px] w-[280px]",
     },
   },
@@ -72,12 +72,12 @@ const sidebarStyles = tv({
 });
 
 type SidebarVariantProps = VariantProps<typeof sidebarStyles>;
-export type SidebarDensity = "compact" | "brand";
+export type SidebarDensity = "compact" | "brand" | "product";
 
 export interface SidebarProps
   extends React.HTMLAttributes<HTMLElement>, SidebarVariantProps {
   variant?: "fixed" | "static";
-  width?: "sm" | "md" | "lg";
+  width?: "sm" | "md" | "product" | "lg";
   density?: SidebarDensity;
 }
 
@@ -85,15 +85,16 @@ const SidebarDensityContext = React.createContext<SidebarDensity>("compact");
 
 function SidebarRoot({
   variant = "fixed",
-  width = "md",
   density = "compact",
+  width,
   className,
   children,
   ...props
 }: SidebarProps) {
+  const resolvedWidth = width ?? (density === "product" ? "product" : "md");
   const slots = React.useMemo(
-    () => sidebarStyles({ density, variant, width }),
-    [density, variant, width]
+    () => sidebarStyles({ density, variant, width: resolvedWidth }),
+    [density, variant, resolvedWidth]
   );
   return (
     <SidebarDensityContext.Provider value={density}>
@@ -119,6 +120,7 @@ const headerStyles = tv({
     density: {
       compact: "px-s-2 py-[6px] border-0",
       brand: "px-s-4 border-b border-hairline bg-surface-02",
+      product: "h-[58px] px-s-4 border-b border-hairline bg-surface-01",
     },
     height: {
       sm: "h-[44px]",
@@ -164,6 +166,15 @@ const statusStyles = tv({
     trailing: "font-mono text-mono-sm tabular-nums text-ink-dim text-right",
   },
   variants: {
+    density: {
+      compact: {},
+      brand: {},
+      product: {
+        root: "px-s-4 py-[10px]",
+        label: "text-[10px] tracking-[0.06em] text-ink-dim",
+        trailing: "text-[10px] tracking-[0.06em] text-ink-lo",
+      },
+    },
     tone: {
       nominal: {
         root: "bg-[rgba(74,222,128,0.05)]",
@@ -186,9 +197,9 @@ const statusStyles = tv({
         dot: "bg-event-red",
       },
       ember: {
-        root: "bg-[rgba(216,67,10,0.05)]",
-        label: "text-ember",
-        dot: "bg-ember",
+        root: "bg-[var(--l-accent-muted)]",
+        label: "text-[color:var(--l-accent)]",
+        dot: "bg-[var(--l-accent)]",
       },
       neutral: {
         root: "bg-surface-02",
@@ -197,7 +208,16 @@ const statusStyles = tv({
       },
     },
   },
-  defaultVariants: { tone: "nominal" },
+  compoundVariants: [
+    {
+      density: "product",
+      class: {
+        root: "bg-transparent",
+        label: "text-ink-dim",
+      },
+    },
+  ],
+  defaultVariants: { density: "compact", tone: "nominal" },
 });
 
 type SidebarStatusVariantProps = VariantProps<typeof statusStyles>;
@@ -221,7 +241,11 @@ export function SidebarStatus({
   className,
   ...props
 }: SidebarStatusProps) {
-  const slots = React.useMemo(() => statusStyles({ tone }), [tone]);
+  const density = React.useContext(SidebarDensityContext);
+  const slots = React.useMemo(
+    () => statusStyles({ density, tone }),
+    [density, tone]
+  );
   return (
     <div
       data-slot="sidebar-status"
@@ -262,6 +286,12 @@ const navStyles = tv({
         sectionHeader:
           "px-s-4 mb-s-2 text-mono-sm tracking-tactical text-ink-dim",
         sectionBody: "px-s-2",
+      },
+      product: {
+        root: "px-s-2 py-s-2",
+        sectionHeader:
+          "px-[10px] pt-s-3 pb-[6px] text-[9px] tracking-[0.12em] text-ink-dim",
+        sectionBody: "px-0",
       },
     },
   },
@@ -316,7 +346,7 @@ export function SidebarNavSection({
 }
 
 // ─────────────────────────────────────────────────────────────
-// Sidebar nav item — RAC Link for client-side nav, or plain button
+// Sidebar nav item — anchor for navigation, or plain button
 // ─────────────────────────────────────────────────────────────
 
 const navItemStyles = tv({
@@ -328,7 +358,7 @@ const navItemStyles = tv({
       "data-[focus-visible=true]:outline-ember " +
       "data-[disabled=true]:opacity-50 data-[disabled=true]:cursor-not-allowed",
     icon: "shrink-0",
-    label: "flex-1 truncate",
+    label: "flex-1 truncate text-left",
     status:
       "ml-auto flex items-center gap-s-1 rounded-xs " +
       "font-mono uppercase tracking-tactical",
@@ -349,6 +379,13 @@ const navItemStyles = tv({
         icon: "text-ink-dim",
         status: "px-s-2 py-[2px] text-mono-xs",
       },
+      product: {
+        root:
+          "h-[28px] gap-[10px] rounded-sm px-[10px] font-sans text-[13px] leading-none " +
+          "data-[hovered=true]:bg-surface-02 data-[hovered=true]:text-ink-hi",
+        icon: "text-ink-dim",
+        status: "px-[5px] py-[1px] text-[10px]",
+      },
     },
     isActive: {
       true: {},
@@ -365,7 +402,7 @@ const navItemStyles = tv({
         root:
           "bg-l-surface-selected text-l-ink " +
           "before:content-[''] before:absolute before:left-0 before:top-1/2 " +
-          "before:-translate-y-1/2 before:h-[14px] before:w-[2px] before:bg-ember before:rounded-r-sm",
+          "before:-translate-y-1/2 before:h-[14px] before:w-[2px] before:bg-[var(--l-accent)] before:rounded-r-sm",
         icon: "text-l-ink",
       },
     },
@@ -379,11 +416,24 @@ const navItemStyles = tv({
       isActive: true,
       class: {
         root: "border-l-ember bg-row-active text-ink-hi",
-        icon: "text-ember",
+        icon: "text-[color:var(--l-accent)]",
       },
     },
     {
       density: "brand",
+      isActive: false,
+      class: { root: "text-ink-lo" },
+    },
+    {
+      density: "product",
+      isActive: true,
+      class: {
+        root: "bg-l-surface-selected text-l-ink",
+        icon: "text-[color:var(--l-accent)]",
+      },
+    },
+    {
+      density: "product",
       isActive: false,
       class: { root: "text-ink-lo" },
     },
@@ -413,7 +463,7 @@ const statusToneClass: Record<
   string
 > = {
   nominal: "bg-[rgba(74,222,128,0.1)] text-event-green",
-  ember: "bg-[rgba(216,67,10,0.1)] text-ember",
+  ember: "bg-[var(--l-accent-muted)] text-[color:var(--l-accent)]",
   data: "bg-[rgba(45,212,191,0.1)] text-event-teal",
   caution: "bg-[rgba(251,191,36,0.1)] text-event-amber",
   critical: "bg-[rgba(239,68,68,0.1)] text-event-red",
@@ -449,15 +499,16 @@ export function SidebarNavItem({
 
   if (href) {
     return (
-      <RACLink
+      <a
         data-slot="sidebar-nav-item"
         href={href}
-        isDisabled={isDisabled}
-        className={composeTwRenderProps(className, slots.root())}
+        aria-disabled={isDisabled || undefined}
+        data-disabled={isDisabled || undefined}
+        className={`${slots.root()}${className ? ` ${className}` : ""}`}
         aria-current={isActive ? "page" : undefined}
       >
         {content}
-      </RACLink>
+      </a>
     );
   }
 
@@ -491,12 +542,23 @@ const metaStyles = tv({
     value: "font-mono text-mono-sm tabular-nums",
   },
   variants: {
+    density: {
+      compact: {},
+      brand: {},
+      product: {
+        root: "bg-surface-01 px-s-4 py-s-3",
+        title: "mb-[6px] text-[9px] tracking-[0.12em]",
+        rows: "gap-[4px]",
+        label: "font-mono text-[10px] uppercase tracking-[0.08em] text-ink-dim",
+        value: "text-[10px] tracking-[0.04em] text-ink-lo",
+      },
+    },
     valueTone: {
       default: { value: "text-ink-lo" },
       nominal: { value: "text-event-green" },
       caution: { value: "text-event-amber" },
       critical: { value: "text-event-red" },
-      ember: { value: "text-ember" },
+      ember: { value: "text-[color:var(--l-accent)]" },
       data: { value: "text-event-teal" },
     },
   },
@@ -522,7 +584,8 @@ export function SidebarMeta({
   className,
   ...props
 }: SidebarMetaProps) {
-  const slots = React.useMemo(() => metaStyles(), []);
+  const density = React.useContext(SidebarDensityContext);
+  const slots = React.useMemo(() => metaStyles({ density }), [density]);
   return (
     <div
       data-slot="sidebar-meta"
@@ -532,7 +595,10 @@ export function SidebarMeta({
       {title ? <div className={slots.title()}>{title}</div> : null}
       <div className={slots.rows()}>
         {rows.map((row, i) => {
-          const toneSlots = metaStyles({ valueTone: row.tone ?? "default" });
+          const toneSlots = metaStyles({
+            density,
+            valueTone: row.tone ?? "default",
+          });
           return (
             <div key={i} className={slots.row()}>
               <span className={slots.label()}>{row.label}</span>
@@ -553,6 +619,11 @@ const footerStyles = tv({
   base: "border-t border-hairline",
   variants: {
     padded: { true: "px-s-4 py-s-3 bg-surface-02" },
+    density: {
+      compact: "",
+      brand: "",
+      product: "bg-surface-01",
+    },
   },
   defaultVariants: { padded: false },
 });
@@ -570,9 +641,10 @@ export function SidebarFooter({
   children,
   ...props
 }: SidebarFooterProps) {
+  const density = React.useContext(SidebarDensityContext);
   const cls = React.useMemo(
-    () => footerStyles({ padded, className }),
-    [padded, className]
+    () => footerStyles({ density, padded, className }),
+    [density, padded, className]
   );
   return (
     <div data-slot="sidebar-footer" className={cls} {...props}>
@@ -598,6 +670,20 @@ const userCardStyles = tv({
       "hover:bg-surface-03 hover:text-event-red " +
       "focus-visible:outline focus-visible:outline-1 focus-visible:outline-ember",
   },
+  variants: {
+    density: {
+      compact: {},
+      brand: {},
+      product: {
+        root: "bg-surface-01 px-[14px] py-s-3",
+        identity: "gap-[10px]",
+        name: "text-[12.5px] font-medium",
+        email: "text-[10px]",
+        action: "h-[26px] w-[26px] rounded-sm",
+      },
+    },
+  },
+  defaultVariants: { density: "brand" },
 });
 
 export interface SidebarUserCardProps extends Omit<
@@ -625,7 +711,9 @@ export function SidebarUserCard({
   className,
   ...props
 }: SidebarUserCardProps) {
-  const slots = React.useMemo(() => userCardStyles(), []);
+  const density = React.useContext(SidebarDensityContext);
+  const slots = React.useMemo(() => userCardStyles({ density }), [density]);
+  const productInitials = initials ?? deriveSidebarInitials(name ?? undefined);
   return (
     <div
       data-slot="sidebar-user-card"
@@ -633,13 +721,22 @@ export function SidebarUserCard({
       {...props}
     >
       <div className={slots.identity()}>
-        <Avatar
-          size="sm"
-          src={avatarUrl}
-          name={name ?? undefined}
-          initials={initials}
-          alt={name ? `${name} avatar` : ""}
-        />
+        {density === "product" && !avatarUrl ? (
+          <span
+            className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,var(--l-accent),var(--c-bronze))] font-mono text-[9px] tracking-[0.08em] text-white"
+            aria-hidden={Boolean(name)}
+          >
+            {productInitials}
+          </span>
+        ) : (
+          <Avatar
+            size="sm"
+            src={avatarUrl}
+            name={name ?? undefined}
+            initials={initials}
+            alt={name ? `${name} avatar` : ""}
+          />
+        )}
         <div className={slots.text()}>
           {name ? <p className={slots.name()}>{name}</p> : null}
           {email ? <p className={slots.email()}>{email}</p> : null}
@@ -672,6 +769,16 @@ export function SidebarUserCard({
         ) : null)}
     </div>
   );
+}
+
+function deriveSidebarInitials(name: string | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return (parts[0]?.[0] ?? "?").toUpperCase();
+  return (
+    (parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")
+  ).toUpperCase();
 }
 
 // ─────────────────────────────────────────────────────────────

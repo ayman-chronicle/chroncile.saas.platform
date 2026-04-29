@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/server/data/db";
-import { ensureBuiltInTemplates } from "@/server/environments/seed-templates";
+import { prisma } from "@/backend/data/db";
+import { ensureBuiltInTemplates } from "@/backend/environments/seed-templates";
 
 export async function GET(request: NextRequest) {
   const appUrl = new URL(request.url).origin;

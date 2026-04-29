@@ -1,32 +1,17 @@
 "use client";
 
 /*
- * Chronicle Labs — RAC provider shim.
- *
- * Mounts react-aria-components' I18nProvider (locale-aware number/date
- * formatting, RTL propagation) and optionally a RouterProvider so RAC's
- * <Link> components do client-side navigation through the host app's
- * router. Apps pass their own `navigate` callback so `ui` never imports
- * `next/navigation` directly.
+ * Chronicle Labs — shared UI provider shim.
  */
 
 import * as React from "react";
-import { I18nProvider } from "react-aria-components/I18nProvider";
-import { RouterProvider } from "react-aria-components";
 
 export interface UIProvidersProps {
   /** BCP-47 locale. Defaults to `en-US`. */
   locale?: string;
-  /**
-   * Client-side navigate function. When provided, RAC `<Link>` components
-   * call this instead of a full page reload. Shape matches
-   * `(path, routerOptions) => void`.
-   */
+  /** Reserved for app-level router integrations. */
   navigate?: (path: string, routerOptions?: unknown) => void;
-  /**
-   * Optional href resolver. Defaults to identity. Use this when your router
-   * expects a transformed href (locale prefix, basePath, etc.).
-   */
+  /** Reserved for app-level href transforms. */
   useHref?: (href: string) => string;
   children: React.ReactNode;
 }
@@ -38,17 +23,7 @@ export interface UIProvidersProps {
  */
 export function UIProviders({
   locale = "en-US",
-  navigate,
-  useHref,
   children,
 }: UIProvidersProps) {
-  const body = navigate ? (
-    <RouterProvider navigate={navigate} useHref={useHref}>
-      {children}
-    </RouterProvider>
-  ) : (
-    children
-  );
-
-  return <I18nProvider locale={locale}>{body}</I18nProvider>;
+  return <div data-locale={locale}>{children}</div>;
 }

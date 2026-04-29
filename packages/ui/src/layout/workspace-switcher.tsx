@@ -23,7 +23,7 @@
  *       <WorkspaceSwitcher.Search />
  *       <WorkspaceSwitcher.List />
  *       <WorkspaceSwitcher.Footer>
- *         <WorkspaceSwitcher.Action icon={<Plus />} onPress={handleCreate}>
+ *         <WorkspaceSwitcher.Action icon={<Plus />} onClick={handleCreate}>
  *           Create workspace
  *         </WorkspaceSwitcher.Action>
  *       </WorkspaceSwitcher.Footer>
@@ -32,28 +32,12 @@
  *
  * Context carries the data + tv() slots + open state + search query so
  * any sub-component can render from anywhere in the tree without prop
- * drilling. Under the hood, RAC's MenuTrigger + Popover + Menu own the
- * interaction model: keyboard nav, typeahead, focus trap, ESC dismiss,
- * outside-click, and portal/z-index stacking.
+ * drilling.
  */
 
 import * as React from "react";
-import {
-  MenuTrigger as RACMenuTrigger,
-  Popover as RACPopover,
-  Menu as RACMenu,
-  MenuItem as RACMenuItem,
-  MenuSection as RACMenuSection,
-  Header as RACHeader,
-  Separator as RACSeparator,
-  Button as RACButton,
-  SearchField as RACSearchField,
-  Input as RACInput,
-  type PopoverProps as RACPopoverProps,
-} from "react-aria-components";
 
 import { tv } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
 import { Avatar } from "../primitives/avatar";
 
 // ─────────────────────────────────────────────────────────────
@@ -332,16 +316,14 @@ function WorkspaceSwitcherRoot({
 
   return (
     <WorkspaceSwitcherContext.Provider value={ctx}>
-      <RACMenuTrigger isOpen={isOpen} onOpenChange={setOpen}>
-        {children ?? (
-          <DefaultLayout
-            onCreate={onCreate}
-            onManage={onManage}
-            createLabel={createLabel}
-            manageLabel={manageLabel}
-          />
-        )}
-      </RACMenuTrigger>
+      {children ?? (
+        <DefaultLayout
+          onCreate={onCreate}
+          onManage={onManage}
+          createLabel={createLabel}
+          manageLabel={manageLabel}
+        />
+      )}
     </WorkspaceSwitcherContext.Provider>
   );
 }
@@ -371,12 +353,12 @@ function DefaultLayout({
         {hasFooter ? (
           <WorkspaceSwitcherFooter>
             {onCreate ? (
-              <WorkspaceSwitcherAction onPress={onCreate} icon={<PlusIcon />}>
+              <WorkspaceSwitcherAction onClick={onCreate} icon={<PlusIcon />}>
                 {createLabel}
               </WorkspaceSwitcherAction>
             ) : null}
             {onManage ? (
-              <WorkspaceSwitcherAction onPress={onManage} icon={<GearIcon />}>
+              <WorkspaceSwitcherAction onClick={onManage} icon={<GearIcon />}>
                 {manageLabel}
               </WorkspaceSwitcherAction>
             ) : null}
@@ -400,16 +382,17 @@ function WorkspaceSwitcherTrigger({
   className,
   children,
 }: WorkspaceSwitcherTriggerProps) {
-  const { slots, current, triggerRef } = useSwitcherContext("Trigger");
+  const { slots, current, triggerRef, isOpen, setOpen } =
+    useSwitcherContext("Trigger");
   return (
-    <RACButton
+    <button
+      type="button"
       ref={triggerRef}
       data-slot="workspace-switcher-trigger"
-      className={composeTwRenderProps(
-        className,
-        `group/trigger ${slots.trigger()}`
-      )}
+      className={`group/trigger ${slots.trigger()}${className ? ` ${className}` : ""}`}
       aria-label="Switch workspace"
+      aria-expanded={isOpen}
+      onClick={() => setOpen(!isOpen)}
     >
       {children ?? (
         <>
@@ -443,34 +426,33 @@ function WorkspaceSwitcherTrigger({
           </svg>
         </>
       )}
-    </RACButton>
+    </button>
   );
 }
 
 export interface WorkspaceSwitcherPopoverProps {
   className?: string;
-  placement?: RACPopoverProps["placement"];
   children: React.ReactNode;
 }
 
 function WorkspaceSwitcherPopover({
   className,
-  placement = "bottom start",
   children,
 }: WorkspaceSwitcherPopoverProps) {
-  const { slots, triggerWidth } = useSwitcherContext("Popover");
+  const { slots, triggerWidth, isOpen } = useSwitcherContext("Popover");
   const style = triggerWidth
     ? ({ "--trigger-width": `${triggerWidth}px` } as React.CSSProperties)
     : undefined;
+  if (!isOpen) return null;
+
   return (
-    <RACPopover
+    <div
       data-slot="workspace-switcher-popover"
-      placement={placement}
-      className={composeTwRenderProps(className, slots.popover())}
+      className={`${slots.popover()}${className ? ` ${className}` : ""}`}
       style={style}
     >
       {children}
-    </RACPopover>
+    </div>
   );
 }
 
@@ -498,17 +480,14 @@ function WorkspaceSwitcherSearch({
       data-slot="workspace-switcher-search"
       className={slots.search({ className })}
     >
-      <RACSearchField
+      <input
         aria-label={searchPlaceholder}
         value={query}
-        onChange={setQuery}
+        onChange={(event) => setQuery(event.currentTarget.value)}
         autoFocus
-      >
-        <RACInput
-          placeholder={searchPlaceholder}
-          className={slots.searchInput()}
-        />
-      </RACSearchField>
+        placeholder={searchPlaceholder}
+        className={slots.searchInput()}
+      />
     </div>
   );
 }
@@ -550,20 +529,11 @@ function WorkspaceSwitcherList({
   const grouped = groupBy(filteredWorkspaces, (w) => w.group);
 
   return (
-    <RACMenu
+    <div
       data-slot="workspace-switcher-list"
+      role="listbox"
       aria-label="Workspaces"
-      className={composeTwRenderProps(className, slots.menu())}
-      selectionMode="single"
-      selectedKeys={new Set([current.id])}
-      onAction={(key) => {
-        if (key === current.id) {
-          setOpen(false);
-          return;
-        }
-        onSelect?.(String(key));
-        setOpen(false);
-      }}
+      className={slots.menu({ className })}
     >
       {children ??
         grouped.map(({ key, items }) => {
@@ -578,7 +548,7 @@ function WorkspaceSwitcherList({
             </WorkspaceSwitcherSection>
           );
         })}
-    </RACMenu>
+    </div>
   );
 }
 
@@ -595,15 +565,16 @@ function WorkspaceSwitcherSection({
 }: WorkspaceSwitcherSectionProps) {
   const { slots } = useSwitcherContext("Section");
   return (
-    <RACMenuSection
+    <div
       data-slot="workspace-switcher-section"
+      role="group"
       className={slots.section({ className })}
     >
       {title ? (
-        <RACHeader className={slots.sectionHeader()}>{title}</RACHeader>
+        <div className={slots.sectionHeader()}>{title}</div>
       ) : null}
       {children}
-    </RACMenuSection>
+    </div>
   );
 }
 
@@ -627,15 +598,21 @@ function WorkspaceSwitcherItem({
   className,
   children,
 }: WorkspaceSwitcherItemProps) {
-  const { slots, current } = useSwitcherContext("Item");
+  const { slots, current, onSelect, setOpen } = useSwitcherContext("Item");
   const isSelected = workspace.id === current.id;
 
   return (
-    <RACMenuItem
+    <button
+      type="button"
       data-slot="workspace-switcher-item"
-      id={workspace.id}
-      textValue={workspace.name}
-      className={composeTwRenderProps(className, slots.item())}
+      role="option"
+      aria-selected={isSelected}
+      data-selected={isSelected || undefined}
+      className={slots.item({ className })}
+      onClick={() => {
+        if (!isSelected) onSelect?.(workspace.id);
+        setOpen(false);
+      }}
     >
       {typeof children === "function"
         ? children({ workspace, isSelected })
@@ -673,7 +650,7 @@ function WorkspaceSwitcherItem({
               ) : null}
             </>
           ))}
-    </RACMenuItem>
+    </button>
   );
 }
 
@@ -692,7 +669,7 @@ function WorkspaceSwitcherFooter({
   const { slots } = useSwitcherContext("Footer");
   return (
     <>
-      {withSeparator ? <RACSeparator /> : null}
+      {withSeparator ? <div role="separator" className="h-px bg-hairline" /> : null}
       <div
         data-slot="workspace-switcher-footer"
         className={slots.footer({ className })}
@@ -704,6 +681,7 @@ function WorkspaceSwitcherFooter({
 }
 
 export interface WorkspaceSwitcherActionProps {
+  onClick?: () => void;
   onPress?: () => void;
   icon?: React.ReactNode;
   className?: string;
@@ -713,6 +691,7 @@ export interface WorkspaceSwitcherActionProps {
 }
 
 function WorkspaceSwitcherAction({
+  onClick,
   onPress,
   icon,
   className,
@@ -721,17 +700,19 @@ function WorkspaceSwitcherAction({
 }: WorkspaceSwitcherActionProps) {
   const { slots, setOpen } = useSwitcherContext("Action");
   return (
-    <RACButton
+    <button
+      type="button"
       data-slot="workspace-switcher-action"
-      className={composeTwRenderProps(className, slots.footerAction())}
-      onPress={() => {
+      className={slots.footerAction({ className })}
+      onClick={() => {
         if (closeOnPress) setOpen(false);
+        onClick?.();
         onPress?.();
       }}
     >
       {icon}
       {children}
-    </RACButton>
+    </button>
   );
 }
 

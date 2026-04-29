@@ -38,6 +38,9 @@ as:
 - `WORKOS_WEBHOOK_SECRET` — HMAC-SHA256 secret used to verify the
   `WorkOS-Signature` header on `POST /api/webhooks/workos`
   (`directory.user.*` SCIM events).
+- `LOGO_DEV_SECRET_KEY` — optional server-side Logo.dev key. Only required if
+  backend logo proxying or metadata calls are added; frontend image embeds use
+  `NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY`.
 
 ### Frontend configs
 
@@ -54,6 +57,8 @@ files and the permanent Vercel environment variables that env-manager syncs:
 - `GOOGLE_CLIENT_SECRET` — to be removed once Phase 3 cleanup lands.
 - `NEXT_PUBLIC_APP_URL`
 - `NEXT_PUBLIC_BACKEND_URL`
+- `NEXT_PUBLIC_LOGO_DEV_PUBLISHABLE_KEY` — publishable Logo.dev token for
+  rendering company brand logos by domain.
 - `NEXT_PUBLIC_POSTHOG_HOST`
 - `NEXT_PUBLIC_POSTHOG_KEY`
 - `NEXT_PUBLIC_SENTRY_DSN`
@@ -136,3 +141,10 @@ make doppler-sync DOPPLER_ENV=prd
 
 `make doppler-setup DOPPLER_ENV=<env>` scopes the Doppler CLI to the matching
 service configs for `backend/`, `apps/frontend/`, and `apps/env-manager/`.
+
+Logo.dev keys can be stored without exposing values in shell history:
+
+```bash
+scripts/setup-logo-dev-doppler-secrets.sh dev
+make doppler-sync DOPPLER_ENV=dev
+```

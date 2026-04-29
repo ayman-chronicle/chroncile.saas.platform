@@ -6,8 +6,8 @@ import { Eyebrow } from "../primitives/eyebrow";
 import { FormField } from "../primitives/form-field";
 import { Input } from "../primitives/input";
 import { Textarea } from "../primitives/textarea";
-import { SourceGlyph } from "../icons/source-glyph";
 import { ArrowLeftIcon, ArrowRightIcon, SparkIcon } from "../icons/glyphs";
+import { CompanyLogo } from "../icons";
 import {
   AuthDisplay,
   AuthLede,
@@ -212,11 +212,12 @@ export function StepDescribe({
                       className="cg-slide-in inline-flex items-center gap-[6px] font-sans text-[12.5px] text-ink-hi"
                       style={{ animationDelay: `${i * 50}ms` }}
                     >
-                      <span style={{ color: s.color }}>
-                        <SourceGlyph
-                          id={s.glyph}
-                          color="currentColor"
+                      <span>
+                        <CompanyLogo
+                          name={s.name}
                           size={14}
+                          rounded
+                          fallbackColor={s.color}
                         />
                       </span>
                       {s.name}

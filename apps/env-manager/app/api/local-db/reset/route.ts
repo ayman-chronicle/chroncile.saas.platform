@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resetPostgres, runMigrations, restartBackend } from "@/lib/local-db";
+import { resetPostgres, runMigrations, restartBackend } from "@/backend/local-dev";
 
 export async function POST(request: Request) {
   try {

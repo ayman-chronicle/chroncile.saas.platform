@@ -222,3 +222,55 @@ export const CopyIcon = ({ size = 16, className, ...rest }: IconProps) => (
     />
   </svg>
 );
+
+/* ── Env manager navigation glyphs ─────────────────────────── */
+
+const envNavStroke = {
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+export const EnvCubeIcon = ({ size = 14, className, ...rest }: IconProps) => (
+  <svg viewBox="0 0 14 14" {...baseProps(size, className, rest)}>
+    <path d="M7 1 1.5 4v6L7 13l5.5-3V4z" {...envNavStroke} />
+    <path d="M1.5 4 7 7l5.5-3M7 7v6" {...envNavStroke} />
+  </svg>
+);
+
+export const EnvPlusIcon = ({ size = 14, className, ...rest }: IconProps) => (
+  <svg viewBox="0 0 14 14" {...baseProps(size, className, rest)}>
+    <path d="M7 2v10M2 7h10" {...envNavStroke} />
+  </svg>
+);
+
+export const EnvDatabaseIcon = ({
+  size = 14,
+  className,
+  ...rest
+}: IconProps) => (
+  <svg viewBox="0 0 14 14" {...baseProps(size, className, rest)}>
+    <ellipse cx="7" cy="3" rx="5" ry="1.6" {...envNavStroke} />
+    <path
+      d="M2 3v8c0 .9 2.2 1.6 5 1.6s5-.7 5-1.6V3M2 7c0 .9 2.2 1.6 5 1.6s5-.7 5-1.6"
+      {...envNavStroke}
+    />
+  </svg>
+);
+
+export const EnvUsersIcon = ({ size = 14, className, ...rest }: IconProps) => (
+  <svg viewBox="0 0 14 14" {...baseProps(size, className, rest)}>
+    <circle cx="5" cy="4.5" r="2" {...envNavStroke} />
+    <path d="M1.5 12c0-2 1.5-3 3.5-3s3.5 1 3.5 3" {...envNavStroke} />
+    <circle cx="10.5" cy="5" r="1.6" {...envNavStroke} />
+    <path d="M9 12c0-1.6 1.2-2.5 2.5-2.5" {...envNavStroke} />
+  </svg>
+);
+
+export const EnvMailIcon = ({ size = 14, className, ...rest }: IconProps) => (
+  <svg viewBox="0 0 14 14" {...baseProps(size, className, rest)}>
+    <rect x="1.5" y="3" width="11" height="8" rx="1" {...envNavStroke} />
+    <path d="M2 4l5 4 5-4" {...envNavStroke} />
+  </svg>
+);

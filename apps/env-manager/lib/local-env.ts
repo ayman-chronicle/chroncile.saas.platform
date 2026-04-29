@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/data";
 
 const LOCAL_ENV_NAME = "local";
 const BACKEND_URL = process.env.LOCAL_BACKEND_URL ?? "http://localhost:8080";

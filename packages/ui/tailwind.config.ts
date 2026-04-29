@@ -31,6 +31,39 @@ const preset: Config = {
   theme: {
     extend: {
       colors: {
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        card: {
+          DEFAULT: "var(--card)",
+          foreground: "var(--card-foreground)",
+        },
+        popover: {
+          DEFAULT: "var(--popover)",
+          foreground: "var(--popover-foreground)",
+        },
+        primary: {
+          DEFAULT: "var(--primary)",
+          foreground: "var(--primary-foreground)",
+        },
+        secondary: {
+          DEFAULT: "var(--secondary)",
+          foreground: "var(--secondary-foreground)",
+        },
+        muted: {
+          DEFAULT: "var(--muted)",
+          foreground: "var(--muted-foreground)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          foreground: "var(--accent-foreground)",
+        },
+        destructive: {
+          DEFAULT: "var(--destructive)",
+          foreground: "var(--destructive-foreground)",
+        },
+        border: "var(--border)",
+        input: "var(--input)",
+        ring: "var(--ring)",
         void: "var(--c-void)",
         black: "var(--c-black)",
         page: "var(--c-page)",
@@ -136,8 +169,6 @@ const preset: Config = {
         caution: "var(--c-event-amber)",
         nominal: "var(--c-event-green)",
         data: "var(--c-event-teal)",
-        primary: "var(--c-ink-hi)",
-        secondary: "var(--c-ink-lo)",
         tertiary: "var(--c-ink-dim)",
         disabled: "var(--c-ink-faint)",
         elevated: "var(--c-surface-02)",
@@ -204,6 +235,7 @@ const preset: Config = {
 
       borderRadius: {
         none: "0",
+        DEFAULT: "var(--radius)",
         xs: "var(--r-xs)",
         sm: "var(--r-sm)",
         md: "var(--r-md)",

@@ -2,8 +2,7 @@
 
 /*
  * Drawer — a Modal that slides in from one edge of the viewport.
- * Behaviourally identical to `Modal` (RAC-backed focus trap, portal,
- * scroll lock, ESC + outside-click dismiss); only the geometry changes.
+ * Behaviourally identical to `Modal`; only the geometry changes.
  *
  * Use for side-panel editors, filter sheets, and detail drawers where
  * the underlying page context matters. For centered confirmation
@@ -11,94 +10,23 @@
  */
 
 import * as React from "react";
-import {
-  Modal as RACModal,
-  ModalOverlay as RACModalOverlay,
-  Dialog as RACDialog,
-  Heading as RACHeading,
-} from "react-aria-components";
+import { Dialog as DialogPrimitive } from "radix-ui";
 
-import { tv, type VariantProps } from "../utils/tv";
-import { composeTwRenderProps } from "../utils/compose";
+import type { VariantProps } from "class-variance-authority";
+import { cn } from "../utils/cn";
 import { useResolvedChromeDensity } from "../theme/chrome-style-context";
+import {
+  drawerActionsVariants,
+  drawerBodyVariants,
+  drawerCloseVariants,
+  drawerDialogVariants,
+  drawerHeaderVariants,
+  drawerOverlayVariants,
+  drawerTitleVariants,
+  drawerVariants,
+} from "./shadcn";
 
-const drawerStyles = tv({
-  slots: {
-    overlay:
-      "fixed inset-0 z-50 flex bg-black/60 " +
-      "data-[entering=true]:animate-in data-[entering=true]:fade-in " +
-      "data-[exiting=true]:animate-out data-[exiting=true]:fade-out",
-    drawer:
-      "relative flex flex-col bg-surface-01 shadow-panel outline-none h-full",
-    dialog: "flex h-full flex-col outline-none",
-    header: "flex items-center justify-between border-b border-hairline bg-surface-02",
-    title: "text-ink-hi",
-    close:
-      "inline-flex items-center justify-center text-ink-dim transition-colors duration-fast ease-out " +
-      "data-[hovered=true]:bg-surface-03 data-[hovered=true]:text-ink-hi",
-    body: "flex-1 overflow-auto text-ink-lo",
-    actions: "flex items-center justify-end border-t border-hairline bg-surface-02",
-  },
-  variants: {
-    density: {
-      brand: {
-        drawer: "border-hairline-strong",
-        header: "px-s-5 py-s-3",
-        title: "font-display text-title-sm tracking-tight",
-        close: "h-8 w-8 rounded-sm",
-        body: "px-s-5 py-s-4 text-body-sm",
-        actions: "gap-s-3 px-s-5 py-s-3",
-      },
-      compact: {
-        drawer: "border-l-border",
-        header: "px-[14px] py-[10px]",
-        title: "font-sans text-[14px] font-medium tracking-normal",
-        close: "h-7 w-7 rounded-l",
-        body: "px-[14px] py-[14px] font-sans text-[13px] leading-snug",
-        actions: "gap-[8px] px-[14px] py-[10px]",
-      },
-    },
-    placement: {
-      right: {
-        overlay: "justify-end",
-        drawer:
-          "w-full max-w-[520px] border-l " +
-          "data-[entering=true]:animate-in data-[entering=true]:slide-in-from-right " +
-          "data-[exiting=true]:animate-out data-[exiting=true]:slide-out-to-right",
-      },
-      left: {
-        overlay: "justify-start",
-        drawer:
-          "w-full max-w-[520px] border-r " +
-          "data-[entering=true]:animate-in data-[entering=true]:slide-in-from-left " +
-          "data-[exiting=true]:animate-out data-[exiting=true]:slide-out-to-left",
-      },
-      bottom: {
-        overlay: "items-end",
-        drawer:
-          "w-full max-h-[80vh] border-t " +
-          "data-[entering=true]:animate-in data-[entering=true]:slide-in-from-bottom " +
-          "data-[exiting=true]:animate-out data-[exiting=true]:slide-out-to-bottom",
-      },
-      top: {
-        overlay: "items-start",
-        drawer:
-          "w-full max-h-[80vh] border-b " +
-          "data-[entering=true]:animate-in data-[entering=true]:slide-in-from-top " +
-          "data-[exiting=true]:animate-out data-[exiting=true]:slide-out-to-top",
-      },
-    },
-    size: {
-      sm: { drawer: "" },
-      md: { drawer: "" },
-      lg: { drawer: "max-w-[720px]" },
-      xl: { drawer: "max-w-[960px]" },
-    },
-  },
-  defaultVariants: { density: "brand", placement: "right", size: "md" },
-});
-
-type DrawerVariantProps = VariantProps<typeof drawerStyles>;
+type DrawerVariantProps = VariantProps<typeof drawerVariants>;
 
 export interface DrawerProps extends DrawerVariantProps {
   isOpen: boolean;
@@ -137,38 +65,54 @@ export function Drawer({
   classNames,
 }: DrawerProps) {
   const density = useResolvedChromeDensity(densityProp);
-  const slots = drawerStyles({ density, placement, size });
 
   return (
-    <RACModalOverlay
-      isOpen={isOpen}
+    <DialogPrimitive.Root
+      open={isOpen}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-      isDismissable={isDismissable}
-      className={composeTwRenderProps(classNames?.overlay, slots.overlay())}
     >
-      <RACModal
-        className={composeTwRenderProps(
-          className ?? classNames?.drawer,
-          slots.drawer()
-        )}
-      >
-        <RACDialog className={slots.dialog({ className: classNames?.dialog })}>
-          {({ close }) => (
-            <>
-              <div className={slots.header({ className: classNames?.header })}>
-                <RACHeading
-                  slot="title"
-                  className={slots.title({ className: classNames?.title })}
-                >
-                  {title}
-                </RACHeading>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className={cn(drawerOverlayVariants({ placement }), classNames?.overlay)}
+        />
+        <DialogPrimitive.Content
+          onPointerDownOutside={(event) => {
+            if (!isDismissable) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (!isDismissable) event.preventDefault();
+          }}
+          className={cn(
+            drawerVariants({ density, placement, size }),
+            classNames?.drawer,
+            className
+          )}
+        >
+          <div className={drawerDialogVariants({ className: classNames?.dialog })}>
+            <div
+              className={drawerHeaderVariants({
+                density,
+                className: classNames?.header,
+              })}
+            >
+              <DialogPrimitive.Title
+                className={drawerTitleVariants({
+                  density,
+                  className: classNames?.title,
+                })}
+              >
+                {title}
+              </DialogPrimitive.Title>
+              <DialogPrimitive.Close asChild>
                 <button
                   type="button"
-                  onClick={close}
                   aria-label="Close drawer"
-                  className={slots.close({ className: classNames?.close })}
+                  className={drawerCloseVariants({
+                    density,
+                    className: classNames?.close,
+                  })}
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
                     <path
@@ -179,23 +123,31 @@ export function Drawer({
                     />
                   </svg>
                 </button>
-              </div>
+              </DialogPrimitive.Close>
+            </div>
 
-              <div className={slots.body({ className: classNames?.body })}>
-                {children}
-              </div>
+            <div
+              className={drawerBodyVariants({
+                density,
+                className: classNames?.body,
+              })}
+            >
+              {children}
+            </div>
 
-              {actions ? (
-                <div
-                  className={slots.actions({ className: classNames?.actions })}
-                >
-                  {actions}
-                </div>
-              ) : null}
-            </>
-          )}
-        </RACDialog>
-      </RACModal>
-    </RACModalOverlay>
+            {actions ? (
+              <div
+                className={drawerActionsVariants({
+                  density,
+                  className: classNames?.actions,
+                })}
+              >
+                {actions}
+              </div>
+            ) : null}
+          </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBackendLogs } from "@/lib/local-db";
+import { getBackendLogs } from "@/backend/local-dev";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

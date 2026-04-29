@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runMigrations } from "@/lib/local-db";
+import { runMigrations } from "@/backend/local-dev";
 
 export async function POST(request: Request) {
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
-import { backendFetch } from "@/server/integrations/backend-client";
+import { prisma } from "@/backend/data/db";
+import { backendFetch } from "@/backend/integrations/backend-client";
 
 export async function GET(
   _req: Request,

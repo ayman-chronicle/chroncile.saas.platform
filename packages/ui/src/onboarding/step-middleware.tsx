@@ -53,7 +53,7 @@ def handle(event):
     ctx = client.context(event)  # recent orders, tickets, etc
     reply = your_agent.run(event, ctx)
     client.emit("support.reply", reply)`,
-  node: `import { Chronicle } from "@chronicle/sdk";
+  node: `import { Chronicle } from "@chroniclelabs/sdk";
 
 const chronicle = new Chronicle({ apiKey: "chr_•••" });
 

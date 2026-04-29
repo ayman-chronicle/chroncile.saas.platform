@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { startPostgres } from "@/lib/local-db";
+import { startPostgres } from "@/backend/local-dev";
 
 export async function POST() {
   try {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/server/data/db";
-import { backendFetch } from "@/server/integrations/backend-client";
-import { sendOrgInviteEmail } from "@/server/integrations/email";
+import { prisma } from "@/backend/data/db";
+import { backendFetch } from "@/backend/integrations/backend-client";
+import { sendOrgInviteEmail } from "@/backend/integrations/email";
 
 export async function POST(
   req: Request,
