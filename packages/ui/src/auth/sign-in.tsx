@@ -54,8 +54,10 @@ export interface SignInProps {
   /** SSO provider click. The parent kicks off the OAuth redirect.
    *  `"saml"` is the dedicated SAML/SSO button that appears on D.2. */
   onSSO?: (provider: "google" | "github" | "passkey" | "saml") => void;
-  /** Top-level error banner (e.g. "credentials didn't match"). */
-  error?: string | null;
+  /** Top-level error banner (e.g. "credentials didn't match"). Accepts a
+   *  string or a JSX node — pass JSX when you need inline links / buttons
+   *  inside the alert (e.g. "click here" to set a password). */
+  error?: React.ReactNode | null;
   /** Disable + spinner for the primary CTA. */
   isSubmitting?: boolean;
   /** When loading, which SSO provider is the source — drives its spinner. */

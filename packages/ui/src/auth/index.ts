@@ -41,6 +41,9 @@ export type { SignUpSuccessProps } from "./sign-up-success";
 export { ForgotPassword } from "./forgot-password";
 export type { ForgotPasswordProps } from "./forgot-password";
 
+export { ResetPassword } from "./reset-password";
+export type { ResetPasswordProps, ResetPasswordValue } from "./reset-password";
+
 export { AuthSuccess } from "./auth-success";
 export type { AuthSuccessProps } from "./auth-success";
 

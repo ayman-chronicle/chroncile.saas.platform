@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthShell, SignIn, type SignInValue } from "ui/auth";
 
@@ -62,13 +62,90 @@ function humanizeError(code: string | undefined): string {
   return map[code] ?? code.replaceAll("_", " ");
 }
 
+const PROVIDER_LABEL: Record<string, string> = {
+  GoogleOAuth: "Google",
+  GitHubOAuth: "GitHub",
+  AppleOAuth: "Apple",
+  MicrosoftOAuth: "Microsoft",
+};
+
+function providerLabel(provider: string): string {
+  return PROVIDER_LABEL[provider] ?? provider;
+}
+
+interface IdentifyResponse {
+  exists: boolean;
+  providers: string[];
+  hasPassword: boolean;
+}
+
+const EMPTY_IDENTIFY: IdentifyResponse = {
+  exists: false,
+  providers: [],
+  hasPassword: false,
+};
+
+async function identifyAccount(email: string): Promise<IdentifyResponse> {
+  try {
+    const response = await fetch("/api/auth/identify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = (await response.json().catch(() => null)) as IdentifyResponse | null;
+    return data ?? EMPTY_IDENTIFY;
+  } catch {
+    return EMPTY_IDENTIFY;
+  }
+}
+
+function explainAuthFailure(
+  providers: string[],
+  hasPassword: boolean,
+  onSetPassword: () => void,
+): ReactNode | null {
+  if (providers.length === 0 && !hasPassword) {
+    return null;
+  }
+  const labels = providers.map(providerLabel);
+  const providersText =
+    labels.length === 0
+      ? null
+      : labels.length === 1
+        ? labels[0]
+        : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+
+  if (hasPassword) {
+    return providersText ? (
+      <>Email or password is incorrect. You can also sign in with {providersText}.</>
+    ) : (
+      <>Email or password is incorrect.</>
+    );
+  }
+
+  return (
+    <>
+      This account is registered with {providersText}. Continue with{" "}
+      {labels.length === 1 ? labels[0] : "one of those"}, or{" "}
+      <button
+        type="button"
+        onClick={onSetPassword}
+        className="font-medium underline underline-offset-2 hover:text-ink-hi transition-colors"
+      >
+        click here
+      </button>{" "}
+      to set a password.
+    </>
+  );
+}
+
 function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") ?? "/dashboard";
   const queryError = searchParams.get("error");
 
-  const [error, setError] = useState<string | null>(
+  const [error, setError] = useState<ReactNode | null>(
     queryError ? humanizeError(queryError) : null,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,6 +203,22 @@ function LoginPageInner() {
       }
 
       const code = (data as LoginErrorResponse | null)?.error;
+
+      if (code === "invalid_credentials" && value.email) {
+        const identify = await identifyAccount(value.email);
+        if (identify.exists) {
+          const message = explainAuthFailure(
+            identify.providers,
+            identify.hasPassword,
+            () => router.push("/forgot-password"),
+          );
+          if (message) {
+            setError(message);
+            return;
+          }
+        }
+      }
+
       setError(humanizeError(code));
     } catch (err) {
       setError(
