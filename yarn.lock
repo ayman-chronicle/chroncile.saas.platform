@@ -14338,6 +14338,7 @@ __metadata:
     tailwind-variants: "npm:^3.2.2"
     tailwindcss: "npm:^3.4.0"
     tailwindcss-animate: "npm:^1.0.7"
+    tsx: "npm:^4.21.0"
     typescript: "npm:^5.8.0"
     vaul: "npm:^1.1.2"
     vite: "npm:^5.4.0"

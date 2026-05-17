@@ -1,0 +1,29 @@
+[package]
+name = "chronicle_world_compiler"
+description = "Control-plane compiler for Chronicle world bundles."
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+chronicle_domain = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+flate2 = "1"
+p256 = { version = "0.13", features = ["ecdsa", "pem", "pkcs8"] }
+rcgen = { version = "0.13", features = ["pem"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+tar = "0.4"
+url = "2"
+
+[dev-dependencies]
+chronicle_world_runtime = { workspace = true }
+tempfile = "3"

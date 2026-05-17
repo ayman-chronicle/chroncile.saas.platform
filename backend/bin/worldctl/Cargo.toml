@@ -1,0 +1,20 @@
+[package]
+name = "worldctl"
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "worldctl"
+path = "src/main.rs"
+
+[dependencies]
+chronicle_world_runtime = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

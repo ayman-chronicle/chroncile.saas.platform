@@ -1,0 +1,24 @@
+[package]
+name = "worldd"
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "worldd"
+path = "src/main.rs"
+
+[dependencies]
+chronicle_world_runtime = { workspace = true }
+anyhow = { workspace = true }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

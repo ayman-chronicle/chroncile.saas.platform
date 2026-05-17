@@ -28,7 +28,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o storybook-static",
     "bones:build": "boneyard-js build http://localhost:6006 --out src/bones",
-    "bones:watch": "boneyard-js build http://localhost:6006 --watch --out src/bones"
+    "bones:watch": "boneyard-js build http://localhost:6006 --watch --out src/bones",
+    "invoice:pdf": "tsx scripts/render-invoice-pdf.mts"
   },
   "peerDependencies": {
     "react": ">=19.0.0",
@@ -53,6 +54,7 @@
     "storybook": "^8.6.0",
     "tailwindcss": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.0",
     "vite": "^5.4.0"
   },
