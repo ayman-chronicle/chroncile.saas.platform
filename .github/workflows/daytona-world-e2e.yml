@@ -1,0 +1,88 @@
+name: Daytona World E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, staging, develop]
+    paths:
+      - ".github/workflows/daytona-world-e2e.yml"
+      - "backend/**"
+  pull_request:
+    branches: [main, staging, develop]
+    paths:
+      - ".github/workflows/daytona-world-e2e.yml"
+      - "backend/**"
+
+env:
+  CARGO_TERM_COLOR: always
+  CHRONICLE_DAYTONA_E2E_ARTIFACT_DIR: ${{ github.workspace }}/backend/target/daytona-e2e-artifacts
+  CHRONICLE_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/backend/target/daytona-cli-smoke-artifacts
+  CHRONICLE_SANDBOX_RUNTIME_TAG: e2e-${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  daytona-world-e2e:
+    name: Daytona Replay/Escape Matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DAYTONA_API_KEY: ${{ secrets.DAYTONA_API_KEY }}
+      DAYTONA_ORGANIZATION_ID: ${{ secrets.DAYTONA_ORGANIZATION_ID }}
+      DAYTONA_API_URL: ${{ vars.DAYTONA_API_URL }}
+    steps:
+      - name: Check Daytona credentials
+        id: daytona
+        run: |
+          if [[ -z "${DAYTONA_API_KEY:-}" ]]; then
+            echo "::notice::Skipping Daytona World E2E because DAYTONA_API_KEY is not configured."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.daytona.outputs.enabled == 'true'
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.daytona.outputs.enabled == 'true'
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.daytona.outputs.enabled == 'true'
+        with:
+          workspaces: backend
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.daytona.outputs.enabled == 'true'
+
+      - name: Run Daytona replay/escape matrix
+        if: steps.daytona.outputs.enabled == 'true'
+        run: backend/scripts/daytona_world_e2e.sh --publish-runtime --tag "$CHRONICLE_SANDBOX_RUNTIME_TAG"
+
+      - name: Reuse Daytona runtime for CLI smoke
+        if: steps.daytona.outputs.enabled == 'true'
+        run: |
+          set -a
+          source "$CHRONICLE_DAYTONA_E2E_ARTIFACT_DIR/runtime.env"
+          set +a
+          if [[ -n "${CHRONICLE_DAYTONA_RUNTIME_IMAGE:-}" ]]; then
+            echo "CHRONICLE_DAYTONA_RUNTIME_IMAGE=$CHRONICLE_DAYTONA_RUNTIME_IMAGE" >> "$GITHUB_ENV"
+            echo "CHRONICLE_WORLD_RUNTIME_IMAGE=$CHRONICLE_DAYTONA_RUNTIME_IMAGE" >> "$GITHUB_ENV"
+          fi
+          if [[ -n "${CHRONICLE_DAYTONA_RUNTIME_SNAPSHOT:-}" ]]; then
+            echo "CHRONICLE_DAYTONA_RUNTIME_SNAPSHOT=$CHRONICLE_DAYTONA_RUNTIME_SNAPSHOT" >> "$GITHUB_ENV"
+            echo "CHRONICLE_WORLD_RUNTIME_SNAPSHOT=$CHRONICLE_DAYTONA_RUNTIME_SNAPSHOT" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run Daytona CLI product-path smoke
+        if: steps.daytona.outputs.enabled == 'true'
+        run: backend/scripts/smoke_world_http_replay_cli.sh --driver daytona
+
+      - name: Upload Daytona E2E artifacts
+        if: always() && steps.daytona.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: daytona-world-e2e-artifacts
+          path: |
+            ${{ env.CHRONICLE_DAYTONA_E2E_ARTIFACT_DIR }}
+            ${{ env.CHRONICLE_SMOKE_ARTIFACT_DIR }}
+          if-no-files-found: warn
+          retention-days: 14

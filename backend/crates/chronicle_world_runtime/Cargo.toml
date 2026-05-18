@@ -1,0 +1,19 @@
+[package]
+name = "chronicle_world_runtime"
+description = "In-sandbox world runtime support for worldctl and worldd."
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

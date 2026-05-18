@@ -1,0 +1,43 @@
+# Chronicle world environment.
+#
+# Publish with:
+#   chronicle environments publish environment.toml
+
+slug = "daytona-dev"
+label = "Daytona (dev)"
+description = "Local development world simulator environment"
+version = "v1"
+status = "published"
+
+[spec.interception]
+regularProxyPort = 8888
+transparentProxyPort = 8889
+installCa = true
+
+# [[spec.services]]
+# name = "billing"
+# authorities = ["api.stripe.com"]
+# openapiUri = "./openapi/stripe.yaml"
+
+# [[spec.datastores]]
+# name = "appdb"
+# kind = "postgres"
+# seedUri = "./seeds/appdb.dump.zst"
+# schemaFingerprint = { tables = ["public.users"] }
+# stateDiffSpec = { initialStateUri = "./snapshots/appdb.initial.json", expectedFinalStateUri = "./snapshots/appdb.expected.json", logicalViews = [] }
+#
+# Snapshot fixture shape:
+# {
+#   "name": "appdb",
+#   "tables": [
+#     { "schema": "public", "name": "users", "rows": [{ "id": 1, "email": "user@example.com" }] }
+#   ]
+# }
+#
+# Or provide a ready-made expected delta:
+# stateDiffSpec = { expectedDeltaUri = "./grading/appdb.expected_delta.json" }
+
+# [[spec.mcp]]
+# name = "stripe"
+# transport = "streamable_http"
+# url = "https://mcp.stripe.example"

@@ -13,10 +13,13 @@
  * and step-environment dataset hints stay coherent.
  */
 
+"use client";
+
 import * as React from "react";
-import { Check, Database } from "lucide-react";
+import { Check, Database, Search } from "lucide-react";
 
 import { cx } from "../../utils/cx";
+import { Button } from "../../primitives/button";
 import { Eyebrow } from "../../primitives/eyebrow";
 import { Mono } from "../../typography/mono";
 import { BACKTEST_DATASETS } from "../data";
@@ -43,6 +46,7 @@ interface PickerRow {
   cases: number;
   source: string;
   updated: string;
+  purpose?: string;
 }
 
 export function SavedDatasetPicker({
@@ -51,6 +55,8 @@ export function SavedDatasetPicker({
   availableDatasets,
   className,
 }: SavedDatasetPickerProps) {
+  const [query, setQuery] = React.useState("");
+
   const rows = React.useMemo<readonly PickerRow[]>(() => {
     if (availableDatasets && availableDatasets.length > 0) {
       return availableDatasets.map(datasetToRow);
@@ -64,7 +70,19 @@ export function SavedDatasetPicker({
     }));
   }, [availableDatasets]);
 
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (row) =>
+        row.label.toLowerCase().includes(q) ||
+        row.source.toLowerCase().includes(q) ||
+        row.purpose?.toLowerCase().includes(q),
+    );
+  }, [query, rows]);
+
   const activeId = recipe.data.dataset ?? null;
+  const selected = rows.find((row) => row.id === activeId) ?? null;
 
   const pick = React.useCallback(
     (row: PickerRow) => {
@@ -104,20 +122,26 @@ export function SavedDatasetPicker({
   }
 
   return (
-    <div
-      className={cx(
-        "flex flex-col rounded-[2px] border border-l-border-faint bg-l-surface",
-        className,
-      )}
-    >
-      <div className="flex items-center justify-between border-b border-l-border-faint px-3 py-1.5">
-        <Eyebrow className="text-l-ink-dim">YOUR SAVED DATASETS</Eyebrow>
+    <div className={cx("flex flex-col gap-2", className)}>
+      <div className="flex items-center gap-2 rounded-[2px] border border-l-border-faint bg-l-wash-1 px-2 py-1.5">
+        <Search className="size-3.5 text-l-ink-dim" strokeWidth={1.6} />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="search datasets…"
+          className="min-w-0 flex-1 bg-transparent font-sans text-[12.5px] text-l-ink-hi outline-none placeholder:text-l-ink-dim"
+        />
         <Mono size="sm" tone="dim">
-          {rows.length} available
+          {filtered.length} of {rows.length}
         </Mono>
       </div>
-      <ul className="flex flex-col">
-        {rows.map((row, idx) => (
+
+      <ul className="flex flex-col rounded-[2px] border border-l-border-faint bg-l-surface">
+        <li className="flex items-center justify-between border-b border-l-border-faint px-3 py-1.5">
+          <Eyebrow className="text-l-ink-dim">YOUR SAVED DATASETS</Eyebrow>
+        </li>
+        {filtered.map((row, idx) => (
           <li
             key={row.id}
             className={cx(idx > 0 && "border-t border-l-border-faint")}
@@ -129,7 +153,44 @@ export function SavedDatasetPicker({
             />
           </li>
         ))}
+        {filtered.length === 0 ? (
+          <li className="px-3 py-6 text-center">
+            <Mono size="sm" tone="dim">
+              no datasets match · try clearing search
+            </Mono>
+          </li>
+        ) : null}
       </ul>
+
+      {selected ? (
+        <div className="flex items-center justify-between gap-3 rounded-[2px] border border-l-border-faint bg-l-wash-1 px-3 py-2">
+          <div className="flex flex-col gap-0.5">
+            <Eyebrow className="text-ember">SELECTED</Eyebrow>
+            <span className="font-sans text-[13px] text-l-ink-hi">
+              {selected.label}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              onChange({
+                data: {
+                  ...recipe.data,
+                  kind: "composed",
+                  dataset: undefined,
+                  datasetLabel: undefined,
+                  sources: [],
+                  scenarios: [],
+                  savedAs: null,
+                },
+              })
+            }
+          >
+            Clear
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -167,18 +228,33 @@ function DatasetRow({
           <span className="truncate font-sans text-[13px] text-l-ink-hi">
             {row.label}
           </span>
-          <Mono
-            size="sm"
-            tone="dim"
-            className="shrink-0 tabular-nums"
-          >
-            · {row.cases.toLocaleString()} cases
-          </Mono>
+          {row.purpose ? (
+            <Mono
+              size="sm"
+              tone="dim"
+              className="shrink-0 uppercase tracking-tactical"
+            >
+              · {row.purpose}
+            </Mono>
+          ) : (
+            <Mono
+              size="sm"
+              tone="dim"
+              className="shrink-0 tabular-nums"
+            >
+              · {row.cases.toLocaleString()} cases
+            </Mono>
+          )}
         </div>
         <Mono size="sm" tone="dim" className="truncate">
           {row.source} · updated {row.updated}
         </Mono>
       </div>
+      {row.purpose ? (
+        <Mono size="sm" tone="lo" className="tabular-nums">
+          {row.cases.toLocaleString()} cases
+        </Mono>
+      ) : null}
       {active ? (
         <Check className="size-3.5 shrink-0 text-ember" strokeWidth={1.8} />
       ) : null}
@@ -219,5 +295,6 @@ function datasetToRow(dataset: Dataset): PickerRow {
     cases: dataset.traceCount,
     source: `${purposeLabel}${ownerLabel}`,
     updated: relativeFromIso(dataset.updatedAt),
+    purpose: dataset.purpose,
   };
 }
